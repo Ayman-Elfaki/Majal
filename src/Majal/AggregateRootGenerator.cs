@@ -159,7 +159,7 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
     /// </summary>
     private static void AppendClassDeclaration(StringBuilder sb, string typeName)
     {
-        List<string> interfaces = ["IAggregateRoot"];
+        List<string> interfaces = ["global::Majal.IAggregateRoot"];
         sb.AppendLine($"public partial class {typeName} : {string.Join(", ", interfaces)}");
     }
 
@@ -179,9 +179,9 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
     private static void AppendAggregateProperties(StringBuilder sb)
     {
         sb.AppendLine();
-        sb.AppendLine("    private readonly List<IEvent> _events = [];");
+        sb.AppendLine("    private readonly global::System.Collections.Generic.List<global::Majal.IDomainEvent> _events = [];");
         sb.AppendLine("    /// <inheritdoc />");
-        sb.AppendLine("    public IEnumerable<IEvent> Events => _events;");
+        sb.AppendLine("    public global::System.Collections.Generic.IEnumerable<global::Majal.IDomainEvent> Events => _events;");
         sb.AppendLine();
     }
 
@@ -201,7 +201,7 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
     {
         sb.AppendLine();
         sb.AppendLine("    /// <inheritdoc />");
-        sb.AppendLine("    public void Publish(IEvent @event)");
+        sb.AppendLine("    public void Publish(global::Majal.IDomainEvent @event)");
         sb.AppendLine("    {");
         sb.AppendLine("        _events.Add(@event);");
         sb.AppendLine("    }");
@@ -228,9 +228,6 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
     {
         // lang=c#
         return """
-                using System;
-                using System.Collections.Generic;
-
                 namespace Majal
                 {
                     /// <summary>
@@ -241,7 +238,7 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
                         ///<summary>
                         /// Gets the list of events associated with the aggregate root.
                         ///</summary>
-                        IEnumerable<IEvent> Events { get; }
+                        global::System.Collections.Generic.IEnumerable<IDomainEvent> Events { get; }
                         
                         ///<summary>
                         /// Publishes a domain event by adding it to the Events collection. 
@@ -249,7 +246,7 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
                         /// The published events can then be processed by event handlers or dispatched to other parts of the
                         /// system for further handling, such as updating read models, triggering side effects, or integrating with external systems.
                         ///</summary>
-                        void Publish(IEvent @event);
+                        void Publish(IDomainEvent @event);
 
                         ///<summary>
                         /// Clears all domain events from the Events collection.
@@ -276,7 +273,9 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
                     /// <summary>
                     /// Marker interface for domain events.
                     /// </summary>
-                    public interface IEvent { }
+                    public interface IDomainEvent 
+                    { 
+                    }
                     
                 }
 
@@ -290,20 +289,16 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
     {
         // lang=c#
         return """
-
-               using System;
-
                namespace Majal
                {
-
-                   /// <summary>
-                   /// Apply to a class to indicate it is a DDD aggregate root type.
-                   /// The generator will create a partial class with domain-event helpers.
-                   /// </summary>
-                   [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-                   public sealed class AggregateRootAttribute : Attribute
-                   {
-                   }
+                    /// <summary>
+                    /// Apply to a class to indicate it is a DDD aggregate root type.
+                    /// The generator will create a partial class with domain-event helpers.
+                    /// </summary>
+                    [global::System.AttributeUsage(global::System.AttributeTargets.Class | global::System.AttributeTargets.Struct, Inherited = false, AllowMultiple = false)]
+                    public sealed class AggregateRootAttribute : global::System.Attribute
+                    {
+                    }
                }
 
                """;

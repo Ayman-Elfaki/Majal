@@ -32,10 +32,10 @@ public class AggregateGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class AggregateEntity : IAggregateRoot", generated);
-        Assert.Contains("private readonly List<IEvent> _events = [];", generated);
-        Assert.Contains("public IEnumerable<IEvent> Events => _events;", generated);
-        Assert.Contains("public void Publish(IEvent @event)", generated);
+        Assert.Contains("public partial class AggregateEntity : global::Majal.IAggregateRoot", generated);
+        Assert.Contains("private readonly global::System.Collections.Generic.List<global::Majal.IDomainEvent> _events = [];", generated);
+        Assert.Contains("public global::System.Collections.Generic.IEnumerable<global::Majal.IDomainEvent> Events => _events;", generated);
+        Assert.Contains("public void Publish(global::Majal.IDomainEvent @event)", generated);
         Assert.Contains("public void Clear()", generated);
     }
 
