@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Majal.Sample/Majal.Sample.csproj" />
+    <Project Path="src/Majal/Majal.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Majal.Tests/Majal.Tests.csproj" />
+  </Folder>
+</Solution>
