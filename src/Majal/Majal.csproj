@@ -12,9 +12,13 @@
         <Version>1.0.0-alpha.1</Version>
         <Authors>Ayman Elfaki</Authors>
         <Description>Majal is a C# source generator library for domain modeling.</Description>
-        <PackageTags>Majal is a **C# source generator library** that helps you implement Domain-Driven Design (DDD) patterns with minimal boilerplate</PackageTags>
+        <PackageTags>Domain-Driven Design;DDD;Source Generator;AggregateRoot;Entity;ValueObject</PackageTags>
         <RepositoryUrl>https://github.com/Ayman-Elfaki/Majal</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/Ayman-Elfaki/Majal</PackageProjectUrl>
+        <Copyright>Copyright (c) Ayman Elfaki 2026</Copyright>
         <RootNamespace>Majal</RootNamespace>
+        <PackageReadmeFile>Readme.md</PackageReadmeFile>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
     </PropertyGroup>
 
     <ItemGroup>
@@ -23,6 +27,8 @@
     </ItemGroup>
 
     <ItemGroup>
+        <None Include="..\..\Readme.md" Pack="true" PackagePath="\"/>
+        <None Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
         <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true"
               PackagePath="analyzers/dotnet/cs" Visible="false"/>
     </ItemGroup>
