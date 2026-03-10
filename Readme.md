@@ -44,6 +44,42 @@ var employee = new Employee
 Console.WriteLine(employee.Id);
 Console.WriteLine(employee.Name);
 Console.WriteLine(employee.Details.Address);
+
+
+
+[Entity<int>]
+[AggregateRoot]
+public partial class Employee
+{
+    public required EmployeeName Name { get; init; }
+
+    public required EmployeeDetails Details { get; init; }
+}
+
+[ValueObject<string>]
+public partial class EmployeeName;
+
+[Entity<int>]
+public partial class EmployeeDetails
+{
+    public required EmployeeAddress Address { get; init; }
+}
+
+[ValueObject]
+public partial class EmployeeAddress
+{
+    public string City { get; set; }
+    public string Country { get; set; }
+    public string PostalCode { get; set; }
+
+    private partial IEnumerable<object?> GetEqualityComponents()
+    {
+        yield return City;
+        yield return Country;
+        yield return PostalCode;
+    }
+}
+
 ```
 
 The `Employee`, `EmployeeName`, `EmployeeDetails`, and `EmployeeAddress` types are defined in the **Majal.Sample** project and are automatically enriched by the generators.
