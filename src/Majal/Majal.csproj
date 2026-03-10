@@ -9,7 +9,7 @@
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
 
         <PackageId>Majal</PackageId>
-        <Version>1.0.0-alpha.2</Version>
+        <Version>1.0.0-alpha.3</Version>
         <Authors>Ayman Elfaki</Authors>
         <Description>Majal is a C# source generator library for domain modeling.</Description>
         <PackageTags>Domain-Driven Design;DDD;Source Generator;AggregateRoot;Entity;ValueObject</PackageTags>

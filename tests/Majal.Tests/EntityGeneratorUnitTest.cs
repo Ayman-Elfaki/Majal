@@ -31,7 +31,7 @@ public class EntityGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class BasicEntity : IEntity<int>", generated);
+        Assert.Contains("public partial class BasicEntity : global::Majal.IEntity<int>", generated);
         Assert.Contains("public int Id { get; init; }", generated);
     }
 
@@ -58,9 +58,9 @@ public class EntityGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class AuditableEntity : IEntity<int>, IAuditableEntity", generated);
-        Assert.Contains("public DateTime CreatedOn { get; init; }", generated);
-        Assert.Contains("public DateTime? UpdatedOn { get; set; }", generated);
+        Assert.Contains("public partial class AuditableEntity : global::Majal.IEntity<int>, global::Majal.IAuditableEntity", generated);
+        Assert.Contains("public global::System.DateTime CreatedOn { get; init; }", generated);
+        Assert.Contains("public global::System.DateTime? UpdatedOn { get; set; }", generated);
     }
 
     [Fact]
@@ -88,9 +88,9 @@ public class EntityGeneratorUnitTest
 
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class ArchivableEntity : IEntity<int>, IArchivableEntity", generated);
-        Assert.Contains("public bool IsArchived { get; set; }", generated);
-        Assert.Contains("public DateTime? ArchivedOn { get; set; }", generated);
+        Assert.Contains("public partial class ArchivableEntity : global::Majal.IEntity<int>, global::Majal.IArchivableEntity", generated);
+        Assert.Contains("public global::System.Boolean IsArchived { get; set; }", generated);
+        Assert.Contains("public global::System.DateTime? ArchivedOn { get; set; }", generated);
     }
 
     [Fact]
@@ -116,8 +116,8 @@ public class EntityGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class OrdinalEntity : IEntity<int>, IOrdinalEntity", generated);
-        Assert.Contains("public uint Ordinal { get; set; }", generated);
+        Assert.Contains("public partial class OrdinalEntity : global::Majal.IEntity<int>, global::Majal.IOrdinalEntity", generated);
+        Assert.Contains("public global::System.UInt32 Ordinal { get; set; }", generated);
     }
 
     [Fact]
@@ -144,13 +144,13 @@ public class EntityGeneratorUnitTest
 
         Assert.NotNull(generated);
         Assert.Contains(
-            "public partial class FullEntity : IEntity<int>, IArchivableEntity, IAuditableEntity, IOrdinalEntity",
+            "public partial class FullEntity : global::Majal.IEntity<int>, global::Majal.IArchivableEntity, global::Majal.IAuditableEntity, global::Majal.IOrdinalEntity",
             generated);
-        Assert.Contains("public DateTime CreatedOn { get; init; }", generated);
-        Assert.Contains("public DateTime? UpdatedOn { get; set; }", generated);
-        Assert.Contains("public bool IsArchived { get; set; }", generated);
-        Assert.Contains("public DateTime? ArchivedOn { get; set; }", generated);
-        Assert.Contains("public uint Ordinal { get; set; }", generated);
+        Assert.Contains("public global::System.DateTime CreatedOn { get; init; }", generated);
+        Assert.Contains("public global::System.DateTime? UpdatedOn { get; set; }", generated);
+        Assert.Contains("public global::System.Boolean IsArchived { get; set; }", generated);
+        Assert.Contains("public global::System.DateTime? ArchivedOn { get; set; }", generated);
+        Assert.Contains("public global::System.UInt32 Ordinal { get; set; }", generated);
     }
 
     [Fact]
@@ -176,7 +176,7 @@ public class EntityGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class StringIdEntity : IEntity<string>", generated);
+        Assert.Contains("public partial class StringIdEntity : global::Majal.IEntity<string>", generated);
         Assert.Contains("public string Id { get; init; }", generated);
     }
 
