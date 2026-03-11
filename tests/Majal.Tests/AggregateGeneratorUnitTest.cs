@@ -16,7 +16,7 @@ public class AggregateGeneratorUnitTest
             using Majal;
 
             [Entity<int>]
-            [AggregateRoot]
+            [AggregateRoot<object>]
             public partial class AggregateEntity;
             """;
 
@@ -32,10 +32,10 @@ public class AggregateGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class AggregateEntity : IAggregateRoot", generated);
-        Assert.Contains("private readonly List<IEvent> _events = [];", generated);
-        Assert.Contains("public IEnumerable<IEvent> Events => _events;", generated);
-        Assert.Contains("public void Publish(IEvent @event)", generated);
+        Assert.Contains("public partial class AggregateEntity : global::Majal.IAggregateRoot<object>", generated);
+        Assert.Contains("private readonly global::System.Collections.Generic.List<object> _events = [];", generated);
+        Assert.Contains("public global::System.Collections.Generic.IEnumerable<object> Events => _events;", generated);
+        Assert.Contains("public void Publish(object @event)", generated);
         Assert.Contains("public void Clear()", generated);
     }
 

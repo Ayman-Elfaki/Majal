@@ -21,7 +21,7 @@ public class ValueObjectGeneratorUnitTest
                 public decimal Amount { get; }
                 public string Currency { get; }
                 
-                private partial IEnumerable<object?> GetEqualityComponents()
+                private partial global::System.Collections.Generic.IEnumerable<global::System.Object?> GetEqualityComponents()
                 {
                     yield return Amount;
                     yield return Currency;
@@ -41,8 +41,8 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class Money : IValueObject, IComparable, IComparable<Money>", generated);
-        Assert.Contains("private partial IEnumerable<object?> GetEqualityComponents()", generated);
+        Assert.Contains("public partial class Money : global::Majal.IValueObject, global::System.IComparable, global::System.IComparable<Money>", generated);
+        Assert.Contains("private partial global::System.Collections.Generic.IEnumerable<global::System.Object?> GetEqualityComponents()", generated);
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class ProductId : IValueObject, IComparable, IComparable<ProductId>",
+        Assert.Contains("public partial class ProductId : global::Majal.IValueObject, global::System.IComparable, global::System.IComparable<ProductId>",
             generated);
         Assert.Contains("public int? Value { get; }", generated);
         Assert.Contains("public ProductId(int value)", generated);
@@ -103,7 +103,7 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public override bool Equals(object? obj)", generated);
+        Assert.Contains("public override global::System.Boolean Equals(global::System.Object? obj)", generated);
         Assert.Contains("if (obj is not Email other) return false;", generated);
         Assert.Contains("return GetEqualityComponents().SequenceEqual(other.GetEqualityComponents());", generated);
     }
@@ -134,8 +134,8 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public static bool operator ==(UserId a, UserId b)", generated);
-        Assert.Contains("public static bool operator !=(UserId a, UserId b)", generated);
+        Assert.Contains("public static global::System.Boolean operator ==(UserId a, UserId b)", generated);
+        Assert.Contains("public static global::System.Boolean operator !=(UserId a, UserId b)", generated);
         Assert.Contains("if (a is null && b is null) return true;", generated);
         Assert.Contains("if (a is null || b is null) return false;", generated);
     }
@@ -166,7 +166,7 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public override int GetHashCode()", generated);
+        Assert.Contains("public override global::System.Int32 GetHashCode()", generated);
         Assert.Contains("_cachedHashCode", generated);
         Assert.Contains("GetEqualityComponents()", generated);
         Assert.Contains("Aggregate(1, (current, obj) =>", generated);
@@ -197,8 +197,8 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public int CompareTo(Quantity? other)", generated);
-        Assert.Contains("public int CompareTo(object? other)", generated);
+        Assert.Contains("public global::System.Int32 CompareTo(Quantity? other)", generated);
+        Assert.Contains("public global::System.Int32 CompareTo(global::System.Object? other)", generated);
         Assert.Contains("if (other is null) return 1;", generated);
         Assert.Contains("if (ReferenceEquals(this, other)) return 0;", generated);
     }
@@ -259,7 +259,7 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public override string ToString()", generated);
+        Assert.Contains("public override global::System.String ToString()", generated);
         Assert.Contains("Street", generated);
         Assert.Contains("City", generated);
     }
@@ -289,7 +289,7 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public override string ToString()", generated);
+        Assert.Contains("public override global::System.String ToString()", generated);
         Assert.Contains("Value?.ToString() ?? this.ToString();", generated);
     }
 
@@ -342,8 +342,8 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public sealed class ValueObjectAttribute : Attribute", generated);
-        Assert.Contains("public sealed class ValueObjectAttribute<TValue> : Attribute", generated);
+        Assert.Contains("public sealed class ValueObjectAttribute : global::System.Attribute", generated);
+        Assert.Contains("public sealed class ValueObjectAttribute<TValue> : global::System.Attribute", generated);
     }
 
     [Fact]
