@@ -1,5 +1,9 @@
 # Majal
 
+[![stable](https://img.shields.io/nuget/vpre/Majal.svg?label=alpha)](https://www.nuget.org/packages/Majal/)
+[![license](https://img.shields.io/github/license/Ayman-Elfaki/Majal.svg)]()
+
+## ⁉️ Overview
 Majal is a **C# source generator library** that helps you implement Domain-Driven Design (DDD) patterns with minimal boilerplate. It provides source generators for:
 
 - **Aggregate Roots**
@@ -13,7 +17,7 @@ The library ships as a Roslyn analyzer/source generator package that can be refe
 ## 📦 NuGet Package
 
 ```xml
-<PackageReference Include="Majal" Version="1.0.0-alpha.1" />
+<PackageReference Include="Majal" Version="<VERSION>" />
 ```
 
 The package contains the generators and the required analyzer DLL (`Majal.dll`).
@@ -48,7 +52,7 @@ Console.WriteLine(employee.Details.Address);
 
 
 [Entity<int>]
-[AggregateRoot]
+[AggregateRoot<object>]
 public partial class Employee
 {
     public required EmployeeName Name { get; init; }
@@ -56,14 +60,17 @@ public partial class Employee
     public required EmployeeDetails Details { get; init; }
 }
 
+
 [ValueObject<string>]
 public partial class EmployeeName;
+
 
 [Entity<int>]
 public partial class EmployeeDetails
 {
     public required EmployeeAddress Address { get; init; }
 }
+
 
 [ValueObject]
 public partial class EmployeeAddress
@@ -124,6 +131,10 @@ dotnet test tests/Majal.Tests/Majal.Tests.csproj
 Contributions are welcome! Feel free to open issues or submit pull requests.
 
 ---
+
+## 🏅 Aknowledgements
+This library implementation is based on the domain-driven design components found in [CSharpFunctionalExtensions
+](https://github.com/vkhorikov/CSharpFunctionalExtensions)
 
 ## 📄 License
 
