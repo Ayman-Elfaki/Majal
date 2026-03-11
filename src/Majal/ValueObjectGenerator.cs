@@ -132,6 +132,19 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
     }
 
     /// <summary>
+    /// Gets the private void methods from the class symbol.
+    /// </summary>
+    private static List<IMethodSymbol> GetPrivateVoidMethods(INamedTypeSymbol classSymbol)
+    {
+        return
+        [
+            .. classSymbol.GetMembers()
+                .OfType<IMethodSymbol>()
+                .Where(p => p.MethodKind is MethodKind.Ordinary && p.DeclaredAccessibility is Accessibility.Private)
+        ];
+    }
+
+    /// <summary>
     /// Gets the formatted namespace declaration for the class.
     /// </summary>
     private static string GetNamespaceDeclaration(INamedTypeSymbol classSymbol)
@@ -149,9 +162,7 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
         var typeName = classSymbol.Name;
 
         if (classSymbol.TypeParameters.Length > 0)
-        {
             typeName += $"<{string.Join(", ", classSymbol.TypeParameters.Select(t => t.Name))}>";
-        }
 
         return typeName;
     }
@@ -172,7 +183,8 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
     /// </summary>
     private static void AppendClassDeclaration(StringBuilder sb, string typeName)
     {
-        List<string> interfaces = ["global::Majal.IValueObject", "global::System.IComparable", $"global::System.IComparable<{typeName}>"];
+        List<string> interfaces =
+            ["global::Majal.IValueObject", "global::System.IComparable", $"global::System.IComparable<{typeName}>"];
         sb.AppendLine($"public partial class {typeName} : {string.Join(", ", interfaces)}");
         sb.AppendLine("{");
         sb.AppendLine();
@@ -196,26 +208,21 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
     private static void AppendGetEqualityComponents(StringBuilder sb, string? genericArgumentType)
     {
         sb.AppendLine();
-        if (genericArgumentType is null)
-        {
-            sb.AppendLine("    private partial global::System.Collections.Generic.IEnumerable<global::System.Object?> GetEqualityComponents();");
-        }
-        else
-        {
-            sb.AppendLine("    private global::System.Collections.Generic.IEnumerable<global::System.Object?> GetEqualityComponents() => [Value];");
-        }
+        sb.AppendLine(genericArgumentType is null
+            ? "    private partial global::System.Collections.Generic.IEnumerable<global::System.Object?> GetEqualityComponents();"
+            : "    private global::System.Collections.Generic.IEnumerable<global::System.Object?> GetEqualityComponents() => [Value];");
     }
 
     /// <summary>
     /// Appends the constructor for generic value objects or non-generic with properties.
     /// </summary>
-    private static void AppendConstructor(StringBuilder sb, string typeName, string? genericArgumentType,
+    private static void AppendConstructor(StringBuilder sb, string typeName, string? genericType,
         List<IPropertySymbol> props)
     {
-        if (genericArgumentType is not null)
+        if (genericType is not null)
         {
             sb.AppendLine();
-            sb.AppendLine($"    public {typeName}({genericArgumentType} value)");
+            sb.AppendLine($"    public {typeName}({genericType} value)");
             sb.AppendLine("    {");
             sb.AppendLine("        Value = value;");
             sb.AppendLine("    }");
@@ -377,6 +384,7 @@ public sealed class ValueObjectGenerator : IIncrementalGenerator
         var genericArgumentType = ExtractGenericArgumentType(classSymbol);
         var readableProperties = GetPublicReadableProperties(classSymbol);
         var writableProperties = GetPublicWritableProperties(classSymbol);
+        var methods = GetPrivateVoidMethods(classSymbol);
 
         var sb = new StringBuilder();
 
