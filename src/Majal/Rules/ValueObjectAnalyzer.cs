@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace Majal
+namespace Majal.Rules
 {
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ValueObjectAnalyzer : DiagnosticAnalyzer
@@ -43,7 +43,7 @@ namespace Majal
             var valueAttr = namedType.GetAttributes()
                 .FirstOrDefault(a =>
                     a.AttributeClass?.Name == "ValueObjectAttribute" &&
-                    a.AttributeClass.ContainingNamespace?.ToDisplayString() == "Majal");
+                    a.AttributeClass.ContainingNamespace?.ToDisplayString() == "Majal.Markers");
 
             if (valueAttr == null)
                 return;

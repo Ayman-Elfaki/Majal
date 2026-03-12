@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Majal.Generators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
@@ -41,8 +42,12 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class Money : global::Majal.IValueObject, global::System.IComparable, global::System.IComparable<Money>", generated);
-        Assert.Contains("private partial global::System.Collections.Generic.IEnumerable<global::System.Object?> GetEqualityComponents()", generated);
+        Assert.Contains(
+            "public partial class Money : global::Majal.IValueObject, global::System.IComparable, global::System.IComparable<Money>",
+            generated);
+        Assert.Contains(
+            "private partial global::System.Collections.Generic.IEnumerable<global::System.Object?> GetEqualityComponents()",
+            generated);
     }
 
     [Fact]
@@ -70,7 +75,8 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class ProductId : global::Majal.IValueObject, global::System.IComparable, global::System.IComparable<ProductId>",
+        Assert.Contains(
+            "public partial class ProductId : global::Majal.IValueObject, global::System.IComparable, global::System.IComparable<ProductId>",
             generated);
         Assert.Contains("public int? Value { get; }", generated);
         Assert.Contains("public ProductId(int value)", generated);
@@ -298,6 +304,8 @@ public class ValueObjectGeneratorUnitTest
     {
         const string source =
             """
+            using Majal;
+
             [ValueObject]
             public partial class TestValue
             {
@@ -324,6 +332,8 @@ public class ValueObjectGeneratorUnitTest
     {
         const string source =
             """
+            using Majal;
+
             [ValueObject]
             public partial class TestValue
             {

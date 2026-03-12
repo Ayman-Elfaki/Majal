@@ -5,11 +5,16 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
         <RootNamespace>Majal.Sample</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Majal\Majal.csproj"  OutputItemType="Analyzer" />
+        <ProjectReference Include="..\Majal.Markers\Majal.Markers.csproj" OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="true"/>
+
+        <ProjectReference Include="..\Majal\Majal.csproj" OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false"/>
     </ItemGroup>
 
 </Project>

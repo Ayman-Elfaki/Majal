@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
-namespace Majal;
+namespace Majal.Generators;
 
 /// <summary>
 /// Generates a partial class for every class marked with [Entity].
@@ -36,8 +36,8 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
     {
         context.RegisterPostInitializationOutput(ctx =>
         {
-            ctx.AddSource(AttributeFilename, SourceText.From(GenerateAttributesType(), Encoding.UTF8));
-            ctx.AddSource(AggregateRootMarkerFilename, SourceText.From(GenerateEntityMarkerType(), Encoding.UTF8));
+            ctx.AddSource(AttributeFilename, EmbeddedSources.AggregateRootAttributeSource);
+            ctx.AddSource(AggregateRootMarkerFilename, EmbeddedSources.AggregateRootMarkerInterfaceSource);
         });
     }
 
@@ -96,9 +96,9 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
     /// </summary>
     private static string GeneratePartialClass(INamedTypeSymbol classSymbol)
     {
-        var genericEventType = GetGenericType(classSymbol);
-        var typeName = GetFullTypeName(classSymbol);
         var namespaceName = GetNamespaceDeclaration(classSymbol);
+        var typeName = GetFullTypeName(classSymbol);
+        var genericEventType = GetGenericType(classSymbol);
 
         var sb = new StringBuilder();
         AppendCodeHeader(sb, namespaceName);
@@ -130,9 +130,9 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
     /// </summary>
     private static string GetNamespaceDeclaration(INamedTypeSymbol classSymbol)
     {
-        return classSymbol.ContainingNamespace.IsGlobalNamespace
-            ? string.Empty
-            : $"namespace {classSymbol.ContainingNamespace.ToDisplayString()};";
+        return !classSymbol.ContainingNamespace.IsGlobalNamespace
+            ? $"namespace {classSymbol.ContainingNamespace.ToDisplayString()};"
+            : string.Empty;
     }
 
     /// <summary>
@@ -229,67 +229,5 @@ public sealed class AggregateRootGenerator : IIncrementalGenerator
         sb.AppendLine("    {");
         sb.AppendLine("        _events.Clear();");
         sb.AppendLine("    }");
-    }
-
-    /// <summary>
-    /// Returns helper type definitions that are added during post-initialization.
-    /// </summary>
-    private static string GenerateEntityMarkerType()
-    {
-        // lang=c#
-        return """
-                namespace Majal
-                {
-                    /// <summary>
-                    /// Marker interface for domain aggregates entities.
-                    /// </summary>
-                    public interface IAggregateRoot<TDomainEvent>
-                    {
-                        ///<summary>
-                        /// Gets the list of events associated with the aggregate root.
-                        ///</summary>
-                        global::System.Collections.Generic.IEnumerable<TDomainEvent> Events { get; }
-                        
-                        ///<summary>
-                        /// Publishes a domain event by adding it to the Events collection. 
-                        /// This method is typically called within the aggregate root's methods to record significant state changes or actions that occur within the aggregate.
-                        /// The published events can then be processed by event handlers or dispatched to other parts of the
-                        /// system for further handling, such as updating read models, triggering side effects, or integrating with external systems.
-                        ///</summary>
-                        void Publish(TDomainEvent @event);
-
-                        ///<summary>
-                        /// Clears all domain events from the Events collection.
-                        /// This method is typically called after the events have been successfully processed and persisted, 
-                        /// to reset the state of the aggregate root's event collection and prepare it for recording new events.
-                        /// </summary>
-                        void Clear();
-                    }
-                }
-
-               """;
-    }
-
-
-    /// <summary>
-    /// Returns attribute type definitions that are added during post-initialization.
-    /// </summary>
-    private static string GenerateAttributesType()
-    {
-        // lang=c#
-        return """
-               namespace Majal
-               {
-                    /// <summary>
-                    /// Apply to a class to indicate it is a DDD aggregate root type.
-                    /// The generator will create a partial class with domain-event helpers.
-                    /// </summary>
-                    [global::System.AttributeUsage(global::System.AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-                    public sealed class AggregateRootAttribute<TDomainEvent> : global::System.Attribute
-                    {
-                    }
-               }
-
-               """;
     }
 }

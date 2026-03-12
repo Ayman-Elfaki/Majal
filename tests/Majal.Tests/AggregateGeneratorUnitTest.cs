@@ -1,8 +1,10 @@
 using System;
 using System.Linq;
+using Majal.Generators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
+
 
 namespace Majal.Tests;
 
@@ -14,7 +16,7 @@ public class AggregateGeneratorUnitTest
         const string source =
             """
             using Majal;
-
+            
             [Entity<int>]
             [AggregateRoot<object>]
             public partial class AggregateEntity;
@@ -22,7 +24,7 @@ public class AggregateGeneratorUnitTest
 
         var compilation = CreateCompilation(source);
         
-        var driver = CSharpGeneratorDriver.Create([new AggregateRootGenerator(), new EntityGenerator()]);
+        var driver = CSharpGeneratorDriver.Create(new AggregateRootGenerator(), new EntityGenerator());
         var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
 
         var runResult = result.GetRunResult();

@@ -1,3 +1,4 @@
+
 namespace Majal.Sample;
 
 [ValueObject<string>]

@@ -19,7 +19,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\Majal\Majal.csproj" />
+      <ProjectReference Include="..\..\src\Majal\Majal.csproj"  OutputItemType="Analyzer"/>
     </ItemGroup>
 
 </Project>
