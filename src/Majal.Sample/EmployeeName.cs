@@ -1,4 +1,5 @@
+
 namespace Majal.Sample;
 
-[ValueObject<string>]
+[SimpleValueObject<string>]
 public partial class EmployeeName;

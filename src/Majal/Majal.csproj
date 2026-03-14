@@ -4,33 +4,49 @@
         <TargetFramework>netstandard2.0</TargetFramework>
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
+        <RootNamespace>Majal</RootNamespace>
         <IsRoslynComponent>true</IsRoslynComponent>
         <IncludeBuildOutput>false</IncludeBuildOutput>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    </PropertyGroup>
 
+    <PropertyGroup>
         <PackageId>Majal</PackageId>
-        <Version>1.0.0-alpha.4</Version>
+        <Version>1.0.0-alpha.6</Version>
         <Authors>Ayman Elfaki</Authors>
         <Description>Majal is a C# source generator library for domain modeling.</Description>
-        <PackageTags>Domain-Driven Design;DDD;Source Generator;AggregateRoot;Entity;ValueObject</PackageTags>
+        <PackageTags>Domain-Driven Design;DDD;Source Generator;Aggregate;Entity;ValueObject</PackageTags>
         <RepositoryUrl>https://github.com/Ayman-Elfaki/Majal</RepositoryUrl>
         <PackageProjectUrl>https://github.com/Ayman-Elfaki/Majal</PackageProjectUrl>
         <Copyright>Copyright (c) Ayman Elfaki 2026</Copyright>
-        <RootNamespace>Majal</RootNamespace>
         <PackageReadmeFile>Readme.md</PackageReadmeFile>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.0" PrivateAssets="all"/>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.3.0" PrivateAssets="all"/>
+        <None Include="..\..\Readme.md" Pack="true" PackagePath="\"/>
+        <None Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
+    </ItemGroup>
+
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" PrivateAssets="all"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.4.0" PrivateAssets="all"/>
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="..\..\Readme.md" Pack="true" PackagePath="\"/>
-        <None Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
-        <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true"
-              PackagePath="analyzers/dotnet/cs" Visible="false"/>
+        <ProjectReference Include="..\Majal.Markers\Majal.Markers.csproj" PrivateAssets="all"  />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
+        
+        <None Include="$(OutputPath)\Majal.Markers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
+        <None Include="$(OutputPath)\Majal.Markers.dll" Pack="true" PackagePath="lib\$(TargetFramework)" Visible="false"/>
+        
+        <EmbeddedResource Include="..\Majal.Markers\Aggregates\*.cs" Link="Markers\%(Filename)%(Extension)"  Visible="false"/>
+        <EmbeddedResource Include="..\Majal.Markers\Entities\*.cs" Link="Markers\%(Filename)%(Extension)" Visible="false"/>
+        <EmbeddedResource Include="..\Majal.Markers\ValueObjects\*.cs" Link="Markers\%(Filename)%(Extension)" Visible="false"/>
     </ItemGroup>
 
 </Project>

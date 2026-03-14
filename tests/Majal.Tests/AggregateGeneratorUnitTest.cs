@@ -1,8 +1,10 @@
 using System;
 using System.Linq;
+using Majal.Generators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
+
 
 namespace Majal.Tests;
 
@@ -16,23 +18,23 @@ public class AggregateGeneratorUnitTest
             using Majal;
 
             [Entity<int>]
-            [AggregateRoot<object>]
+            [Aggregate<object>]
             public partial class AggregateEntity;
             """;
 
         var compilation = CreateCompilation(source);
-        
-        var driver = CSharpGeneratorDriver.Create([new AggregateRootGenerator(), new EntityGenerator()]);
+
+        var driver = CSharpGeneratorDriver.Create(new AggregateGenerator(), new EntityGenerator());
         var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
 
         var runResult = result.GetRunResult();
         var generated = runResult.GeneratedTrees
             .FirstOrDefault(t =>
-                t.FilePath.Contains("AggregateEntity.AggregateRoot.g.cs", StringComparison.OrdinalIgnoreCase))
+                t.FilePath.Contains("AggregateEntity.Aggregate.g.cs", StringComparison.OrdinalIgnoreCase))
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class AggregateEntity : global::Majal.IAggregateRoot<object>", generated);
+        Assert.Contains("public partial class AggregateEntity : global::Majal.IAggregate<object>", generated);
         Assert.Contains("private readonly global::System.Collections.Generic.List<object> _events = [];", generated);
         Assert.Contains("public global::System.Collections.Generic.IEnumerable<object> Events => _events;", generated);
         Assert.Contains("public void Publish(object @event)", generated);
@@ -47,7 +49,7 @@ public class AggregateGeneratorUnitTest
         [
             MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(AggregateRootGenerator).Assembly.Location)
+            MetadataReference.CreateFromFile(typeof(AggregateGenerator).Assembly.Location)
         ];
 
         return CSharpCompilation.Create("Test", [syntaxTree], references);

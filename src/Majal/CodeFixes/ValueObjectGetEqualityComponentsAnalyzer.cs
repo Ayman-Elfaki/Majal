@@ -4,12 +4,12 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace Majal
+namespace Majal.CodeFixes
 {
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
-    public sealed class ValueObjectAnalyzer : DiagnosticAnalyzer
+    public sealed class ValueObjectGetEqualityComponentsAnalyzer : DiagnosticAnalyzer
     {
-        public const string DiagnosticId = "MJ001";
+        public const string DiagnosticId = "MJ003";
 
         private static readonly DiagnosticDescriptor Rule = new(
             id: DiagnosticId,
@@ -36,8 +36,7 @@ namespace Majal
             var namedType = (INamedTypeSymbol)context.Symbol;
 
             // only classes
-            if (namedType.TypeKind != TypeKind.Class)
-                return;
+            if (namedType.TypeKind != TypeKind.Class) return;
 
             // look for ValueObjectAttribute or ValueObjectAttribute<T>
             var valueAttr = namedType.GetAttributes()

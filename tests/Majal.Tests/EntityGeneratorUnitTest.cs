@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Majal.Generators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
@@ -42,7 +43,7 @@ public class EntityGeneratorUnitTest
             """
             using Majal;
 
-            [Entity<int>(EntityOptions.Auditable)]
+            [Entity<int>(EntityConfiguration.Auditable)]
             public partial class AuditableEntity;
             """;
 
@@ -58,7 +59,9 @@ public class EntityGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class AuditableEntity : global::Majal.IEntity<int>, global::Majal.IAuditableEntity", generated);
+        Assert.Contains(
+            "public partial class AuditableEntity : global::Majal.IEntity<int>, global::Majal.IAuditableEntity",
+            generated);
         Assert.Contains("public global::System.DateTime CreatedOn { get; init; }", generated);
         Assert.Contains("public global::System.DateTime? UpdatedOn { get; set; }", generated);
     }
@@ -70,7 +73,7 @@ public class EntityGeneratorUnitTest
             """
             using Majal;
 
-            [Entity<int>(EntityOptions.Archivable)]
+            [Entity<int>(EntityConfiguration.Archivable)]
             public partial class ArchivableEntity;
             """;
 
@@ -88,7 +91,9 @@ public class EntityGeneratorUnitTest
 
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class ArchivableEntity : global::Majal.IEntity<int>, global::Majal.IArchivableEntity", generated);
+        Assert.Contains(
+            "public partial class ArchivableEntity : global::Majal.IEntity<int>, global::Majal.IArchivableEntity",
+            generated);
         Assert.Contains("public global::System.Boolean IsArchived { get; set; }", generated);
         Assert.Contains("public global::System.DateTime? ArchivedOn { get; set; }", generated);
     }
@@ -100,7 +105,7 @@ public class EntityGeneratorUnitTest
             """
             using Majal;
 
-            [Entity<int>(EntityOptions.Ordinal)]
+            [Entity<int>(EntityConfiguration.Ordinal)]
             public partial class OrdinalEntity;
             """;
 
@@ -116,7 +121,9 @@ public class EntityGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class OrdinalEntity : global::Majal.IEntity<int>, global::Majal.IOrdinalEntity", generated);
+        Assert.Contains(
+            "public partial class OrdinalEntity : global::Majal.IEntity<int>, global::Majal.IOrdinalEntity",
+            generated);
         Assert.Contains("public global::System.UInt32 Ordinal { get; set; }", generated);
     }
 
@@ -127,7 +134,7 @@ public class EntityGeneratorUnitTest
             """
             using Majal;
 
-            [Entity<int>(EntityOptions.All)]
+            [Entity<int>(EntityConfiguration.All)]
             public partial class FullEntity;
             """;
 

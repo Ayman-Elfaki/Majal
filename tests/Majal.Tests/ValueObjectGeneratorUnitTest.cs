@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Majal.Generators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
@@ -41,41 +42,14 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public partial class Money : global::Majal.IValueObject, global::System.IComparable, global::System.IComparable<Money>", generated);
-        Assert.Contains("private partial global::System.Collections.Generic.IEnumerable<global::System.Object?> GetEqualityComponents()", generated);
-    }
-
-    [Fact]
-    public void GeneratesGenericValueObject()
-    {
-        const string source =
-            """
-            using Majal;
-
-            [ValueObject<int>]
-            public partial class ProductId
-            {
-            }
-            """;
-
-        var compilation = CreateCompilation(source);
-        var generator = new ValueObjectGenerator();
-
-        var driver = CSharpGeneratorDriver.Create(generator);
-        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
-
-        var runResult = result.GetRunResult();
-        var generated = runResult.GeneratedTrees
-            .FirstOrDefault(t => t.FilePath.Contains("ProductId.ValueObject", StringComparison.OrdinalIgnoreCase))
-            ?.ToString();
-
-        Assert.NotNull(generated);
-        Assert.Contains("public partial class ProductId : global::Majal.IValueObject, global::System.IComparable, global::System.IComparable<ProductId>",
+        Assert.Contains(
+            "public partial class Money : global::Majal.IValueObject, global::System.IComparable, global::System.IComparable<Money>",
             generated);
-        Assert.Contains("public int? Value { get; }", generated);
-        Assert.Contains("public ProductId(int value)", generated);
-        Assert.Contains("[Value];", generated);
+        Assert.Contains(
+            "private partial global::System.Collections.Generic.IEnumerable<global::System.Object?> GetEqualityComponents()",
+            generated);
     }
+
 
     [Fact]
     public void GeneratesValueObjectWithEquals()
@@ -173,66 +147,6 @@ public class ValueObjectGeneratorUnitTest
     }
 
     [Fact]
-    public void GeneratesValueObjectWithCompareTo()
-    {
-        const string source =
-            """
-            using Majal;
-
-            [ValueObject<int>]
-            public partial class Quantity
-            {
-            }
-            """;
-
-        var compilation = CreateCompilation(source);
-        var generator = new ValueObjectGenerator();
-
-        var driver = CSharpGeneratorDriver.Create(generator);
-        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
-
-        var runResult = result.GetRunResult();
-        var generated = runResult.GeneratedTrees
-            .FirstOrDefault(t => t.FilePath.Contains("Quantity.ValueObject", StringComparison.OrdinalIgnoreCase))
-            ?.ToString();
-
-        Assert.NotNull(generated);
-        Assert.Contains("public global::System.Int32 CompareTo(Quantity? other)", generated);
-        Assert.Contains("public global::System.Int32 CompareTo(global::System.Object? other)", generated);
-        Assert.Contains("if (other is null) return 1;", generated);
-        Assert.Contains("if (ReferenceEquals(this, other)) return 0;", generated);
-    }
-
-    [Fact]
-    public void GeneratesGenericValueObjectWithImplicitOperator()
-    {
-        const string source =
-            """
-            using Majal;
-
-            [ValueObject<string>]
-            public partial class OrderId
-            {
-            }
-            """;
-
-        var compilation = CreateCompilation(source);
-        var generator = new ValueObjectGenerator();
-
-        var driver = CSharpGeneratorDriver.Create(generator);
-        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
-
-        var runResult = result.GetRunResult();
-        var generated = runResult.GeneratedTrees
-            .FirstOrDefault(t => t.FilePath.Contains("OrderId.ValueObject", StringComparison.OrdinalIgnoreCase))
-            ?.ToString();
-
-        Assert.NotNull(generated);
-        Assert.Contains("public static implicit operator string?(OrderId? valueObject)", generated);
-        Assert.Contains("return valueObject?.Value;", generated);
-    }
-
-    [Fact]
     public void GeneratesValueObjectWithToString()
     {
         const string source =
@@ -265,39 +179,12 @@ public class ValueObjectGeneratorUnitTest
     }
 
     [Fact]
-    public void GeneratesGenericValueObjectWithToString()
+    public void GeneratesMarkerInterface()
     {
         const string source =
             """
             using Majal;
 
-            [ValueObject<decimal>]
-            public partial class Amount
-            {
-            }
-            """;
-
-        var compilation = CreateCompilation(source);
-        var generator = new ValueObjectGenerator();
-
-        var driver = CSharpGeneratorDriver.Create(generator);
-        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
-
-        var runResult = result.GetRunResult();
-        var generated = runResult.GeneratedTrees
-            .FirstOrDefault(t => t.FilePath.Contains("Amount.ValueObject", StringComparison.OrdinalIgnoreCase))
-            ?.ToString();
-
-        Assert.NotNull(generated);
-        Assert.Contains("public override global::System.String ToString()", generated);
-        Assert.Contains("Value?.ToString() ?? this.ToString();", generated);
-    }
-
-    [Fact]
-    public void GeneratesMarkerInterface()
-    {
-        const string source =
-            """
             [ValueObject]
             public partial class TestValue
             {
@@ -324,6 +211,8 @@ public class ValueObjectGeneratorUnitTest
     {
         const string source =
             """
+            using Majal;
+
             [ValueObject]
             public partial class TestValue
             {
@@ -343,7 +232,6 @@ public class ValueObjectGeneratorUnitTest
 
         Assert.NotNull(generated);
         Assert.Contains("public sealed class ValueObjectAttribute : global::System.Attribute", generated);
-        Assert.Contains("public sealed class ValueObjectAttribute<TValue> : global::System.Attribute", generated);
     }
 
     [Fact]
@@ -436,7 +324,7 @@ public class ValueObjectGeneratorUnitTest
     }
 
     [Fact]
-    public void GeneratesValueObjectWithConstructor()
+    public void GeneratesValueObjectWithCreateFactoryMethod()
     {
         const string source =
             """
@@ -461,12 +349,11 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public Person(string name)", generated);
-        Assert.Contains("Name = name;", generated);
+        Assert.Contains("public static partial Person Create(string name);", generated);
     }
 
     [Fact]
-    public void GeneratesValueObjectWithConstructorMultipleProperties()
+    public void GeneratesValueObjectWithCreateFactoryMethodMultipleProperties()
     {
         const string source =
             """
@@ -493,10 +380,7 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public Address(string street, string city, string zipcode)", generated);
-        Assert.Contains("Street = street;", generated);
-        Assert.Contains("City = city;", generated);
-        Assert.Contains("ZipCode = zipcode;", generated);
+        Assert.Contains("public static partial Address Create(string street, string city, string zipCode);", generated);
     }
 
     private static CSharpCompilation CreateCompilation(string source)

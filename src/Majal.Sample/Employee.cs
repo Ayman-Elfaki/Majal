@@ -1,9 +1,13 @@
 namespace Majal.Sample;
 
 [Entity<int>]
-[AggregateRoot<object>]
+[Aggregate<object>]
 public partial class Employee
 {
+    public Employee()
+    {
+    }
+    
     public required EmployeeName Name { get; init; }
     public required EmployeeDetails Details { get; init; }
 }
