@@ -10,13 +10,13 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 
-namespace Majal.Rules;
+namespace Majal.CodeFixes;
 
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AggregateRootCodeFixProvider)), Shared]
-public sealed class AggregateRootCodeFixProvider : CodeFixProvider
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AggregateAttributeCodeFixProvider)), Shared]
+public sealed class AggregateAttributeCodeFixProvider : CodeFixProvider
 {
     public override ImmutableArray<string> FixableDiagnosticIds =>
-        ImmutableArray.Create(AggregateRootAnalyzer.DiagnosticId);
+        ImmutableArray.Create(AggregateAttributeAnalyzer.DiagnosticId);
 
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
@@ -41,7 +41,9 @@ public sealed class AggregateRootCodeFixProvider : CodeFixProvider
 
         var node = root.FindNode(diagnostic.Location.SourceSpan);
         var classDecl = node as ClassDeclarationSyntax ??
-                        node.AncestorsAndSelf().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+                        node.AncestorsAndSelf()
+                            .OfType<ClassDeclarationSyntax>()
+                            .FirstOrDefault();
 
         if (classDecl == null) return document;
 
@@ -54,7 +56,8 @@ public sealed class AggregateRootCodeFixProvider : CodeFixProvider
         var editor = await DocumentEditor.CreateAsync(document, ct).ConfigureAwait(false);
 
         var genericAttribute =
-            editor.Generator.GenericName("Entity", editor.Generator.TypeExpression(SpecialType.System_Int32));
+            editor.Generator.GenericName("Entity", editor.Generator.TypeExpression(SpecialType.System_Int32))
+                .WithoutTrailingTrivia();
 
         var attribute = editor.Generator.Attribute(genericAttribute, []);
 

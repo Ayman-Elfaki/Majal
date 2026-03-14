@@ -7,10 +7,18 @@
 namespace Majal;
 
 /// <summary>
-/// Apply to a class to indicate it is a DDD aggregate root type.
+/// Apply to a class to indicate it is a DDD entity with a specific Id type.
 /// The generator will create a partial class with domain-event helpers.
 /// </summary>
 [global::System.AttributeUsage(global::System.AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-public sealed class AggregateRootAttribute<TDomainEvent> : global::System.Attribute
+public sealed class EntityAttribute<TId>(global::Majal.EntityConfiguration configuration) : global::System.Attribute
 {
+    /// <summary>
+    /// The entity configuration.
+    /// </summary>
+    public global::Majal.EntityConfiguration Configuration { get; } = configuration;
+
+    public EntityAttribute() : this(global::Majal.EntityConfiguration.Default)
+    {
+    }
 }

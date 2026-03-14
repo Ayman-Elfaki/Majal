@@ -3,18 +3,18 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace Majal.Rules;
+namespace Majal.CodeFixes;
 
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public sealed class AggregateRootAnalyzer : DiagnosticAnalyzer
+public sealed class AggregateAttributeAnalyzer : DiagnosticAnalyzer
 {
-    public const string DiagnosticId = "MJ002";
+    public const string DiagnosticId = "MJ001";
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
-        title: "A class marked with AggregateRoot attribute needs to be marked with Entity attribute as well",
+        title: "A class marked with Aggregate attribute needs to be marked with Entity attribute as well",
         messageFormat:
-        "Class '{0}' is marked with [AggregateRoot] and should be marked with [Entity<T>].",
+        "Class '{0}' is marked with [Aggregate] and should be marked with [Entity<T>].",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -35,26 +35,24 @@ public sealed class AggregateRootAnalyzer : DiagnosticAnalyzer
         var namedType = (INamedTypeSymbol)context.Symbol;
 
         // only classes
-        if (namedType.TypeKind != TypeKind.Class)
-            return;
+        if (namedType.TypeKind != TypeKind.Class) return;
 
-        // look for AggregateRootAttribute
+        // look for AggregateAttribute
         var aggregateRootAttr = namedType.GetAttributes()
             .FirstOrDefault(a =>
-                a.AttributeClass?.Name == "AggregateRootAttribute" &&
-                a.AttributeClass.ContainingNamespace?.ToDisplayString() == "Majal.Markers");
+                a.AttributeClass?.Name == "AggregateAttribute" &&
+                a.AttributeClass.ContainingNamespace?.ToDisplayString() == "Majal");
 
 
         // look for EntityAttribute
         var entityAttr = namedType.GetAttributes()
             .FirstOrDefault(a =>
                 a.AttributeClass?.Name == "EntityAttribute" &&
-                a.AttributeClass.ContainingNamespace?.ToDisplayString() == "Majal.Markers");
-
+                a.AttributeClass.ContainingNamespace?.ToDisplayString() == "Majal");
 
         if (aggregateRootAttr == null) return;
 
-        // if AggregateRoot is present but Entity is not, report diagnostic
+        // if Aggregate is present but Entity is not, report diagnostic
         if (entityAttr is not null) return;
 
         // report diagnostic on the type identifier

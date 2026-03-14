@@ -6,7 +6,7 @@ var employee = new Employee
     Name = new EmployeeName("John Doe"),
     Details = new EmployeeDetails
     {
-        Address = new EmployeeAddress("NewYork", "US", "10251")
+        Address = EmployeeAddress.Create("NewYork", "USA", "98052")
     }
 };
 

@@ -10,11 +10,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Majal.Markers\Majal.Markers.csproj" OutputItemType="Analyzer"
-                          ReferenceOutputAssembly="true"/>
-
-        <ProjectReference Include="..\Majal\Majal.csproj" OutputItemType="Analyzer"
-                          ReferenceOutputAssembly="false"/>
+        <ProjectReference Include="..\Majal\Majal.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+        <ProjectReference Include="..\Majal.Markers\Majal.Markers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="true"/>
     </ItemGroup>
 
 </Project>

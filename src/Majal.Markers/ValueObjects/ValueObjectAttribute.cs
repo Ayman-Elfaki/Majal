@@ -7,17 +7,18 @@
 namespace Majal;
 
 /// <summary>
-/// Apply to a class to indicate it is a DDD value object with a specific Value type.
-/// </summary>
-[global::System.AttributeUsage(global::System.AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-public sealed class ValueObjectAttribute<TValue> : global::System.Attribute
-{
-}
-
-/// <summary>
 /// Apply to a class to indicate it is a DDD value object.
 /// </summary>
 [global::System.AttributeUsage(global::System.AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
 public sealed class ValueObjectAttribute : global::System.Attribute
+{
+}
+
+
+/// <summary>
+/// Apply to a class to indicate it is a DDD simple value object.
+/// </summary>
+[global::System.AttributeUsage(global::System.AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
+public sealed class ValueObjectAttribute<TValue> : global::System.Attribute
 {
 }

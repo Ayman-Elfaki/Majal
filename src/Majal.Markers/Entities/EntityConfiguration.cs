@@ -7,10 +7,10 @@
 namespace Majal;
 
 /// <summary>
-/// Options for configuring the EntityAttribute.
+/// Configuration for the EntityAttribute.
 /// </summary>
 [global::System.Flags]
-public enum EntityOptions
+public enum EntityConfiguration
 {
     Default = 0,
 
@@ -33,21 +33,4 @@ public enum EntityOptions
     /// Indicates that the entity should have all optional features (Ordinal, Auditable, Archivable).
     /// </summary>
     All = Auditable | Archivable | Ordinal
-}
-
-/// <summary>
-/// Apply to a class to indicate it is a DDD entity with a specific Id type.
-/// The generator will create a partial class with domain-event helpers.
-/// </summary>
-[global::System.AttributeUsage(global::System.AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
-public sealed class EntityAttribute<TId>(global::Majal.EntityOptions options) : global::System.Attribute
-{
-    /// <summary>
-    /// The options for configuring the entity generation.
-    /// </summary>
-    public global::Majal.EntityOptions Options { get; } = options;
-
-    public EntityAttribute() : this(global::Majal.EntityOptions.Default)
-    {
-    }
 }

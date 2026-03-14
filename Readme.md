@@ -13,7 +13,7 @@ The library ships as a Roslyn analyzer/source generator package that can be refe
 ## 📦 NuGet Package
 
 ```xml
-<PackageReference Include="Majal" Version="1.0.0-alpha.1" />
+<PackageReference Include="Majal" Version="<Version>" />
 ```
 
 The package contains the generators and the required analyzer DLL (`Majal.dll`).
@@ -23,7 +23,7 @@ The package contains the generators and the required analyzer DLL (`Majal.dll`).
 ## 🚀 Quick Start
 
 1. Add the package to your project.
-2. Mark your domain classes with the appropriate attributes (`[AggregateRoot]`, `[Entity]`, `[ValueObject]`).
+2. Mark your domain classes with the appropriate attributes (`[Aggregate]`, `[Entity]`, `[ValueObject]`,`[SimpleValueObject]`).
 3. Build the project - the source generator will emit the boilerplate code.
 
 ### Example
@@ -48,7 +48,7 @@ Console.WriteLine(employee.Details.Address);
 
 
 [Entity<int>]
-[AggregateRoot]
+[Aggregate<object>]
 public partial class Employee
 {
     public required EmployeeName Name { get; init; }
@@ -56,7 +56,7 @@ public partial class Employee
     public required EmployeeDetails Details { get; init; }
 }
 
-[ValueObject<string>]
+[SimpleValueObject<string>]
 public partial class EmployeeName;
 
 [Entity<int>]
@@ -68,15 +68,25 @@ public partial class EmployeeDetails
 [ValueObject]
 public partial class EmployeeAddress
 {
-    public string City { get; set; }
-    public string Country { get; set; }
-    public string PostalCode { get; set; }
+    public string City { get; init; }
+    public string Country { get; init; }
+    public string PostalCode { get; init; }
 
     private partial IEnumerable<object?> GetEqualityComponents()
     {
         yield return City;
         yield return Country;
         yield return PostalCode;
+    }
+    
+    public static partial EmployeeAddress Create(string city, string country, string postalCode)
+    {
+        return new EmployeeAddress
+        {
+            City = city,
+            Country = country,
+            PostalCode = postalCode
+        };
     }
 }
 

@@ -43,7 +43,7 @@ public class EntityGeneratorUnitTest
             """
             using Majal;
 
-            [Entity<int>(EntityOptions.Auditable)]
+            [Entity<int>(EntityConfiguration.Auditable)]
             public partial class AuditableEntity;
             """;
 
@@ -73,7 +73,7 @@ public class EntityGeneratorUnitTest
             """
             using Majal;
 
-            [Entity<int>(EntityOptions.Archivable)]
+            [Entity<int>(EntityConfiguration.Archivable)]
             public partial class ArchivableEntity;
             """;
 
@@ -105,7 +105,7 @@ public class EntityGeneratorUnitTest
             """
             using Majal;
 
-            [Entity<int>(EntityOptions.Ordinal)]
+            [Entity<int>(EntityConfiguration.Ordinal)]
             public partial class OrdinalEntity;
             """;
 
@@ -134,7 +134,7 @@ public class EntityGeneratorUnitTest
             """
             using Majal;
 
-            [Entity<int>(EntityOptions.All)]
+            [Entity<int>(EntityConfiguration.All)]
             public partial class FullEntity;
             """;
 

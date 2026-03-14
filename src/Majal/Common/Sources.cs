@@ -1,19 +1,22 @@
 using System.IO;
 using System.Text;
 
-namespace Majal;
+namespace Majal.Common;
 
-internal static class EmbeddedSources
+internal static class Sources
 {
-    internal static readonly string AggregateRootAttributeSource =
-        LoadMarkersForEmitting("AggregateRootAttribute");
+    internal static readonly string AggregateAttributeSource =
+        LoadMarkersForEmitting("AggregateAttribute");
     
-    internal static readonly string AggregateRootMarkerInterfaceSource =
-        LoadMarkersForEmitting("IAggregateRoot");
+    internal static readonly string AggregateMarkerInterfaceSource =
+        LoadMarkersForEmitting("IAggregate");
     
     internal static readonly string EntityAttributeSource =
         LoadMarkersForEmitting("EntityAttribute");
-
+    
+    internal static readonly string EntityConfigurationSource =
+        LoadMarkersForEmitting("EntityConfiguration");
+    
     internal static readonly string EntityMarkerInterfaceSource =
         LoadMarkersForEmitting("IEntity");
 
@@ -28,13 +31,19 @@ internal static class EmbeddedSources
     
     internal static readonly string ValueObjectAttributeSource =
         LoadMarkersForEmitting("ValueObjectAttribute");
-
+    
     internal static readonly string ValueObjectMarkerInterfaceSource =
         LoadMarkersForEmitting("IValueObject");
     
+    internal static readonly string SimpleValueObjectAttributeSource =
+        LoadMarkersForEmitting("SimpleValueObjectAttribute");
+
+    internal static readonly string SimpleValueObjectMarkerInterfaceSource =
+        LoadMarkersForEmitting("ISimpleValueObject");
+    
     private static string LoadEmbeddedResource(string resourceName)
     {
-        var assembly = typeof(EmbeddedSources).Assembly;
+        var assembly = typeof(Sources).Assembly;
         var resourceStream = assembly.GetManifestResourceStream(resourceName);
         if (resourceStream is null) return string.Empty;
         using var reader = new StreamReader(resourceStream, Encoding.UTF8);

@@ -11,13 +11,13 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 
-namespace Majal.Rules;
+namespace Majal.CodeFixes;
 
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ValueObjectCodeFixProvider)), Shared]
-public sealed class ValueObjectCodeFixProvider : CodeFixProvider
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ValueObjectGetEqualityComponentsCodeFixProvider)), Shared]
+public sealed class ValueObjectGetEqualityComponentsCodeFixProvider : CodeFixProvider
 {
     public override ImmutableArray<string> FixableDiagnosticIds =>
-        ImmutableArray.Create(ValueObjectAnalyzer.DiagnosticId);
+        ImmutableArray.Create(ValueObjectGetEqualityComponentsAnalyzer.DiagnosticId);
 
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 

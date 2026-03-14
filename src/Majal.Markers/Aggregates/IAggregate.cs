@@ -7,9 +7,9 @@
 namespace Majal;
 
 /// <summary>
-/// Marker interface for domain aggregates entities.
+/// Marker interface for domain aggregate.
 /// </summary>
-public interface IAggregateRoot<TDomainEvent>
+public interface IAggregate<TDomainEvent>
 {
     ///<summary>
     /// Gets the list of events associated with the aggregate root.
