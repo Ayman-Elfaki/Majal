@@ -11,7 +11,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 
-namespace Majal.CodeFixes;
+namespace Majal.Generators.ValueObjects.CodeFixes;
 
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ValueObjectGetEqualityComponentsCodeFixProvider)), Shared]
 public sealed class ValueObjectGetEqualityComponentsCodeFixProvider : CodeFixProvider

@@ -44,6 +44,7 @@ internal static class Sources
     private static string LoadEmbeddedResource(string resourceName)
     {
         var assembly = typeof(Sources).Assembly;
+        var names = assembly.GetManifestResourceNames();
         var resourceStream = assembly.GetManifestResourceStream(resourceName);
         if (resourceStream is null) return string.Empty;
         using var reader = new StreamReader(resourceStream, Encoding.UTF8);

@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Majal.Markers/Majal.Markers.csproj" />
     <Project Path="src/Majal.Sample/Majal.Sample.csproj" />
     <Project Path="src/Majal/Majal.csproj" />
   </Folder>

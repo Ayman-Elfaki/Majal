@@ -12,7 +12,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 
-namespace Majal.CodeFixes;
+namespace Majal.Generators.ValueObjects.CodeFixes;
 
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ValueObjectCreateMethodCodeFixProvider)), Shared]
 public sealed class ValueObjectCreateMethodCodeFixProvider : CodeFixProvider

@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace Majal.CodeFixes
+namespace Majal.Generators.ValueObjects.CodeFixes
 {
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ValueObjectGetEqualityComponentsAnalyzer : DiagnosticAnalyzer

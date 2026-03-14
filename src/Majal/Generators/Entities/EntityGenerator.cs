@@ -8,7 +8,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
-namespace Majal.Generators;
+namespace Majal.Generators.Entities;
 
 /// <summary>
 /// Generates a partial class for every class marked with [Entity].

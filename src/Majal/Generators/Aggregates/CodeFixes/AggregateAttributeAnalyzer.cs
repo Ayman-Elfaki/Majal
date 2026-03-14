@@ -3,7 +3,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace Majal.CodeFixes;
+namespace Majal.Generators.Aggregates.CodeFixes;
 
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class AggregateAttributeAnalyzer : DiagnosticAnalyzer

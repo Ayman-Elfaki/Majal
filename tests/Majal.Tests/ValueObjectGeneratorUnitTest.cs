@@ -1,6 +1,6 @@
 using System;
 using System.Linq;
-using Majal.Generators;
+using Majal.Generators.ValueObjects;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;

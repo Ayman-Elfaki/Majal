@@ -10,7 +10,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 
-namespace Majal.CodeFixes;
+namespace Majal.Generators.Aggregates.CodeFixes;
 
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(AggregateAttributeCodeFixProvider)), Shared]
 public sealed class AggregateAttributeCodeFixProvider : CodeFixProvider
