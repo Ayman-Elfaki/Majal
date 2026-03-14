@@ -53,7 +53,7 @@ Console.WriteLine(employee.Details.Address);
 
 [Entity<int>]
 [Aggregate<object>]
-public partial class Employee
+public partial class Employee()
 {
     public required EmployeeName Name { get; init; }
 
@@ -65,7 +65,7 @@ public partial class EmployeeName;
 
 
 [Entity<int>]
-public partial class EmployeeDetails
+public partial class EmployeeDetails()
 {
     public required EmployeeAddress Address { get; init; }
 }
