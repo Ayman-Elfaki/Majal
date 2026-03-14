@@ -33,17 +33,21 @@
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" PrivateAssets="all"/>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.4.0" PrivateAssets="all"/>
     </ItemGroup>
-
+    
     <ItemGroup>
         <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
-
-        <EmbeddedResource Include=".\Aggregates\Markers\*.cs" Link="Markers\%(Filename)%(Extension)" Visible="false"/>
-        <EmbeddedResource Include=".\Entities\Markers\*.cs" Link="Markers\%(Filename)%(Extension)" Visible="false"/>
-        <EmbeddedResource Include=".\ValueObjects\Markers\*.cs" Link="Markers\%(Filename)%(Extension)" Visible="false"/>
     </ItemGroup>
-
+    
     <ItemGroup>
-      <Folder Include="Generators\" />
+        <!-- Aggregates -->
+        <EmbeddedResource Include=".\Generators\Aggregates\Markers\*.cs" Link="Markers\%(Filename)%(Extension)" Visible="false"/>
+        
+        <!-- ValueObjects -->
+        <EmbeddedResource Include=".\Generators\ValueObjects\Markers\*.cs" Link="Markers\%(Filename)%(Extension)" Visible="false"/>
+        
+        <!-- Entities -->
+        <EmbeddedResource Include=".\Generators\Entities\Markers\*.cs" Link="Markers\%(Filename)%(Extension)" Visible="false"/>
+        <EmbeddedResource Include=".\Generators\Entities\Configurations\*.cs" Link="Markers\%(Filename)%(Extension)" Visible="false"/>
     </ItemGroup>
 
 </Project>
