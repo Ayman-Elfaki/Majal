@@ -1,0 +1,475 @@
+using Majal.Generators;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+
+namespace Majal.Tests;
+
+public class ValueObjectGeneratorUnitTest
+{
+    private const string ValueObjectsNamespace = ValueObjectGenerator.AttributeNamespace;
+
+    [Fact]
+    public void GeneratesBasicNonGenericValueObject()
+    {
+        const string returnType = "global::System.Collections.Generic.IEnumerable";
+        const string objectType = "global::System.Object?";
+
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject]
+              public partial class Money
+              {
+                  public decimal Amount { get; }
+                  public string Currency { get; }
+                  
+                  private partial {{returnType}}<{{objectType}}> GetEqualityComponents()
+                  {
+                      yield return Amount;
+                      yield return Currency;
+                  }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        string[] markers =
+        [
+            $"global::{ValueObjectsNamespace}.IValueObject",
+            "global::System.IComparable",
+            "global::System.IComparable<Money>"
+        ];
+
+        var classDefinition = $"public partial class Money : {string.Join(", ", markers)}";
+
+        Assert.NotNull(generated);
+        Assert.Contains(classDefinition, generated);
+        Assert.Contains($"private partial {returnType}<{objectType}> GetEqualityComponents()", generated);
+    }
+
+
+    [Fact]
+    public void GeneratesValueObjectWithEquals()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject]
+              public partial class Email
+              {
+                  public string Address { get; }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public override global::System.Boolean Equals(global::System.Object? obj)", generated);
+        Assert.Contains("if (obj is not Email other) return false;", generated);
+        Assert.Contains("return GetEqualityComponents().SequenceEqual(other.GetEqualityComponents());", generated);
+    }
+
+    [Fact]
+    public void GeneratesValueObjectWithEqualityOperators()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject]
+              public partial class UserId
+              {
+                  public required string Id { get; init; }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public static global::System.Boolean operator ==(UserId? a, UserId? b)", generated);
+        Assert.Contains("public static global::System.Boolean operator !=(UserId? a, UserId? b)", generated);
+        Assert.Contains("if (a is null && b is null) return true;", generated);
+        Assert.Contains("if (a is null || b is null) return false;", generated);
+    }
+
+    [Fact]
+    public void GeneratesValueObjectWithHashCode()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject]
+              public partial class Price
+              {
+                  public decimal Value { get; }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))
+            ?.ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public override global::System.Int32 GetHashCode()", generated);
+        Assert.Contains("_cachedHashCode", generated);
+        Assert.Contains("GetEqualityComponents()", generated);
+        Assert.Contains("GetEqualityComponents().Aggregate(1, (current, obj) =>", generated);
+    }
+
+    [Fact]
+    public void GeneratesValueObjectWithToString()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject]
+              public partial class Address
+              {
+                  public string Street { get; }
+                  public string City { get; }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public override global::System.String ToString()", generated);
+        Assert.Contains("Street", generated);
+        Assert.Contains("City", generated);
+    }
+
+    [Fact]
+    public void GeneratesValueObjectWithNamespace()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              namespace MyApp.Domain
+              {
+                  [ValueObject]
+                  public partial class DomainValue
+                  {
+                      public int Id { get; }
+                  }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))
+            ?.ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("namespace MyApp.Domain;", generated);
+    }
+
+    [Fact]
+    public void GeneratesAutoGeneratedHeader()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject]
+              public partial class Test
+              {
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))
+            ?.ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("// <auto-generated />", generated);
+    }
+
+    [Fact]
+    public void GeneratesNullableEnable()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject]
+              public partial class NullTest
+              {
+                  public string? Value { get; }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))
+            ?.ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("#nullable enable", generated);
+    }
+
+    [Fact]
+    public void GeneratesValueObjectWithCreateFactoryMethod()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject]
+              public partial class Person
+              {
+                  public required string Name { get; init; }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))
+            ?.ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public static partial Person Create(string name);", generated);
+    }
+
+    [Fact]
+    public void GeneratesValueObjectWithCreateFactoryMethodMultipleProperties()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject]
+              public partial class Address
+              {
+                  public string Street { get; set; }
+                  public string City { get; set; }
+                  public string ZipCode { get; set; }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))
+            ?.ToString();
+
+        //  public static partial {{ TypeName }} Create({% for prop in Properties %} {{ prop.Type }} {{ prop.Name | snake_case }} {% unless forloop.last %}, {% endunless %} {% endfor %});
+        Assert.NotNull(generated);
+        Assert.Contains("public static partial Address Create(string street, string city, string zipCode);", generated);
+    }
+
+
+    [Fact]
+    public void GeneratesSimpleValueObject()
+    {
+        const string source =
+            $"""
+             using {ValueObjectsNamespace};
+
+             [ValueObject<int>]
+             public partial class ProductId;
+             """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        string[] markers =
+        [
+            $"global::{ValueObjectsNamespace}.IValueObject<int>",
+            "global::System.IComparable",
+            "global::System.IComparable<ProductId>"
+        ];
+
+        var classDefinition = $"public partial class ProductId : {string.Join(", ", markers)}";
+
+        Assert.NotNull(generated);
+        Assert.Contains(classDefinition, generated);
+        Assert.Contains("public required int Value { get; init; }", generated);
+        Assert.Contains("private ProductId()", generated);
+        Assert.Contains("yield return Value;", generated);
+    }
+
+    [Fact]
+    public void GeneratesSimpleValueObjectWithCompareTo()
+    {
+        const string source =
+            $"""
+             using {ValueObjectsNamespace};
+
+             [ValueObject<int>]
+             public partial class Quantity;
+             """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public global::System.Int32 CompareTo(Quantity? other)", generated);
+        Assert.Contains("public global::System.Int32 CompareTo(global::System.Object? other)", generated);
+        Assert.Contains("if (other is null) return 1;", generated);
+        Assert.Contains("if (ReferenceEquals(this, other)) return 0;", generated);
+    }
+
+    [Fact]
+    public void GeneratesSimpleValueObjectWithImplicitOperator()
+    {
+        const string source =
+            $"""
+             using {ValueObjectsNamespace};
+
+             [ValueObject<string>]
+             public partial class OrderId;
+             """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public static implicit operator string(OrderId valueObject)", generated);
+        Assert.Contains("return valueObject.Value;", generated);
+    }
+
+    [Fact]
+    public void GeneratesSimpleValueObjectWithToString()
+    {
+        const string source =
+            $"""
+             using {ValueObjectsNamespace};
+
+             [ValueObject<decimal>]
+             public partial class Amount;
+             """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))
+            ?.ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public override global::System.String ToString()", generated);
+        Assert.Contains("Value.ToString();", generated);
+    }
+
+    private static CSharpCompilation CreateCompilation(string source)
+    {
+        var syntaxTree = CSharpSyntaxTree.ParseText(source);
+        var references = new[]
+        {
+            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(List<>).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(ValueObjectGenerator).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(ValueObjectAttribute).Assembly.Location),
+            MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("netstandard").Location),
+            MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("System.Runtime").Location),
+        };
+
+        return CSharpCompilation.Create("Test", [syntaxTree], references);
+    }
+}

@@ -1,0 +1,54 @@
+# Localizables Guide
+
+Building applications for a global audience often requires storing and managing content in multiple languages.
+
+Majal provides the `[Localizable]` attribute to help you consistently identify and handle localized content in your domain model.
+
+## Usage
+
+Mark your class with the `[Localizable]` attribute. The class must be `partial`.
+
+```csharp
+using Majal;
+
+namespace MyProject.Domain;
+
+[Entity]
+[Localizable]
+public partial class ProductDescription
+{
+    public required string Name { get; init; }
+    public required string Description { get; init; }
+}
+
+// Usage
+var desc = new ProductDescription
+{
+    Name = "Hammer",
+    Locale = "en-US",
+    Description = "A tool for driving nails."
+};
+```
+
+## Generated Code
+
+The `[Localizable]` generator produces a partial class that:
+
+1.  **Implements `ILocalizable`**: A marker interface for localizable entities.
+2.  **Adds the `Locale` Property**:
+    *   `Locale`: A required `string` property that stores the language and region associated with the content.
+
+### Example of Generated Code Structure
+
+```csharp
+public partial class ProductDescription : global::Majal.ILocalizable
+{
+    public required global::System.String Locale { get; set; }
+}
+```
+
+## Benefits
+
+*   **Standardized Localization**: Ensures all localizable entities use the same naming convention for culture information.
+*   **Reduced Boilerplate**: Automatically implements the `Locale` property and interface.
+*   **Strongly Typed Cultures**: Uses the string type for representing locales.

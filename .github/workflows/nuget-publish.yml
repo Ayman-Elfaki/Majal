@@ -1,0 +1,42 @@
+name: Publish NuGet Packages
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      # This workflow is triggered manually via the GitHub Actions interface. It performs the following steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # Install the latest .NET SDK to ensure compatibility with the project and to leverage the latest features and improvements.
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.x'
+
+      # Restore the project dependencies to ensure that all required packages are available for building and testing the project.
+      - name: Restore dependencies
+        run: dotnet restore
+
+      # Execute the test project to ensure all tests pass before building the package.
+      - name: Run unit tests
+        run: dotnet test ./tests/Majal.Tests/Majal.Tests.csproj -c Release --no-restore
+
+      # Build the solution in Release configuration without restoring dependencies again, as they were already restored in the previous step.
+      - name: Build solution
+        run: dotnet build -c Release --no-restore
+
+      # Pack the project into NuGet packages, specifying the output directory for the generated .nupkg files.
+      - name: Pack NuGet packages
+        run: |
+          dotnet pack src/Majal/Majal.csproj -c Release -o ./.artifacts
+
+      # Push the generated NuGet packages to NuGet.org using the API key stored in GitHub Secrets. The command includes the --skip-duplicate flag to avoid errors if the package version already exists on NuGet.org.
+      - name: Push packages to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push "./.artifacts/*.nupkg" --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate

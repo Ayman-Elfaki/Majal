@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>true</ImplicitUsings>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <BuildOutputTargetFolder>analyzers</BuildOutputTargetFolder>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PackageId>Majal</PackageId>
+        <Authors>Ayman Elfaki</Authors>
+        <Description>Majal is a C# source generator library for domain modeling.</Description>
+        <PackageTags>Domain-Driven Design;DDD;Source Generator;Aggregate;AggregateRoot;Entity;ValueObject</PackageTags>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/Ayman-Elfaki/Majal</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/Ayman-Elfaki/Majal</PackageProjectUrl>
+        <Copyright>Copyright (c) Ayman Elfaki 2026</Copyright>
+        <PackageReadmeFile>Readme.md</PackageReadmeFile>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+
+
+    <ItemGroup>
+        <None Include="..\..\Readme.md" Pack="true" PackagePath="\"/>
+        <None Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="All"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.8.0" PrivateAssets="All"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Majal.Types\Majal.Types.csproj" PrivateAssets="All"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
+        <None Include="$(OutputPath)\Majal.Types.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
+        <None Include="$(OutputPath)\Majal.Types.dll" Pack="true" PackagePath="lib\$(TargetFramework)" Visible="false"/>
+        <None Include="Majal.props" Visible="true" Pack="true" PackagePath="build"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md" Visible="false"/>
+        <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" Visible="false"/>
+    </ItemGroup>
+
+</Project>
