@@ -33,6 +33,7 @@
     <ItemGroup>
         <None Include="..\..\Readme.md" Pack="true" PackagePath="\"/>
         <None Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
+        <None Include="..\..\assets\logo.png" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -48,7 +49,6 @@
         <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
         <None Include="$(OutputPath)\Majal.Types.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
         <None Include="$(OutputPath)\Majal.Types.dll" Pack="true" PackagePath="lib\$(TargetFramework)" Visible="false"/>
-        <None Include="$(SolutionDir)\assets\logo.png" Pack="true" PackagePath="\" />
         <None Include="Majal.props" Visible="true" Pack="true" PackagePath="build"/>
     </ItemGroup>
 
