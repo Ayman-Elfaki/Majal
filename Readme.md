@@ -1,7 +1,13 @@
-# Majal
+<div align="center">
+    <img src="assets/logo.svg" alt="Majal Logo" width="200" />
+</div>
+
+<div align="center" style="margin-top: 20px;">
 
 [![stable](https://img.shields.io/nuget/vpre/Majal.svg?label=alpha)](https://www.nuget.org/packages/Majal/)
 [![license](https://img.shields.io/github/license/Ayman-Elfaki/Majal.svg)]()
+
+</div>
 
 ## Overview
 Majal is a **C# source generator library** that helps you implement Domain-Driven Design (DDD) patterns with minimal boilerplate. It provides source generators for:

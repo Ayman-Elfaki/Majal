@@ -25,6 +25,7 @@
         <Copyright>Copyright (c) Ayman Elfaki 2026</Copyright>
         <PackageReadmeFile>Readme.md</PackageReadmeFile>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <icon>logo.png</icon>
         <IsPackable>true</IsPackable>
     </PropertyGroup>
 
@@ -47,6 +48,7 @@
         <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
         <None Include="$(OutputPath)\Majal.Types.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
         <None Include="$(OutputPath)\Majal.Types.dll" Pack="true" PackagePath="lib\$(TargetFramework)" Visible="false"/>
+        <None Include="$(SolutionDir)\assets\logo.png" Pack="true" PackagePath="\" />
         <None Include="Majal.props" Visible="true" Pack="true" PackagePath="build"/>
     </ItemGroup>
 
