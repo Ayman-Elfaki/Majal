@@ -88,6 +88,41 @@ public class ValueObjectGeneratorUnitTest
         Assert.Contains("if (obj is not Email other) return false;", generated);
         Assert.Contains("return GetEqualityComponents().SequenceEqual(other.GetEqualityComponents());", generated);
     }
+    
+    [Fact]
+    public void GeneratesValueObjectWithoutCreateMethod()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject<string>]
+              public partial class Factory
+              {
+                  public static Factory Create(string value)
+                  {
+                      return new Factory
+                      {
+                          Value = value
+                      };
+                  }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.DoesNotContain("public static Factory Create(string value)", generated);
+    }
 
     [Fact]
     public void GeneratesValueObjectWithEqualityOperators()

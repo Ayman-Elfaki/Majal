@@ -118,9 +118,9 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
 
         var hasCreateMethod = classSymbol.GetMembers()
             .OfType<IMethodSymbol>()
-            .Any(p => p is
-                { Name: "Create", DeclaredAccessibility: Accessibility.Public, IsStatic: true, Parameters.Length: 1 });
-
+            .Any(m => m is { Name: "Create", IsStatic: true, Parameters.Length: 1 } &&
+                      m.Parameters.First().Type.Name.Equals(valueType, StringComparison.OrdinalIgnoreCase));
+   
         var hasConstructor = classSymbol.Constructors.Any(c => !c.IsImplicitlyDeclared);
 
         return new ValueObjectData(

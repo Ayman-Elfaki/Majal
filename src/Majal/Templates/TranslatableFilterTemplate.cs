@@ -1,6 +1,6 @@
 namespace Majal.Templates;
 
-public class TranslatableConventionTemplate : BaseTemplate
+public class TranslatableFilterTemplate : BaseTemplate
 {
     private const string MajalNamespace = "global::Majal";
     
@@ -20,7 +20,7 @@ public class TranslatableConventionTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
-        WriteLine("public class TranslatableConvention<TContext>(TContext dbContext)");
+        WriteLine("public class TranslatableFilterConvention<TContext>(TContext dbContext)");
         WriteLine($"    : {EfCoreConventions}.IModelFinalizingConvention");
         WriteLine($"    where TContext : {EfCoreNamespace}.DbContext, {MajalNamespace}.ITranslatableDbContext");
         WriteLine("{");

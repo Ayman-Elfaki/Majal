@@ -20,7 +20,7 @@ public class ValueObjectConventionTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
-        WriteLine($"public class ValueObjectConvention : {EfCoreConventions}.IModelFinalizingConvention");
+        WriteLine($"public class ValueObjectConverterConvention : {EfCoreConventions}.IModelFinalizingConvention");
         WriteLine("{");
         PushIndent("    ");
         WriteLine("public void ProcessModelFinalizing(");

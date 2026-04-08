@@ -47,10 +47,13 @@ public sealed class ArchivableGenerator : BaseGenerator<ArchivableGenerator.Arch
                 config.GlobalOptions.TryGetValue(FullPropertyName, out var enableSwitch) &&
                 enableSwitch.Equals("true", StringComparison.Ordinal));
 
-        context.RegisterImplementationSourceOutput(configProvider, (productionContext, generateInterceptor) =>
+        context.RegisterImplementationSourceOutput(configProvider, (ctx, enableEfCore) =>
         {
-            var code = generateInterceptor ? new ArchivableInterceptorTemplate().TransformText() : string.Empty;
-            productionContext.AddSource("ArchivableSaveChangesInterceptor.g.cs", SourceText.From(code, Encoding.UTF8));
+            var interceptorCode =  enableEfCore ? new ArchivableInterceptorTemplate().TransformText() : string.Empty;
+            ctx.AddSource("ArchivableSaveChangesInterceptor.g.cs", SourceText.From(interceptorCode, Encoding.UTF8));
+
+            var code = enableEfCore ? new ArchivableConventionTemplate().TransformText() : string.Empty;
+            ctx.AddSource("ArchivableFilterConvention.g.cs", SourceText.From(code, Encoding.UTF8));
         });
 
         context.RegisterImplementationSourceOutput(provider, (productionContext, source) =>

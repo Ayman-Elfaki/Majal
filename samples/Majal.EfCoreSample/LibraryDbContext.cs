@@ -20,8 +20,9 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
-        configurationBuilder.Conventions.Add(_ => new ValueObjectConvention());
-        configurationBuilder.Conventions.Add(_ => new TranslatableConvention<LibraryDbContext>(this));
+        configurationBuilder.Conventions.Add(_ => new ValueObjectConverterConvention());
+        configurationBuilder.Conventions.Add(_ => new ArchivableFilterConvention());
+        configurationBuilder.Conventions.Add(_ => new TranslatableFilterConvention<LibraryDbContext>(this));
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -41,6 +42,7 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
 
         modelBuilder.Entity<Book>()
             .Property(p => p.Name)
+            .HasMaxLength(BookName.MaxLength)
             .IsRequired();
 
         modelBuilder.Entity<Book>()
@@ -51,10 +53,13 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
             .HasKey(p => p.Id);
 
         modelBuilder.Entity<BookTranslation>()
-            .Property(p => p.Content);
+            .Property(p => p.Content)
+            .HasMaxLength(BookContent.MaxLength)
+            .IsRequired();
 
         modelBuilder.Entity<BookTranslation>()
             .Property(p => p.Locale)
+            .HasMaxLength(2)
             .HasMaxLength(4);
 
         modelBuilder.Entity<Book>()
@@ -67,6 +72,7 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
 
         modelBuilder.Entity<Author>()
             .Property(p => p.Name)
+            .HasMaxLength(AuthorName.MaxLength)
             .IsRequired();
     }
 }

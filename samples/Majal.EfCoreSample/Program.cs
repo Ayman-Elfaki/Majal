@@ -89,6 +89,7 @@ async Task ShowLibrary()
         {
             Console.Write("\t * Content : ");
             Console.Write(translation.Content);
+            Console.WriteLine();
             Console.Write("\t * Locale : ");
             Console.Write(translation.Locale);
             Console.WriteLine();

@@ -11,10 +11,10 @@ public partial class Book
 
     public static Book Create(string name, IEnumerable<BookTranslation> translations)
     {
-        string[] languages = ["en", "ar"];
+        string[] languages = ["en", "de"];
 
         if (!languages.All(l => translations.Any(t => t.Locale == l)))
-            throw new ArgumentException("Translations must contain both 'en' and 'ar' languages");
+            throw new ArgumentException("Translations must contain both 'en' and 'de' languages");
 
         return new Book
         {
