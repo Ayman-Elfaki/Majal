@@ -20,8 +20,8 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
-        configurationBuilder.Conventions.Add(_ => new ValueObjectConverterConvention());
         configurationBuilder.Conventions.Add(_ => new ArchivableFilterConvention());
+        configurationBuilder.Conventions.Add(_ => new ValueObjectConvertersConvention());
         configurationBuilder.Conventions.Add(_ => new TranslatableFilterConvention<LibraryDbContext>(this));
     }
 

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using Majal.Abstractions;
 using Majal.Templates;
@@ -34,8 +35,10 @@ public sealed class OrdinalGenerator : BaseGenerator<OrdinalGenerator.OrdinalDat
     {
         var provider = context.SyntaxProvider
             .ForAttributeWithMetadataName(AttributeFullName, Filter, Transform)
+            .WithTrackingName(TrackingNames.InitialExtraction)
             .Where(static m => m is not null)
             .Select(static (m, _) => m!.Value)
+            .WithTrackingName(TrackingNames.Transform)
             .Collect();
 
         context.RegisterImplementationSourceOutput(provider, (productionContext, source) =>

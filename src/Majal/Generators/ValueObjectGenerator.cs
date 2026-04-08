@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using Majal.Abstractions;
 using Majal.Templates;
@@ -53,14 +54,18 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
     {
         var genericProvider = context.SyntaxProvider
             .ForAttributeWithMetadataName(GenericAttributeFullName, Filter, Transform)
+            .WithTrackingName(TrackingNames.InitialExtraction)
             .Where(static m => m is not null)
             .Select(static (m, _) => m!.Value)
+            .WithTrackingName(TrackingNames.Transform)
             .Collect();
 
         var nonGenericProvider = context.SyntaxProvider
             .ForAttributeWithMetadataName(AttributeFullName, Filter, Transform)
+            .WithTrackingName(TrackingNames.InitialExtraction)
             .Where(static m => m is not null)
             .Select(static (m, _) => m!.Value)
+            .WithTrackingName(TrackingNames.Transform)
             .Collect();
 
         var valueConverterEnabled = context
@@ -118,9 +123,9 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
 
         var hasCreateMethod = classSymbol.GetMembers()
             .OfType<IMethodSymbol>()
-            .Any(m => m is { Name: "Create", IsStatic: true, Parameters.Length: 1 } &&
+            .Any(m => m is { Name: ValueObjectTemplate.FactoryMethodName, IsStatic: true, Parameters.Length: 1 } &&
                       m.Parameters.First().Type.Name.Equals(valueType, StringComparison.OrdinalIgnoreCase));
-   
+
         var hasConstructor = classSymbol.Constructors.Any(c => !c.IsImplicitlyDeclared);
 
         return new ValueObjectData(

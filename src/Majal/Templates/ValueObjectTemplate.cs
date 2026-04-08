@@ -8,13 +8,16 @@ public class ValueObjectTemplate : BaseTemplate
     public ValueObjectGenerator.ValueObjectData Data { get; init; }
 
     private const string EfCoreNamespace = "global::Microsoft.EntityFrameworkCore";
+    private const string JsonNamespace = "global::System.Text.Json";
     private const string GenericCollectionNamespace = "global::System.Collections.Generic";
-    private const string EfCoreValueConversion = $"{EfCoreNamespace}.Storage.ValueConversion";
-
+    private const string ValueConversionNamespace = $"{EfCoreNamespace}.Storage.ValueConversion";
+    private const string JsonSerializationNamespace = $"{JsonNamespace}.Serialization";
 
     private const string IntType = "global::System.Int32";
     private const string StringType = "global::System.String";
     private const string ObjectType = "global::System.Object?";
+
+    public const string FactoryMethodName = "Create";
 
     // ReSharper disable once InconsistentNaming
     private const string IEnumerableType = $"{GenericCollectionNamespace}.IEnumerable";
@@ -36,6 +39,11 @@ public class ValueObjectTemplate : BaseTemplate
             $"global::System.IComparable<{Data.TypeName}>"
         ];
 
+        if (Data.IsGeneric)
+        {
+            WriteLine($"[{JsonSerializationNamespace}.JsonConverterAttribute(typeof({Data.TypeName}.JsonValueConverter))]");
+        }
+
         WriteLine($"public partial class {Data.TypeName} : {string.Join(", ", interfaces)}");
         WriteLine("{");
         PushIndent("    ");
@@ -56,26 +64,42 @@ public class ValueObjectTemplate : BaseTemplate
 
             if (EnableEfCore)
             {
-                WriteLine("public sealed class EFCoreValueConverter : ");
-                PushIndent("    ");
-                WriteLine($"{EfCoreValueConversion}.ValueConverter<{Data.TypeName}, {Data.ValueType}>");
+                WriteLine($"public sealed class EFCoreValueConverter : {ValueConversionNamespace}.ValueConverter<{Data.TypeName}, {Data.ValueType}>");
                 WriteLine("{");
                 PushIndent("    ");
-                WriteLine($"public EFCoreValueConverter() : base(v => v.Value, v => {Data.TypeName}.Create(v))");
+                WriteLine($"public EFCoreValueConverter() : base(v => v.Value, v => {Data.TypeName}.{FactoryMethodName}(v))");
                 WriteLine("{");
                 WriteLine("}");
                 PopIndent();
                 WriteLine("}");
+                WriteLine("");
             }
 
+            WriteLine($"public sealed class JsonValueConverter : {JsonSerializationNamespace}.JsonConverter<{Data.TypeName}>");
+            WriteLine("{");
+            PushIndent("    ");
+            WriteLine("");
+
+            WriteLine($"public override {Data.TypeName} Read(ref {JsonNamespace}.Utf8JsonReader reader, global::System.Type typeToConvert, {JsonNamespace}.JsonSerializerOptions options) =>");
+            WriteLine($"     {Data.TypeName}.{FactoryMethodName}(reader.GetString()!);");
+
+            WriteLine("");
+            WriteLine($" public override void Write({JsonNamespace}.Utf8JsonWriter writer, {Data.TypeName} value, {JsonNamespace}.JsonSerializerOptions options) =>");
+            WriteLine("     writer.WriteStringValue(value.ToString());");
+
+            PopIndent();
+            WriteLine("}");
+
+            WriteLine("");
             WriteLine("");
 
             WriteLine($"public required {Data.ValueType} Value {{ get; init; }}");
             WriteLine("");
 
+
             if (!Data.HasCreateMethod)
             {
-                WriteLine($"public static {Data.TypeName} Create({Data.ValueType} value)");
+                WriteLine($"public static {Data.TypeName} {FactoryMethodName}({Data.ValueType} value)");
                 WriteLine("{");
                 PushIndent("    ");
                 WriteLine($"return new {Data.TypeName}()");
@@ -98,13 +122,13 @@ public class ValueObjectTemplate : BaseTemplate
             WriteLine("");
 
 
-            WriteLine($"public static implicit operator {Data.TypeName}({Data.ValueType} value)");
-            WriteLine("{");
-            PushIndent("    ");
-            WriteLine($"return {Data.TypeName}.Create(value);");
-            PopIndent();
-            WriteLine("}");
-            WriteLine("");
+            // WriteLine($"public static implicit operator {Data.TypeName}({Data.ValueType} value)");
+            // WriteLine("{");
+            // PushIndent("    ");
+            // WriteLine($"return {Data.TypeName}.{FactoryMethodName}(value);");
+            // PopIndent();
+            // WriteLine("}");
+            // WriteLine("");
 
 
             WriteLine($"public override {StringType} ToString()");
@@ -114,6 +138,8 @@ public class ValueObjectTemplate : BaseTemplate
             PopIndent();
             WriteLine("}");
             WriteLine("");
+
+
             WriteLine($"private {IEnumerableType}<{ObjectType}> GetEqualityComponents()");
             WriteLine("{");
             PushIndent("    ");

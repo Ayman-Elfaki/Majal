@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using Majal.Abstractions;
 using Majal.Templates;
@@ -24,14 +25,18 @@ public sealed class AggregateGenerator : BaseGenerator<AggregateGenerator.Aggreg
     {
         var genericProvider = context.SyntaxProvider
             .ForAttributeWithMetadataName(GenericAttributeFullName, Filter, Transform)
+            .WithTrackingName(TrackingNames.InitialExtraction)
             .Where(static m => m is not null)
             .Select(static (m, _) => m!.Value)
+            .WithTrackingName(TrackingNames.Transform)
             .Collect();
 
         var nonGenericProvider = context.SyntaxProvider
             .ForAttributeWithMetadataName(AttributeFullName, Filter, Transform)
+            .WithTrackingName(TrackingNames.InitialExtraction)
             .Where(static m => m is not null)
             .Select(static (m, _) => m!.Value)
+            .WithTrackingName(TrackingNames.Transform)
             .Collect();
 
         var provider = genericProvider.Combine(nonGenericProvider);
@@ -40,7 +45,7 @@ public sealed class AggregateGenerator : BaseGenerator<AggregateGenerator.Aggreg
         {
             var (generics, nonGenerics) = source;
 
-            AggregateData[] entities = [..generics, ..nonGenerics];
+            AggregateData[] entities = [.. generics, .. nonGenerics];
 
             foreach (var data in entities)
             {

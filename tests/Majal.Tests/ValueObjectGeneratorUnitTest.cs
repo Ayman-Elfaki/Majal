@@ -88,7 +88,7 @@ public class ValueObjectGeneratorUnitTest
         Assert.Contains("if (obj is not Email other) return false;", generated);
         Assert.Contains("return GetEqualityComponents().SequenceEqual(other.GetEqualityComponents());", generated);
     }
-    
+
     [Fact]
     public void GeneratesValueObjectWithoutCreateMethod()
     {
