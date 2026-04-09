@@ -46,8 +46,10 @@ public class ValueObjectTemplate : BaseTemplate
 
         if (Data.IsGeneric)
         {
-            WriteLine($"[{ComponentModelNamespace}.TypeConverterAttribute(typeof({Data.TypeName}.ValueObjectTypeConverter))]");
-            WriteLine($"[{JsonSerializationNamespace}.JsonConverterAttribute(typeof({Data.TypeName}.JsonValueConverter))]");
+            WriteLine(
+                $"[{ComponentModelNamespace}.TypeConverterAttribute(typeof({Data.TypeName}.ValueObjectTypeConverter))]");
+            WriteLine(
+                $"[{JsonSerializationNamespace}.JsonConverterAttribute(typeof({Data.TypeName}.JsonValueConverter))]");
         }
 
         WriteLine($"public partial class {Data.TypeName} : {string.Join(", ", interfaces)}");
@@ -133,10 +135,8 @@ public class ValueObjectTemplate : BaseTemplate
             WriteLine("");
             WriteLine("");
 
-
             WriteLine($"public required {Data.ValueType} Value {{ get; init; }}");
             WriteLine("");
-
 
             if (!Data.HasCreateMethod)
             {
@@ -157,16 +157,9 @@ public class ValueObjectTemplate : BaseTemplate
             WriteLine($"public static {Data.TypeName} Parse({StringType} value)");
             WriteLine("{");
             PushIndent("    ");
-            WriteLine($"return new {Data.TypeName}()");
-            WriteLine("{");
-            PushIndent("    ");
-
             WriteLine("string".Equals(Data.ValueType, StringComparison.OrdinalIgnoreCase)
-                ? "Value = value"
-                : $"Value = {Data.ValueType}.Parse(value)");
-
-            PopIndent();
-            WriteLine("};");
+                ? $"return {FactoryMethodName}(value);"
+                : $"return {FactoryMethodName}({Data.ValueType}.Parse(value));");
             PopIndent();
             WriteLine("}");
             WriteLine("");
@@ -189,7 +182,6 @@ public class ValueObjectTemplate : BaseTemplate
 
             if (!Data.HasToStringMethod)
             {
-
                 WriteLine($"public override {StringType} ToString()");
                 WriteLine("{");
                 PushIndent("    ");
@@ -233,6 +225,7 @@ public class ValueObjectTemplate : BaseTemplate
                     if (i < Data.Properties.Count - 1) Write(""" sb.Append(", "); """);
                     WriteLine("");
                 }
+
                 WriteLine("""sb.Append(" }");""");
                 WriteLine("return sb.ToString();");
                 PopIndent();

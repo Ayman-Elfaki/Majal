@@ -44,6 +44,10 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
             .Property(p => p.Name)
             .HasMaxLength(BookName.MaxLength)
             .IsRequired();
+        
+        modelBuilder.Entity<Book>()
+            .Property(p => p.PublishYear)
+            .IsRequired();
 
         modelBuilder.Entity<Book>()
             .HasMany(p => p.Translations)

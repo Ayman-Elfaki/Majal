@@ -21,7 +21,7 @@ await using (var context = new LibraryDbContext(options))
                 new() { Content = BookContent.Create(f.Lorem.Paragraph()), Locale = "de" }
             ];
 
-            var book = Book.Create(f.Commerce.ProductName(), translations);
+            var book = Book.Create(f.Commerce.ProductName(), f.Date.PastDateOnly(), translations);
             book.Authors.AddRange(f.PickRandom(authors, 2));
             return book;
         })

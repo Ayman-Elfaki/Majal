@@ -6,10 +6,12 @@ namespace Majal.EfCoreSample;
 public partial class Book
 {
     public required BookName Name { get; init; }
+
+    public required BookPublishYear PublishYear { get; init; }
     public List<Author> Authors { get; init; } = [];
     public List<BookTranslation> Translations { get; init; } = [];
 
-    public static Book Create(string name, IEnumerable<BookTranslation> translations)
+    public static Book Create(string name, DateOnly publishYear, IEnumerable<BookTranslation> translations)
     {
         string[] languages = ["en", "de"];
 
@@ -19,6 +21,7 @@ public partial class Book
         return new Book
         {
             Name = BookName.Create(name),
+            PublishYear = BookPublishYear.Create(publishYear),
             Translations = [.. translations],
         };
     }
