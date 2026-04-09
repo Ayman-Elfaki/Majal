@@ -51,15 +51,14 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
 
         modelBuilder.Entity<BookTranslation>()
             .HasKey(p => p.Id);
-
+        
         modelBuilder.Entity<BookTranslation>()
             .Property(p => p.Content)
             .HasMaxLength(BookContent.MaxLength)
             .IsRequired();
-
+        
         modelBuilder.Entity<BookTranslation>()
             .Property(p => p.Locale)
-            .HasMaxLength(2)
             .HasMaxLength(4);
 
         modelBuilder.Entity<Book>()

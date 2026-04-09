@@ -19,18 +19,20 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
         public string? ValueType { get; }
         public bool IsGeneric { get; }
         public bool HasConstructor { get; }
+        public bool HasToStringMethod { get; }
         public bool HasCreateMethod { get; }
         public EquatableList<PropertyData> Properties { get; }
 
         public ValueObjectData(string typeName, string @namespace, bool hasConstructor, PropertyData[] properties,
-            string? valueType, bool isGeneric, bool hasCreateMethod)
+            string? valueType, bool isGeneric, bool hasCreateMethod, bool hasToStringMethod)
         {
             TypeName = typeName;
             Namespace = @namespace;
             ValueType = valueType;
             IsGeneric = isGeneric;
-            HasCreateMethod = hasCreateMethod;
             HasConstructor = hasConstructor;
+            HasCreateMethod = hasCreateMethod;
+            HasToStringMethod = hasToStringMethod;
             Properties = new EquatableList<PropertyData>(properties);
         }
     }
@@ -121,10 +123,16 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             .Select(p => new ValueObjectData.PropertyData(p.Name, Type: p.Type.ToDisplayString()))
             .ToArray();
 
-        var hasCreateMethod = classSymbol.GetMembers()
+        var methods = classSymbol.GetMembers()
             .OfType<IMethodSymbol>()
+            .ToArray();
+
+        var hasCreateMethod = methods
             .Any(m => m is { Name: ValueObjectTemplate.FactoryMethodName, IsStatic: true, Parameters.Length: 1 } &&
-                      m.Parameters.First().Type.Name.Equals(valueType, StringComparison.OrdinalIgnoreCase));
+                  m.Parameters.First().Type.Name.Equals(valueType, StringComparison.OrdinalIgnoreCase));
+
+        var hasToStringMethod = methods
+            .Any(m => m is { Name: nameof(ToString), IsStatic: false, Parameters.Length: 0 });
 
         var hasConstructor = classSymbol.Constructors.Any(c => !c.IsImplicitlyDeclared);
 
@@ -133,6 +141,7 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             @namespace: classSymbol.GetNamespace(),
             hasConstructor: hasConstructor,
             hasCreateMethod: hasCreateMethod,
+            hasToStringMethod: hasToStringMethod,
             properties: [.. properties],
             valueType: valueType,
             isGeneric: isGeneric

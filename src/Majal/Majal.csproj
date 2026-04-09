@@ -25,7 +25,7 @@
         <Copyright>Copyright (c) Ayman Elfaki 2026</Copyright>
         <PackageReadmeFile>Readme.md</PackageReadmeFile>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
-        <icon>logo.png</icon>
+        <PackageIcon>logo.png</PackageIcon>
         <IsPackable>true</IsPackable>
     </PropertyGroup>
 

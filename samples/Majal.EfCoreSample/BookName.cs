@@ -12,4 +12,6 @@ public partial class BookName
             Value = value
         };
     }
+
+    public override string ToString() => Value;
 }

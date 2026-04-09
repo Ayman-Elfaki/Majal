@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using Majal.Generators;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Majal.Analyzers;
@@ -9,17 +8,23 @@ namespace Majal.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ValueObjectGenericArgumentAnalyzer : DiagnosticAnalyzer
 {
-    public const string DiagnosticId = "MJ003";
+    public const string DiagnosticId = "MJ004";
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
-        title: "Value object must implement GetEqualityComponents",
-        messageFormat:
-        "Class '{0}' is marked with [ValueObject] and should provide an implementation of GetEqualityComponents",
+        title: "Value object generic argument must be a primitive data type",
+        messageFormat: "Class marked with [ValueObject] must have a primitive data type as generic argument",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
     );
+
+    private static readonly string[] SupportedTypes =
+    [
+        "Byte", "SByte", "Int16", "UInt16", "Int32", "UInt32", "Int64", "UInt64", "Boolean",
+        "Single", "Double", "Decimal", "String", "DateTime", "DateOnly",
+        "TimeOnly", "DateTimeOffset", "Guid", "Boolean", "Char"
+    ];
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 
@@ -27,7 +32,6 @@ public sealed class ValueObjectGenericArgumentAnalyzer : DiagnosticAnalyzer
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-
         context.RegisterSymbolAction(AnalyzeNamedType, SymbolKind.NamedType);
     }
 
@@ -37,35 +41,24 @@ public sealed class ValueObjectGenericArgumentAnalyzer : DiagnosticAnalyzer
 
         if (namedType.TypeKind != TypeKind.Class) return;
 
-        // look for ValueObjectAttribute
+        // look for ValueObjectAttribute with a generic argument
         var valueAttr = namedType.GetAttributes()
             .FirstOrDefault(a =>
-                a.AttributeClass is { Name: ValueObjectGenerator.ValueObjectAttributeName, IsGenericType: false } &&
+                a.AttributeClass is { Name: ValueObjectGenerator.ValueObjectAttributeName, IsGenericType: true } &&
                 a.AttributeClass.ContainingNamespace?.ToDisplayString() == ValueObjectGenerator.AttributeNamespace);
 
         if (valueAttr == null) return;
 
-        // check for public properties if none then ignore
-        var hasPublicProperties = namedType.GetMembers()
-            .OfType<IPropertySymbol>()
-            .Any(p => p.DeclaredAccessibility == Accessibility.Public && !p.IsStatic);
+        var isPrimitive = IsPrimitive(valueAttr.AttributeClass?.TypeArguments.FirstOrDefault());
 
-        if (!hasPublicProperties) return;
-
-        // examine members to find a method implementation
-        var hasImplementation = namedType.GetMembers("GetEqualityComponents")
-            .OfType<IMethodSymbol>()
-            .Any(m => m.MethodKind == MethodKind.Ordinary &&
-                      m.DeclaredAccessibility is Accessibility.Private &&
-                      (m.PartialImplementationPart != null || m.DeclaringSyntaxReferences
-                          .Select(r => r.GetSyntax())
-                          .OfType<MethodDeclarationSyntax>()
-                          .Any(s => s.Body != null || s.ExpressionBody != null)));
-
-        if (hasImplementation) return;
+        if (isPrimitive) return;
 
         // report diagnostic on the type identifier
         if (namedType.Locations.FirstOrDefault() is not { IsInSource: true } location) return;
         context.ReportDiagnostic(Diagnostic.Create(Rule, location, namedType.Name));
     }
+
+
+    private static bool IsPrimitive(ITypeSymbol? type) =>
+        type?.Name is not null && SupportedTypes.Contains(type.Name, StringComparer.OrdinalIgnoreCase);
 }
