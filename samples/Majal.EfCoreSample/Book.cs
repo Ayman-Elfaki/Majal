@@ -6,18 +6,17 @@ namespace Majal.EfCoreSample;
 public partial class Book
 {
     public required BookName Name { get; init; }
-
-    public required BookPublishYear PublishYear { get; init; }
+    public BookPublishYear? PublishYear { get; set; }
     public List<Author> Authors { get; init; } = [];
     public List<BookTranslation> Translations { get; init; } = [];
 
-    public static Book Create(string name, DateOnly publishYear, IEnumerable<BookTranslation> translations)
+    public static Book Create(string name, BookPublishYear? publishYear, IEnumerable<BookTranslation> translations)
     {
         string[] languages = ["en", "de"];
 
         if (!languages.All(l => translations.Any(t => t.Locale == l)))
             throw new ArgumentException("Translations must contain both 'en' and 'de' languages");
-
+        
         return new Book
         {
             Name = BookName.Create(name),

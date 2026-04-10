@@ -1,4 +1,5 @@
 using Majal.Generators;
+using static Majal.Abstractions.Constants;
 
 namespace Majal.Templates;
 
@@ -7,25 +8,7 @@ public class ValueObjectTemplate : BaseTemplate
     public bool EnableEfCore { get; init; }
     public ValueObjectGenerator.ValueObjectData Data { get; init; }
 
-    private const string EfCoreNamespace = "global::Microsoft.EntityFrameworkCore";
-    private const string JsonNamespace = "global::System.Text.Json";
-    private const string GenericCollectionNamespace = "global::System.Collections.Generic";
-    private const string ValueConversionNamespace = $"{EfCoreNamespace}.Storage.ValueConversion";
-    private const string JsonSerializationNamespace = $"{JsonNamespace}.Serialization";
-    private const string ComponentModelNamespace = "global::System.ComponentModel";
-    private const string GlobalizationNamespace = "global::System.Globalization";
-
-
-    private const string TypeType = "global::System.Type";
-    private const string IntType = "global::System.Int32";
-    private const string BoolType = "global::System.Boolean";
-    private const string StringType = "global::System.String";
-    private const string ObjectType = "global::System.Object";
-
     public const string FactoryMethodName = "Create";
-
-    // ReSharper disable once InconsistentNaming
-    private const string IEnumerableType = $"{GenericCollectionNamespace}.IEnumerable";
 
     public override string TransformText()
     {
@@ -39,9 +22,9 @@ public class ValueObjectTemplate : BaseTemplate
 
         string[] interfaces =
         [
-            Data.IsGeneric ? $"global::Majal.IValueObject<{Data.ValueType}>" : "global::Majal.IValueObject",
-            "global::System.IComparable",
-            $"global::System.IComparable<{Data.TypeName}>"
+            Data.IsGeneric ? $"{MajalNamespace}.IValueObject<{Data.ValueType}>" : $"{MajalNamespace}.IValueObject",
+            $"{SystemNamespace}.IComparable",
+            $"{SystemNamespace}.IComparable<{Data.TypeName}>"
         ];
 
         if (Data.IsGeneric)
@@ -54,29 +37,29 @@ public class ValueObjectTemplate : BaseTemplate
 
         WriteLine($"public partial class {Data.TypeName} : {string.Join(", ", interfaces)}");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
+        WriteLine($"[{DiagnosticsNamespace}.DebuggerBrowsable({DiagnosticsNamespace}.DebuggerBrowsableState.Never)]");
         WriteLine($"private {IntType}? _cachedHashCode;");
         WriteLine("");
 
 
-        if (!Data.HasConstructor)
-        {
-            WriteLine($"private {Data.TypeName}()");
-            WriteLine("{");
-            WriteLine("}");
-        }
-
         if (Data.IsGeneric)
         {
-            WriteLine("");
+            if (!Data.HasConstructor)
+            {
+                WriteLine($"private {Data.TypeName}()");
+                WriteLine("{");
+                WriteLine("}");
+                WriteLine("");
+            }
 
             if (EnableEfCore)
             {
-                WriteLine($"public sealed class EFCoreValueConverter :");
-                WriteLine($"    {ValueConversionNamespace}.ValueConverter<{Data.TypeName}, {Data.ValueType}>");
+                WriteLine("public sealed class EFCoreValueConverter :");
+                WriteLine($"    {EfCoreValueConversion}.ValueConverter<{Data.TypeName}, {Data.ValueType}>");
                 WriteLine("{");
-                PushIndent("    ");
-                WriteLine($"public EFCoreValueConverter() :");
+                PushIndent();
+                WriteLine("public EFCoreValueConverter() :");
                 WriteLine($"    base(v => v.Value, v => {Data.TypeName}.{FactoryMethodName}(v))");
                 WriteLine("{");
                 WriteLine("}");
@@ -85,12 +68,12 @@ public class ValueObjectTemplate : BaseTemplate
                 WriteLine("");
             }
 
-            WriteLine($"public sealed class ValueObjectTypeConverter : ");
+            WriteLine("public sealed class ValueObjectTypeConverter : ");
             WriteLine($"    {ComponentModelNamespace}.TypeConverter");
             WriteLine("{");
-            PushIndent("    ");
+            PushIndent();
             WriteLine($"public override {BoolType} CanConvertFrom(");
-            PushIndent("    ");
+            PushIndent();
             WriteLine($"{ComponentModelNamespace}.ITypeDescriptorContext? context,");
             WriteLine($"{TypeType} sourceType) =>");
             WriteLine("    sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);");
@@ -98,7 +81,7 @@ public class ValueObjectTemplate : BaseTemplate
             PopIndent();
 
             WriteLine($"public override {ObjectType}? ConvertFrom(");
-            PushIndent("    ");
+            PushIndent();
             WriteLine($"{ComponentModelNamespace}.ITypeDescriptorContext? context,");
             WriteLine($"{GlobalizationNamespace}.CultureInfo? culture,");
             WriteLine($"{ObjectType} value) =>");
@@ -111,19 +94,19 @@ public class ValueObjectTemplate : BaseTemplate
             WriteLine("public sealed class JsonValueConverter :");
             WriteLine($"    {JsonSerializationNamespace}.JsonConverter<{Data.TypeName}>");
             WriteLine("{");
-            PushIndent("    ");
+            PushIndent();
             WriteLine("");
             WriteLine($"public override {Data.TypeName} Read(");
-            PushIndent("    ");
+            PushIndent();
             WriteLine($"ref {JsonNamespace}.Utf8JsonReader reader,");
-            WriteLine("global::System.Type typeToConvert,");
+            WriteLine($"{TypeType} typeToConvert,");
             WriteLine($"{JsonNamespace}.JsonSerializerOptions options) =>");
             WriteLine($"     {Data.TypeName}.Parse(reader.GetString()!);");
             PopIndent();
 
             WriteLine("");
             WriteLine("public override void Write(");
-            PushIndent("    ");
+            PushIndent();
             WriteLine($"{JsonNamespace}.Utf8JsonWriter writer,");
             WriteLine($"{Data.TypeName} value,");
             WriteLine($"{JsonNamespace}.JsonSerializerOptions options) =>");
@@ -142,10 +125,10 @@ public class ValueObjectTemplate : BaseTemplate
             {
                 WriteLine($"public static {Data.TypeName} {FactoryMethodName}({Data.ValueType} value)");
                 WriteLine("{");
-                PushIndent("    ");
+                PushIndent();
                 WriteLine($"return new {Data.TypeName}()");
                 WriteLine("{");
-                PushIndent("    ");
+                PushIndent();
                 WriteLine("Value = value");
                 PopIndent();
                 WriteLine("};");
@@ -156,44 +139,36 @@ public class ValueObjectTemplate : BaseTemplate
 
             WriteLine($"public static {Data.TypeName} Parse({StringType} value)");
             WriteLine("{");
-            PushIndent("    ");
+            PushIndent();
             WriteLine("string".Equals(Data.ValueType, StringComparison.OrdinalIgnoreCase)
                 ? $"return {FactoryMethodName}(value);"
                 : $"return {FactoryMethodName}({Data.ValueType}.Parse(value));");
             PopIndent();
             WriteLine("}");
             WriteLine("");
-
-            WriteLine($"public static implicit operator {Data.ValueType}({Data.TypeName} valueObject)");
+            
+            WriteLine($"public static implicit operator {Data.ValueType}({Data.TypeName}? valueObject)");
             WriteLine("{");
-            PushIndent("    ");
-            WriteLine("return valueObject.Value;");
+            PushIndent();
+            WriteLine("return valueObject?.Value;");
             PopIndent();
             WriteLine("}");
             WriteLine("");
-
-            // WriteLine($"public static implicit operator {Data.TypeName}({Data.ValueType} value)");
-            // WriteLine("{");
-            // PushIndent("    ");
-            // WriteLine($"return {Data.TypeName}.{FactoryMethodName}(value);");
-            // PopIndent();
-            // WriteLine("}");
-            // WriteLine("");
 
             if (!Data.HasToStringMethod)
             {
                 WriteLine($"public override {StringType} ToString()");
                 WriteLine("{");
-                PushIndent("    ");
+                PushIndent();
                 WriteLine("return Value.ToString();");
                 PopIndent();
                 WriteLine("}");
                 WriteLine("");
             }
 
-            WriteLine($"private {IEnumerableType}<{ObjectType}?> GetEqualityComponents()");
+            WriteLine($"private {GenericCollectionNamespace}.IEnumerable<{ObjectType}?> GetEqualityComponents()");
             WriteLine("{");
-            PushIndent("    ");
+            PushIndent();
             WriteLine("yield return Value;");
             PopIndent();
             WriteLine("}");
@@ -204,7 +179,8 @@ public class ValueObjectTemplate : BaseTemplate
 
         if (Data.Properties.Count > 0)
         {
-            WriteLine($"private partial {IEnumerableType}<{ObjectType}?> GetEqualityComponents();");
+            WriteLine(
+                $"private partial {GenericCollectionNamespace}.IEnumerable<{ObjectType}?> GetEqualityComponents();");
             WriteLine("");
 
             var createArgs = string.Join(", ", Data.Properties.Select(p => $"{p.Type} {ToCamelCase(p.Name)}"));
@@ -215,8 +191,8 @@ public class ValueObjectTemplate : BaseTemplate
             {
                 WriteLine($"public override {StringType} ToString()");
                 WriteLine("{");
-                PushIndent("    ");
-                WriteLine("var sb = new global::System.Text.StringBuilder();");
+                PushIndent();
+                WriteLine($"var sb = new {SystemNamespace}.Text.StringBuilder();");
                 WriteLine("""sb.Append("{ ");""");
                 for (var i = 0; i < Data.Properties.Count; i++)
                 {
@@ -234,46 +210,47 @@ public class ValueObjectTemplate : BaseTemplate
         }
         else if (!Data.IsGeneric)
         {
-            WriteLine($"private {IEnumerableType}<{ObjectType}?> GetEqualityComponents() => [];");
+            WriteLine(
+                $"private {GenericCollectionNamespace}.IEnumerable<{ObjectType}?> GetEqualityComponents() => [];");
         }
 
         WriteLine("");
-        WriteLine($"public override global::System.Boolean Equals({ObjectType}? obj)");
+        WriteLine($"public override {BoolType} Equals({ObjectType}? obj)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine($"if (obj is not {Data.TypeName} other) return false;");
         WriteLine("return GetEqualityComponents().SequenceEqual(other.GetEqualityComponents());");
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine($"public static global::System.Boolean operator ==({Data.TypeName}? a, {Data.TypeName}? b)");
+        WriteLine($"public static {BoolType} operator ==({Data.TypeName}? a, {Data.TypeName}? b)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("if (a is null && b is null) return true;");
         WriteLine("if (a is null || b is null) return false;");
         WriteLine("return a.Equals(b);");
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine($"public static global::System.Boolean operator !=({Data.TypeName}? a, {Data.TypeName}? b)");
+        WriteLine($"public static {BoolType} operator !=({Data.TypeName}? a, {Data.TypeName}? b)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("return !(a == b);");
         PopIndent();
         WriteLine("}");
         WriteLine("");
         WriteLine($"public override {IntType} GetHashCode()");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("if (!_cachedHashCode.HasValue)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine($"_cachedHashCode = GetEqualityComponents().Aggregate(1, (current, obj) => ");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("unchecked ");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("return current * 23 + (obj?.GetHashCode() ?? 0);");
         PopIndent();
         WriteLine("}");
@@ -288,18 +265,18 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("");
         WriteLine($"public {IntType} CompareTo({Data.TypeName}? other)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("if (other is null) return 1;");
         WriteLine("if (ReferenceEquals(this, other)) return 0;");
         WriteLine("");
         WriteLine("if (this.GetType() != other.GetType())");
-        WriteLine("    return global::System.String.Compare(this.GetType().FullName, ");
-        WriteLine("         other.GetType().FullName, global::System.StringComparison.Ordinal);");
+        WriteLine($"    return {SystemNamespace}.String.Compare(this.GetType().FullName, ");
+        WriteLine($"         other.GetType().FullName, {SystemNamespace}.StringComparison.Ordinal);");
         WriteLine("");
-        WriteLine("var otherIComparable = other.GetEqualityComponents().OfType<global::System.IComparable>();");
+        WriteLine($"var otherIComparable = other.GetEqualityComponents().OfType<{SystemNamespace}.IComparable>();");
         WriteLine("");
         WriteLine("return GetEqualityComponents()");
-        WriteLine("    .OfType<global::System.IComparable>()");
+        WriteLine($"    .OfType<{SystemNamespace}.IComparable>()");
         WriteLine("    .Zip(otherIComparable, (a, b) => a?.CompareTo(b) ?? (b is null ? 0 : -1))");
         WriteLine("    .FirstOrDefault();");
         PopIndent();
@@ -307,7 +284,7 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("");
         WriteLine($"public {IntType} CompareTo({ObjectType}? other)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine($"return CompareTo(other as {Data.TypeName});");
         PopIndent();
         WriteLine("}");

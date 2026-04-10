@@ -1,16 +1,9 @@
+using static Majal.Abstractions.Constants;
+
 namespace Majal.Templates;
 
 public class ValueObjectConventionTemplate : BaseTemplate
 {
-    private const string MajalNamespace = "global::Majal";
-
-    private const string SystemNamespace = "global::System";
-
-    private const string EfCoreNamespace = "global::Microsoft.EntityFrameworkCore";
-    private const string EfCoreBuilders = $"{EfCoreNamespace}.Metadata.Builders";
-    private const string EfCoreConventions = $"{EfCoreNamespace}.Metadata.Conventions";
-    private const string EfCoreValueConversion = $"{EfCoreNamespace}.Storage.ValueConversion";
-
     public override string TransformText()
     {
         Clear();
@@ -22,18 +15,18 @@ public class ValueObjectConventionTemplate : BaseTemplate
         WriteLine("");
         WriteLine($"public class ValueObjectConvertersConvention : {EfCoreConventions}.IModelFinalizingConvention");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("public void ProcessModelFinalizing(");
         WriteLine($"    {EfCoreBuilders}.IConventionModelBuilder modelBuilder,");
         WriteLine($"    {EfCoreConventions}.IConventionContext<{EfCoreBuilders}.IConventionModelBuilder> context)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("foreach (var property in entityType.GetProperties())");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("var clrType = property.ClrType;");
         WriteLine(" // 1. Check if the entityType type has the ValueObjectAttribute<T>");
 

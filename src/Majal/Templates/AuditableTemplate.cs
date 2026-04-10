@@ -1,3 +1,5 @@
+using static Majal.Abstractions.Constants;
+
 using Majal.Generators;
 
 namespace Majal.Templates;
@@ -15,14 +17,14 @@ public class AuditableTemplate : BaseTemplate
         WriteLine("");
         WriteLine(Data.Namespace);
         WriteLine("");
-        WriteLine($"public partial class {Data.TypeName} : global::Majal.IAuditable");
+        WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.IAuditable");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("/// <inheritdoc />");
-        WriteLine("public System.DateTimeOffset CreatedOn { get; set; }");
+        WriteLine($"public {SystemNamespace}.DateTimeOffset CreatedOn {{ get; set; }}");
         WriteLine("");
         WriteLine("/// <inheritdoc />");
-        WriteLine("public System.DateTimeOffset? UpdatedOn { get; set; }");
+        WriteLine($"public {SystemNamespace}.DateTimeOffset? UpdatedOn {{ get; set; }}");
         PopIndent();
         WriteLine("}");
 

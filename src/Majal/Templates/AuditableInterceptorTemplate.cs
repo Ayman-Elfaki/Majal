@@ -1,13 +1,9 @@
+using static Majal.Abstractions.Constants;
+
 namespace Majal.Templates;
 
 public class AuditableInterceptorTemplate : BaseTemplate
 {
-    private const string ThreadingNamespace = "global::System.Threading";
-    private const string TasksNamespace = $"{ThreadingNamespace}.Tasks";
-    private const string EfCoreNamespace = "global::Microsoft.EntityFrameworkCore";
-    private const string DiagnosticsNamespace = $"{EfCoreNamespace}.Diagnostics";
-    private const string IntType = "global::System.Int32";
-
     public override string TransformText()
     {
         Clear();
@@ -17,14 +13,14 @@ public class AuditableInterceptorTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
-        WriteLine($"public class AuditableSaveChangesInterceptor : {DiagnosticsNamespace}.SaveChangesInterceptor");
+        WriteLine($"public class AuditableSaveChangesInterceptor : {EfCoreDiagnosticsNamespace}.SaveChangesInterceptor");
         WriteLine("{");
-        PushIndent("    ");
-        WriteLine($"public override {DiagnosticsNamespace}.InterceptionResult<{IntType}> SavingChanges(");
-        WriteLine($"    {DiagnosticsNamespace}.DbContextEventData eventData,");
-        WriteLine($"    {DiagnosticsNamespace}.InterceptionResult<{IntType}> result)");
+        PushIndent();
+        WriteLine($"public override {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> SavingChanges(");
+        WriteLine($"    {EfCoreDiagnosticsNamespace}.DbContextEventData eventData,");
+        WriteLine($"    {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> result)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("if (eventData.Context is null)");
         WriteLine("    return base.SavingChanges(eventData, result);");
         WriteLine("");
@@ -35,12 +31,12 @@ public class AuditableInterceptorTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
         WriteLine(
-            $"public override {TasksNamespace}.ValueTask<{DiagnosticsNamespace}.InterceptionResult<{IntType}>> SavingChangesAsync(");
-        WriteLine($"    {DiagnosticsNamespace}.DbContextEventData eventData,");
-        WriteLine($"    {DiagnosticsNamespace}.InterceptionResult<{IntType}> result,");
+            $"public override {TasksNamespace}.ValueTask<{EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}>> SavingChangesAsync(");
+        WriteLine($"    {EfCoreDiagnosticsNamespace}.DbContextEventData eventData,");
+        WriteLine($"    {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> result,");
         WriteLine("    global::System.Threading.CancellationToken ct)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("if (eventData.Context is null)");
         WriteLine("    return base.SavingChangesAsync(eventData, result, ct);");
         WriteLine("");
@@ -52,28 +48,28 @@ public class AuditableInterceptorTemplate : BaseTemplate
         WriteLine("");
         WriteLine($"private static void UpdateAuditableEntities({EfCoreNamespace}.DbContext context)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("var entries = context.ChangeTracker");
-        WriteLine("    .Entries<global::Majal.IAuditable>()");
+        WriteLine($"    .Entries<{MajalNamespace}.IAuditable>()");
         WriteLine(
             $"    .Where(e => e.State is {EfCoreNamespace}.EntityState.Added or {EfCoreNamespace}.EntityState.Modified);");
         WriteLine("");
         WriteLine("foreach (var entry in entries)");
         WriteLine("{");
-        PushIndent("    ");
-        WriteLine("if (entry.Entity is global::Majal.IAuditable entity)");
+        PushIndent();
+        WriteLine($"if (entry.Entity is {MajalNamespace}.IAuditable entity)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine($"if (entry.State == {EfCoreNamespace}.EntityState.Added)");
         WriteLine("{");
-        PushIndent("    ");
-        WriteLine("entity.CreatedOn = global::System.DateTimeOffset.UtcNow;");
+        PushIndent();
+        WriteLine($"entity.CreatedOn = {SystemNamespace}.DateTimeOffset.UtcNow;");
         PopIndent();
         WriteLine("}");
         WriteLine($"else if (entry.State == {EfCoreNamespace}.EntityState.Modified)");
         WriteLine("{");
-        PushIndent("    ");
-        WriteLine("entity.UpdatedOn = global::System.DateTimeOffset.UtcNow;");
+        PushIndent();
+        WriteLine($"entity.UpdatedOn = {SystemNamespace}.DateTimeOffset.UtcNow;");
         PopIndent();
         WriteLine("}");
         PopIndent();

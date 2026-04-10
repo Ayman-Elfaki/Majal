@@ -1,5 +1,4 @@
 using System.Text;
-using System.Collections.Generic;
 
 namespace Majal.Templates;
 
@@ -25,11 +24,12 @@ public abstract class BaseTemplate
         _builder.AppendLine();
     }
 
-    protected void PushIndent(string indent)
+    protected void PushIndent(string indent = "    ")
     {
         _indents.Add(indent.Length);
         _currentIndent += indent;
     }
+
 
     protected void PopIndent()
     {

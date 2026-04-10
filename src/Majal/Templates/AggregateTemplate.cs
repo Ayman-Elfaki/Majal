@@ -1,12 +1,11 @@
 using Majal.Generators;
+using static Majal.Abstractions.Constants;
 
 namespace Majal.Templates;
 
 public class AggregateTemplate : BaseTemplate
 {
     public AggregateGenerator.AggregateData Data { get; init; }
-
-    private const string GenericCollectionNamespace = "global::System.Collections.Generic";
 
     public override string TransformText()
     {
@@ -17,9 +16,9 @@ public class AggregateTemplate : BaseTemplate
         WriteLine("");
         WriteLine(Data.Namespace);
         WriteLine("");
-        WriteLine($"public partial class {Data.TypeName} : global::Majal.IAggregate<{Data.DomainEventType}>");
+        WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.IAggregate<{Data.DomainEventType}>");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine($"private readonly {GenericCollectionNamespace}.List<{Data.DomainEventType}> _events = [];");
         WriteLine("");
         WriteLine("/// <inheritdoc />");
@@ -28,7 +27,7 @@ public class AggregateTemplate : BaseTemplate
         WriteLine("/// <inheritdoc />");
         WriteLine($"public void Publish({Data.DomainEventType} @event)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("_events.Add(@event);");
         PopIndent();
         WriteLine("}");
@@ -36,7 +35,7 @@ public class AggregateTemplate : BaseTemplate
         WriteLine("/// <inheritdoc />");
         WriteLine("public void Clear()");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("_events.Clear();");
         PopIndent();
         WriteLine("}");

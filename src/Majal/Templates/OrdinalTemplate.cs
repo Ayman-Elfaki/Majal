@@ -1,10 +1,11 @@
+using static Majal.Abstractions.Constants;
 using Majal.Generators;
 
 namespace Majal.Templates;
 
 public class OrdinalTemplate : BaseTemplate
 {
-    public OrdinalGenerator.OrdinalData Data { get; init; } 
+    public OrdinalGenerator.OrdinalData Data { get; init; }
 
     public override string TransformText()
     {
@@ -15,11 +16,11 @@ public class OrdinalTemplate : BaseTemplate
         WriteLine("");
         WriteLine(Data.Namespace);
         WriteLine("");
-        WriteLine($"public partial class {Data.TypeName} : global::Majal.IOrdinal");
+        WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.IOrdinal");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("/// <inheritdoc />");
-        WriteLine("public required global::System.UInt32 Ordinal { get; set; }");
+        WriteLine($"public required {UIntType} Ordinal {{ get; set; }}");
         PopIndent();
         WriteLine("}");
 

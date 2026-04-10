@@ -1,4 +1,5 @@
 using Majal.Generators;
+using static Majal.Abstractions.Constants;
 
 namespace Majal.Templates;
 
@@ -18,14 +19,14 @@ public class EntityTemplate : BaseTemplate
 
         string[] interfaces =
         [
-            $"global::Majal.IEntity<{Data.IdType}>",
-            "global::System.IComparable",
-            $"global::System.IComparable<{Data.TypeName}>"
+            $"{MajalNamespace}.IEntity<{Data.IdType}>",
+            $"{SystemNamespace}.IComparable",
+            $"{SystemNamespace}.IComparable<{Data.TypeName}>"
         ];
 
         WriteLine($"public partial class {Data.TypeName} : {string.Join(", ", interfaces)}");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
 
         if (!Data.HasConstructor)
         {
@@ -41,9 +42,9 @@ public class EntityTemplate : BaseTemplate
         }
 
         WriteLine("");
-        WriteLine("public override global::System.Boolean Equals(object? obj)");
+        WriteLine($"public override {BoolType} Equals({ObjectType}? obj)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine($"if (obj is not {Data.TypeName} other) return false;");
         WriteLine("if (ReferenceEquals(this, other)) return true;");
         WriteLine("if (IsTransient() || other.IsTransient()) return false;");
@@ -51,39 +52,39 @@ public class EntityTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine("private global::System.Boolean IsTransient()");
+        WriteLine($"private {BoolType} IsTransient()");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine($"return Id.Equals(default({Data.IdType}));");
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine($"public static global::System.Boolean operator ==({Data.TypeName}? a, {Data.TypeName}? b)");
+        WriteLine($"public static {BoolType} operator ==({Data.TypeName}? a, {Data.TypeName}? b)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("if (a is null && b is null) return true;");
         WriteLine("if (a is null || b is null) return false;");
         WriteLine("return a.Equals(b);");
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine($"public static global::System.Boolean operator !=({Data.TypeName}? a, {Data.TypeName}? b)");
+        WriteLine($"public static {BoolType} operator !=({Data.TypeName}? a, {Data.TypeName}? b)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("return !(a == b);");
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine("public override global::System.Int32 GetHashCode()");
+        WriteLine($"public override {IntType} GetHashCode()");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("return (GetType().ToString() + Id).GetHashCode();");
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine($"public global::System.Int32 CompareTo({Data.TypeName}? other)");
+        WriteLine($"public {IntType} CompareTo({Data.TypeName}? other)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("if (other is null) return 1;");
         WriteLine("if (ReferenceEquals(this, other)) return 0;");
         WriteLine("return Id.CompareTo(other.Id);");
@@ -91,9 +92,9 @@ public class EntityTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
         WriteLine("/// <inheritdoc />");
-        WriteLine("public global::System.Int32 CompareTo(global::System.Object? other)");
+        WriteLine($"public {IntType} CompareTo({ObjectType}? other)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine($"return CompareTo(other as {Data.TypeName});");
         PopIndent();
         WriteLine("}");

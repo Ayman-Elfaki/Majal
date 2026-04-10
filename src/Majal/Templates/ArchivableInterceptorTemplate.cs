@@ -1,15 +1,10 @@
-using Majal.Generators;
+using static Majal.Abstractions.Constants;
+
 
 namespace Majal.Templates;
 
 public class ArchivableInterceptorTemplate : BaseTemplate
 {
-    private const string ThreadingNamespace = "global::System.Threading";
-    private const string TasksNamespace = $"{ThreadingNamespace}.Tasks";
-    private const string EfCoreNamespace = "global::Microsoft.EntityFrameworkCore";
-    private const string DiagnosticsNamespace = $"{EfCoreNamespace}.Diagnostics";
-    private const string IntType = "global::System.Int32";
-
     public override string TransformText()
     {
         Clear();
@@ -19,14 +14,14 @@ public class ArchivableInterceptorTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
-        WriteLine($"public class ArchivableSaveChangesInterceptor : {DiagnosticsNamespace}.SaveChangesInterceptor");
+        WriteLine($"public class ArchivableSaveChangesInterceptor : {EfCoreDiagnosticsNamespace}.SaveChangesInterceptor");
         WriteLine("{");
-        PushIndent("    ");
-        WriteLine($"public override {DiagnosticsNamespace}.InterceptionResult<{IntType}> SavingChanges(");
-        WriteLine($"    {DiagnosticsNamespace}.DbContextEventData eventData,");
-        WriteLine($"    {DiagnosticsNamespace}.InterceptionResult<{IntType}> result)");
+        PushIndent();
+        WriteLine($"public override {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> SavingChanges(");
+        WriteLine($"    {EfCoreDiagnosticsNamespace}.DbContextEventData eventData,");
+        WriteLine($"    {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> result)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("if (eventData.Context is null)");
         WriteLine("    return base.SavingChanges(eventData, result);");
         WriteLine("");
@@ -37,12 +32,12 @@ public class ArchivableInterceptorTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
         WriteLine(
-            $"public override {TasksNamespace}.ValueTask<{DiagnosticsNamespace}.InterceptionResult<{IntType}>> SavingChangesAsync(");
-        WriteLine($"    {DiagnosticsNamespace}.DbContextEventData eventData, ");
-        WriteLine($"    {DiagnosticsNamespace}.InterceptionResult<{IntType}> result, ");
+            $"public override {TasksNamespace}.ValueTask<{EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}>> SavingChangesAsync(");
+        WriteLine($"    {EfCoreDiagnosticsNamespace}.DbContextEventData eventData, ");
+        WriteLine($"    {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> result, ");
         WriteLine($"    {ThreadingNamespace}.CancellationToken ct)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("if (eventData.Context is null)");
         WriteLine("    return base.SavingChangesAsync(eventData, result, ct);");
         WriteLine("");
@@ -54,19 +49,19 @@ public class ArchivableInterceptorTemplate : BaseTemplate
         WriteLine("");
         WriteLine($"private static void UpdateArchivableEntities({EfCoreNamespace}.DbContext context)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("var entries = context.ChangeTracker");
-        WriteLine("    .Entries<global::Majal.IArchivable>()");
+        WriteLine($"    .Entries<{MajalNamespace}.IArchivable>()");
         WriteLine($"    .Where(e => e.State == {EfCoreNamespace}.EntityState.Deleted);");
         WriteLine("");
         WriteLine("foreach (var entry in entries)");
         WriteLine("{");
-        PushIndent("    ");
-        WriteLine("if (entry.Entity is global::Majal.IArchivable entity)");
+        PushIndent();
+        WriteLine($"if (entry.Entity is {MajalNamespace}.IArchivable entity)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine($"entry.State = {EfCoreNamespace}.EntityState.Modified;");
-        WriteLine("entity.ArchivedOn = global::System.DateTimeOffset.UtcNow;");
+        WriteLine($"entity.ArchivedOn = {SystemNamespace}.DateTimeOffset.UtcNow;");
         WriteLine("entity.IsArchived = true;");
         PopIndent();
         WriteLine("}");

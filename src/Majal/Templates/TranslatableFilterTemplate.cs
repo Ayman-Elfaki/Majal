@@ -1,16 +1,9 @@
+using static Majal.Abstractions.Constants;
+
 namespace Majal.Templates;
 
 public class TranslatableFilterTemplate : BaseTemplate
 {
-    private const string MajalNamespace = "global::Majal";
-    
-    private const string ExpressionsNamespace = "global::System.Linq.Expressions";
-    private const string ExpressionsType = $"{ExpressionsNamespace}.Expression";
-
-    private const string EfCoreNamespace = "global::Microsoft.EntityFrameworkCore";
-    private const string EfCoreBuilders = $"{EfCoreNamespace}.Metadata.Builders";
-    private const string EfCoreConventions = $"{EfCoreNamespace}.Metadata.Conventions";
-
     public override string TransformText()
     {
         Clear();
@@ -24,15 +17,15 @@ public class TranslatableFilterTemplate : BaseTemplate
         WriteLine($"    : {EfCoreConventions}.IModelFinalizingConvention");
         WriteLine($"    where TContext : {EfCoreNamespace}.DbContext, {MajalNamespace}.ITranslatableDbContext");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("public void ProcessModelFinalizing(");
         WriteLine($"    {EfCoreBuilders}.IConventionModelBuilder modelBuilder,");
         WriteLine($"    {EfCoreConventions}.IConventionContext<{EfCoreBuilders}.IConventionModelBuilder> context)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("// Check if the entity implements ITranslatable");
         WriteLine($"if (!typeof({MajalNamespace}.ITranslatable).IsAssignableFrom(entityType.ClrType)) continue;");
         WriteLine("");

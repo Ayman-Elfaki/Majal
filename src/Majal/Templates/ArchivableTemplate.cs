@@ -1,3 +1,4 @@
+using static Majal.Abstractions.Constants;
 using Majal.Generators;
 
 namespace Majal.Templates;
@@ -15,14 +16,14 @@ public class ArchivableTemplate : BaseTemplate
         WriteLine("");
         WriteLine(Data.Namespace);
         WriteLine("");
-        WriteLine($"public partial class {Data.TypeName} : global::Majal.IArchivable");
+        WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.IArchivable");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("/// <inheritdoc />");
-        WriteLine("public global::System.Boolean IsArchived { get; set; }");
+        WriteLine($"public {BoolType} IsArchived {{ get; set; }}");
         WriteLine("");
         WriteLine("/// <inheritdoc />");
-        WriteLine("public global::System.DateTimeOffset? ArchivedOn { get; set; }");
+        WriteLine($"public {SystemNamespace}.DateTimeOffset? ArchivedOn {{ get; set; }}");
         PopIndent();
         WriteLine("}");
 

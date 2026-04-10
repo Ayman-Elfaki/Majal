@@ -1,16 +1,9 @@
+using static Majal.Abstractions.Constants;
+
 namespace Majal.Templates;
 
 public class ArchivableConventionTemplate : BaseTemplate
 {
-    private const string MajalNamespace = "global::Majal";
-    
-    private const string ExpressionsNamespace = "global::System.Linq.Expressions";
-    private const string ExpressionsType = $"{ExpressionsNamespace}.Expression";
-
-    private const string EfCoreNamespace = "global::Microsoft.EntityFrameworkCore";
-    private const string EfCoreBuilders = $"{EfCoreNamespace}.Metadata.Builders";
-    private const string EfCoreConventions = $"{EfCoreNamespace}.Metadata.Conventions";
-
     public override string TransformText()
     {
         Clear();
@@ -23,15 +16,15 @@ public class ArchivableConventionTemplate : BaseTemplate
         WriteLine("public class ArchivableFilterConvention()");
         WriteLine($"    : {EfCoreConventions}.IModelFinalizingConvention");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("public void ProcessModelFinalizing(");
         WriteLine($"    {EfCoreBuilders}.IConventionModelBuilder modelBuilder,");
         WriteLine($"    {EfCoreConventions}.IConventionContext<{EfCoreBuilders}.IConventionModelBuilder> context)");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("// Check if the entity implements IArchivable");
         WriteLine($"if (!typeof({MajalNamespace}.IArchivable).IsAssignableFrom(entityType.ClrType)) continue;");
         WriteLine("");

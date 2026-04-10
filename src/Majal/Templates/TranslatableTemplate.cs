@@ -1,3 +1,5 @@
+using static Majal.Abstractions.Constants;
+
 using Majal.Generators;
 
 namespace Majal.Templates;
@@ -15,11 +17,11 @@ public class TranslatableTemplate : BaseTemplate
         WriteLine("");
         WriteLine(Data.Namespace);
         WriteLine("");
-        WriteLine($"public partial class {Data.TypeName} : global::Majal.ITranslatable");
+        WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.ITranslatable");
         WriteLine("{");
-        PushIndent("    ");
+        PushIndent();
         WriteLine("/// <inheritdoc />");
-        WriteLine("public required string Locale { get; set; }");
+        WriteLine($"public required {StringType} Locale {{ get; set; }}");
         PopIndent();
         WriteLine("}");
 
