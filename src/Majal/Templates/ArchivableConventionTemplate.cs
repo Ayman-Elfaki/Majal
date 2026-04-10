@@ -35,10 +35,10 @@ public class ArchivableConventionTemplate : BaseTemplate
         WriteLine("");
         WriteLine("//  !(t.IsArchived)");
         WriteLine($"var body = {ExpressionsType}.Not(property);");
-        WriteLine($"var lambda ={ExpressionsType}.Lambda(body, parameter);");
+        WriteLine($"var lambda = {ExpressionsType}.Lambda(body, parameter);");
         WriteLine("");
         WriteLine("// Set the query filter");
-        WriteLine("entityType.SetQueryFilter(lambda);");
+        WriteLine("entityType.SetQueryFilter(nameof(IArchivable.IsArchived), lambda);");
         PopIndent();
         WriteLine("}");
         PopIndent();

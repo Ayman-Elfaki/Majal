@@ -40,6 +40,7 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
         modelBuilder.Entity<Book>()
             .HasKey(p => p.Id);
 
+
         modelBuilder.Entity<Book>()
             .Property(p => p.Name)
             .HasMaxLength(BookName.MaxLength)

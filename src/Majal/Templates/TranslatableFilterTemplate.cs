@@ -40,10 +40,10 @@ public class TranslatableFilterTemplate : BaseTemplate
         WriteLine($"    nameof({MajalNamespace}.ITranslatableDbContext.CurrentLocale));");
         WriteLine("");
         WriteLine($"var body = {ExpressionsType}.Equal(property, currentLocale);");
-        WriteLine($"var lambda ={ExpressionsType}.Lambda(body, parameter);");
+        WriteLine($"var lambda = {ExpressionsType}.Lambda(body, parameter);");
         WriteLine("");
         WriteLine("// Set the query filter");
-        WriteLine("entityType.SetQueryFilter(lambda);");
+        WriteLine("entityType.SetQueryFilter(nameof(ITranslatable.Locale), lambda);");
         PopIndent();
         WriteLine("}");
         PopIndent();
