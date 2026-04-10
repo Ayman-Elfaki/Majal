@@ -40,7 +40,6 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
         modelBuilder.Entity<Book>()
             .HasKey(p => p.Id);
 
-
         modelBuilder.Entity<Book>()
             .Property(p => p.Name)
             .HasMaxLength(BookName.MaxLength)
@@ -68,7 +67,7 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
 
         modelBuilder.Entity<Book>()
             .HasMany(b => b.Authors)
-            .WithMany(b => b.Books)
+            .WithMany()
             .UsingEntity(p => p.ToTable("BooksAuthors"));
 
         modelBuilder.Entity<Author>()
@@ -78,5 +77,12 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
             .Property(p => p.Name)
             .HasMaxLength(AuthorName.MaxLength)
             .IsRequired();
+        
+        modelBuilder.Entity<Author>()
+            .ComplexProperty(p => p.Address, pb =>
+            {
+                pb.ToJson();
+               
+            });
     }
 }

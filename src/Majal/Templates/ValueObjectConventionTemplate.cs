@@ -24,7 +24,14 @@ public class ValueObjectConventionTemplate : BaseTemplate
         WriteLine("foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())");
         WriteLine("{");
         PushIndent();
-        WriteLine("foreach (var property in entityType.GetProperties())");
+        WriteLine("var entityProperties = entityType.GetProperties();");
+        WriteLine("var complexProperties = global::System.Linq.Enumerable.SelectMany(");
+        WriteLine("    entityType.GetComplexProperties(), p => p.ComplexType.GetProperties()");
+        WriteLine(");");
+        WriteLine("");
+        WriteLine("var allProperties = global::System.Linq.Enumerable.Concat(entityProperties, complexProperties);");
+        WriteLine("");
+        WriteLine("foreach (var property in allProperties)");
         WriteLine("{");
         PushIndent();
         WriteLine("var clrType = property.ClrType;");

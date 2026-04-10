@@ -147,10 +147,10 @@ public class ValueObjectTemplate : BaseTemplate
             WriteLine("}");
             WriteLine("");
             
-            WriteLine($"public static implicit operator {Data.ValueType}?({Data.TypeName}? valueObject)");
+            WriteLine($"public static explicit operator {Data.ValueType}({Data.TypeName} valueObject)");
             WriteLine("{");
             PushIndent();
-            WriteLine("return valueObject?.Value;");
+            WriteLine("return valueObject.Value;");
             PopIndent();
             WriteLine("}");
             WriteLine("");

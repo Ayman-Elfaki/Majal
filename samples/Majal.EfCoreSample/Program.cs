@@ -9,7 +9,8 @@ await using (var context = new LibraryDbContext(options))
     context.Database.EnsureCreated();
 
     var authors = new Faker<Author>()
-        .CustomInstantiator(f => Author.Create(f.Person.FullName))
+        .CustomInstantiator(f =>
+            Author.Create(f.Person.FullName, AuthorAddress.Create(AddressCity.Create(f.Address.City()))))
         .Generate(3);
 
     var books = new Faker<Book>()
