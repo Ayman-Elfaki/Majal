@@ -438,7 +438,7 @@ public class ValueObjectGeneratorUnitTest
     }
 
     [Fact]
-    public void GeneratesSimpleValueObjectWithImplicitOperator()
+    public void GeneratesSimpleValueObjectWithExplicitOperator()
     {
         const string source =
             $"""
@@ -460,7 +460,7 @@ public class ValueObjectGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public static implicit operator string?(OrderId valueObject)", generated);
+        Assert.Contains("public static explicit operator string(OrderId valueObject)", generated);
         Assert.Contains("return valueObject.Value;", generated);
     }
 
