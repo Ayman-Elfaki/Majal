@@ -39,8 +39,8 @@ public class AuditableGeneratorUnitTest
 
         Assert.NotNull(generated);
         Assert.Contains(classDefinition, generated);
-        Assert.Contains("public System.DateTimeOffset CreatedOn { get; set; }", generated);
-        Assert.Contains("public System.DateTimeOffset? UpdatedOn { get; set; }", generated);
+        Assert.Contains("public global::System.DateTimeOffset CreatedOn { get; set; }", generated);
+        Assert.Contains("public global::System.DateTimeOffset? UpdatedOn { get; set; }", generated);
     }
 
 

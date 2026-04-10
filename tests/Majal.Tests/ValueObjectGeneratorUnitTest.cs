@@ -365,7 +365,6 @@ public class ValueObjectGeneratorUnitTest
             .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))
             ?.ToString();
 
-        //  public static partial {{ TypeName }} Create({% for prop in Properties %} {{ prop.Type }} {{ prop.Name | snake_case }} {% unless forloop.last %}, {% endunless %} {% endfor %});
         Assert.NotNull(generated);
         Assert.Contains("public static partial Address Create(string street, string city, string zipCode);", generated);
     }
@@ -461,8 +460,8 @@ public class ValueObjectGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public static implicit operator string(OrderId valueObject)", generated);
-        Assert.Contains("return valueObject.Value;", generated);
+        Assert.Contains("public static implicit operator string(OrderId? valueObject)", generated);
+        Assert.Contains("return valueObject?.Value;", generated);
     }
 
     [Fact]

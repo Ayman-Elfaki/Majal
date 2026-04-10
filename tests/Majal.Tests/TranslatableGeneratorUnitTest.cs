@@ -40,7 +40,7 @@ public class TranslatableGeneratorUnitTest
 
         Assert.NotNull(generated);
         Assert.Contains(classDefinition, generated);
-        Assert.Contains("public required string Locale { get; set; }", generated);
+        Assert.Contains("public required global::System.String Locale { get; set; }", generated);
     }
 
     private static CSharpCompilation CreateCompilation(string source)
