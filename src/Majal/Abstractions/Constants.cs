@@ -7,6 +7,7 @@ public static class Constants
     public const string JsonNamespace = "global::System.Text.Json";
     public const string DiagnosticsNamespace = "global::System.Diagnostics";
     public const string ExpressionsNamespace = "global::System.Linq.Expressions";
+    public const string LinqNamespace = "global::System.Linq";
     public const string GenericCollectionNamespace = "global::System.Collections.Generic";
     public const string ComponentModelNamespace = "global::System.ComponentModel";
     public const string GlobalizationNamespace = "global::System.Globalization";

@@ -54,7 +54,7 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
 
         context.RegisterImplementationSourceOutput(configProvider, (productionContext, generateConvention) =>
         {
-            var code = generateConvention ? new TranslatableFilterTemplate().TransformText() : string.Empty;
+            var code = generateConvention ? new TranslatableConventionTemplate().TransformText() : string.Empty;
             productionContext.AddSource("TranslatableFilterConvention.g.cs", SourceText.From(code, Encoding.UTF8));
         });
 

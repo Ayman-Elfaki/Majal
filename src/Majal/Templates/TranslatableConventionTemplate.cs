@@ -2,7 +2,7 @@ using static Majal.Abstractions.Constants;
 
 namespace Majal.Templates;
 
-public class TranslatableFilterTemplate : BaseTemplate
+public class TranslatableConventionTemplate : BaseTemplate
 {
     public override string TransformText()
     {
@@ -43,9 +43,25 @@ public class TranslatableFilterTemplate : BaseTemplate
         WriteLine($"var lambda = {ExpressionsType}.Lambda(body, parameter);");
         WriteLine("");
         WriteLine("// Set the query filter");
-        WriteLine("entityType.SetQueryFilter(nameof(ITranslatable.Locale), lambda);");
+        WriteLine("entityType.SetQueryFilter(nameof(ITranslatable), lambda);");
         PopIndent();
         WriteLine("}");
+        PopIndent();
+        WriteLine("}");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        
+        WriteLine("public static class TranslatableEfCoreExtensions");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"public static {LinqNamespace}.IQueryable<TEntity> IgnoreTranslatableFilter<TEntity>(");
+        WriteLine($"    this {LinqNamespace}.IQueryable<TEntity> source)");
+        WriteLine("             where TEntity : class");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"return {EfCoreNamespace}.EntityFrameworkQueryableExtensions");
+        WriteLine($"    .IgnoreQueryFilters(source, [nameof({MajalNamespace}.ITranslatable)]);");
         PopIndent();
         WriteLine("}");
         PopIndent();

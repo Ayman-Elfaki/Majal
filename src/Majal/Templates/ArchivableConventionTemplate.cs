@@ -38,9 +38,25 @@ public class ArchivableConventionTemplate : BaseTemplate
         WriteLine($"var lambda = {ExpressionsType}.Lambda(body, parameter);");
         WriteLine("");
         WriteLine("// Set the query filter");
-        WriteLine("entityType.SetQueryFilter(nameof(IArchivable.IsArchived), lambda);");
+        WriteLine("entityType.SetQueryFilter(nameof(IArchivable), lambda);");
         PopIndent();
         WriteLine("}");
+        PopIndent();
+        WriteLine("}");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        
+        WriteLine("public static class ArchivableEfCoreExtensions");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"public static {LinqNamespace}.IQueryable<TEntity> IgnoreArchivableFilter<TEntity>(");
+        WriteLine($"    this {LinqNamespace}.IQueryable<TEntity> source)");
+        WriteLine("             where TEntity : class");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"return {EfCoreNamespace}.EntityFrameworkQueryableExtensions");
+        WriteLine($"    .IgnoreQueryFilters(source, [nameof({MajalNamespace}.IArchivable)]);");
         PopIndent();
         WriteLine("}");
         PopIndent();

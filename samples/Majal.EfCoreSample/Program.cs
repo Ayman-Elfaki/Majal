@@ -1,4 +1,5 @@
 ﻿using Bogus;
+using Majal;
 using Majal.EfCoreSample;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,14 +35,13 @@ await using (var context = new LibraryDbContext(options))
     await context.SaveChangesAsync();
 }
 
-
 await ShowLibrary();
 
 await using (var context = new LibraryDbContext(options))
 {
     var book = await context.Books
         .FirstOrDefaultAsync(b => b.Id == 3);
-
+    
     if (book is not null)
     {
         context.Books.Remove(book);
@@ -63,6 +63,7 @@ async Task ShowLibrary()
     var books = await context.Books
         .Include(p => p.Authors)
         .Include(p => p.Translations)
+        .IgnoreArchivableFilter()
         .AsNoTracking()
         .AsSplitQuery()
         .ToListAsync();

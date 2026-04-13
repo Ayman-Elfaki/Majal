@@ -1,3 +1,4 @@
+
 namespace Majal.EfCoreSample;
 
 [Entity]
@@ -7,6 +8,7 @@ public partial class Book
 {
     public required BookName Name { get; init; }
     public required BookPublishYear PublishYear { get; init; }
+
     public List<Author> Authors { get; init; } = [];
     public List<BookTranslation> Translations { get; init; } = [];
 
@@ -16,7 +18,7 @@ public partial class Book
 
         if (!languages.All(l => translations.Any(t => t.Locale == l)))
             throw new ArgumentException("Translations must contain both 'en' and 'de' languages");
-        
+
         return new Book
         {
             Name = BookName.Create(name),

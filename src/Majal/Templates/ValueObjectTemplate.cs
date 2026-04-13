@@ -69,7 +69,9 @@ public class ValueObjectTemplate : BaseTemplate
             }
 
             WriteLine("public sealed class ValueObjectTypeConverter : ");
-            WriteLine($"    {ComponentModelNamespace}.TypeConverter");
+            PushIndent();
+            WriteLine($"{ComponentModelNamespace}.TypeConverter");
+            PopIndent();
             WriteLine("{");
             PushIndent();
             WriteLine($"public override {BoolType} CanConvertFrom(");
@@ -137,7 +139,7 @@ public class ValueObjectTemplate : BaseTemplate
                 WriteLine("");
             }
 
-            WriteLine($"public static {Data.TypeName} Parse({StringType} value)");
+            WriteLine($"private static {Data.TypeName} Parse({StringType} value)");
             WriteLine("{");
             PushIndent();
             WriteLine("string".Equals(Data.ValueType, StringComparison.OrdinalIgnoreCase)
@@ -146,11 +148,19 @@ public class ValueObjectTemplate : BaseTemplate
             PopIndent();
             WriteLine("}");
             WriteLine("");
-            
+
             WriteLine($"public static explicit operator {Data.ValueType}({Data.TypeName} valueObject)");
             WriteLine("{");
             PushIndent();
             WriteLine("return valueObject.Value;");
+            PopIndent();
+            WriteLine("}");
+            WriteLine("");
+            
+            WriteLine($"public static explicit operator {Data.TypeName}({Data.ValueType} value)");
+            WriteLine("{");
+            PushIndent();
+            WriteLine("return Create(value);");
             PopIndent();
             WriteLine("}");
             WriteLine("");
@@ -213,8 +223,9 @@ public class ValueObjectTemplate : BaseTemplate
             WriteLine(
                 $"private {GenericCollectionNamespace}.IEnumerable<{ObjectType}?> GetEqualityComponents() => [];");
         }
-
         WriteLine("");
+        
+        // Equals Method 
         WriteLine($"public override {BoolType} Equals({ObjectType}? obj)");
         WriteLine("{");
         PushIndent();
@@ -223,6 +234,8 @@ public class ValueObjectTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        
+        // Equals operator Method 
         WriteLine($"public static {BoolType} operator ==({Data.TypeName}? a, {Data.TypeName}? b)");
         WriteLine("{");
         PushIndent();
@@ -232,6 +245,8 @@ public class ValueObjectTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        
+        // Not Equals operator Method 
         WriteLine($"public static {BoolType} operator !=({Data.TypeName}? a, {Data.TypeName}? b)");
         WriteLine("{");
         PushIndent();
@@ -239,6 +254,8 @@ public class ValueObjectTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        
+        // GetHashCode Method 
         WriteLine($"public override {IntType} GetHashCode()");
         WriteLine("{");
         PushIndent();
@@ -263,6 +280,8 @@ public class ValueObjectTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+
+        // CompareTo<T> Method 
         WriteLine($"public {IntType} CompareTo({Data.TypeName}? other)");
         WriteLine("{");
         PushIndent();
@@ -282,13 +301,15 @@ public class ValueObjectTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        
+        // CompareTo Method 
         WriteLine($"public {IntType} CompareTo({ObjectType}? other)");
         WriteLine("{");
         PushIndent();
         WriteLine($"return CompareTo(other as {Data.TypeName});");
         PopIndent();
         WriteLine("}");
-
+        
         PopIndent();
         WriteLine("}");
 
