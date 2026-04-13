@@ -1,7 +1,7 @@
 namespace Majal.Samples;
 
 [ValueObject]
-public partial class EmployeeExperience
+public readonly partial struct EmployeeExperience
 {
     public required string Company { get; init; }
     public required string Position { get; init; }
@@ -17,10 +17,6 @@ public partial class EmployeeExperience
         };
     }
 
-    private partial IEnumerable<object?> GetEqualityComponents()
-    {
-        yield return Company.Trim();
-        yield return Position;
-        yield return MonthsOfExperience;
-    }
+    private partial (string, string, int) GetEqualityComponents() =>
+        (Company, Position, MonthsOfExperience);
 }

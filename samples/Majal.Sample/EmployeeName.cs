@@ -1,6 +1,4 @@
-
-
 namespace Majal.Samples;
 
 [ValueObject<string>]
-public partial class EmpolyeeName;
+public readonly partial struct EmployeeName;

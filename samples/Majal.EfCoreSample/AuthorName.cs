@@ -1,7 +1,7 @@
 namespace Majal.EfCoreSample;
 
 [ValueObject<string>]
-public partial class AuthorName
+public readonly partial struct AuthorName
 {
     public const int MaxLength = 255;
 }

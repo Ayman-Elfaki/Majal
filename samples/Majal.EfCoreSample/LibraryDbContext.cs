@@ -82,6 +82,7 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
             .ComplexProperty(p => p.Address, pb =>
             {
                 pb.ToJson();
+                pb.Property(p => p.City);
             });
     }
 }

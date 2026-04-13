@@ -49,33 +49,35 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
         var classSymbol = semanticModel.GetDeclaredSymbol(classDecl, ct);
         if (classSymbol == null) return document;
 
-        // gather property names
+        // gather property names and types
         var props = classSymbol.GetMembers().OfType<IPropertySymbol>()
             .Where(p => p.GetMethod?.DeclaredAccessibility == Accessibility.Public)
-            .Select(p => p.Name)
+            .Select(p => (p.Name, Type: p.Type.ToDisplayString()))
             .ToList();
 
-        // build statements
-        var statements = new List<StatementSyntax>();
-        if (props.Count == 0)
+        TypeSyntax returnType;
+        ArrowExpressionClauseSyntax expressionBody;
+        
+        if (props.Count == 1)
         {
-            // generate yield break
-            statements.Add(SyntaxFactory.ParseStatement("yield break;")
-                .WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed));
+            returnType = SyntaxFactory.ParseTypeName(props[0].Type);
+            expressionBody = SyntaxFactory.ArrowExpressionClause(SyntaxFactory.ParseExpression(props[0].Name));
         }
-        else
+        else 
         {
-            statements.AddRange(props.Select(name => SyntaxFactory.ParseStatement($"yield return {name};")
-                .WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed)));
+            var tupleTypes = string.Join(", ", props.Select(p => p.Type));
+            var tupleValues = string.Join(", ", props.Select(p => p.Name));
+            returnType = SyntaxFactory.ParseTypeName($"({tupleTypes})");
+            expressionBody = SyntaxFactory.ArrowExpressionClause(SyntaxFactory.ParseExpression($"({tupleValues})"));
         }
 
         // create method declaration
-        var returnType = SyntaxFactory.ParseTypeName("IEnumerable<object?>");
         var method = SyntaxFactory.MethodDeclaration(returnType, "GetEqualityComponents")
             .WithModifiers(SyntaxFactory.TokenList(
                 SyntaxFactory.Token(SyntaxKind.PrivateKeyword),
                 SyntaxFactory.Token(SyntaxKind.PartialKeyword)))
-            .WithBody(SyntaxFactory.Block(statements))
+            .WithExpressionBody(expressionBody)
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
             .WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
 
         var editor = await DocumentEditor.CreateAsync(document, ct).ConfigureAwait(false);

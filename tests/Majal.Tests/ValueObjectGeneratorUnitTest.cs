@@ -11,24 +11,17 @@ public class ValueObjectGeneratorUnitTest
     [Fact]
     public void GeneratesBasicNonGenericValueObject()
     {
-        const string returnType = "global::System.Collections.Generic.IEnumerable";
-        const string objectType = "global::System.Object?";
-
         const string source =
             $$"""
               using {{ValueObjectsNamespace}};
 
               [ValueObject]
-              public partial class Money
+              public partial struct Money
               {
                   public decimal Amount { get; }
                   public string Currency { get; }
                   
-                  private partial {{returnType}}<{{objectType}}> GetEqualityComponents()
-                  {
-                      yield return Amount;
-                      yield return Currency;
-                  }
+                  private partial (decimal, string) GetEqualityComponents() => (Amount, Currency);
               }
               """;
 
@@ -46,15 +39,15 @@ public class ValueObjectGeneratorUnitTest
         string[] markers =
         [
             $"global::{ValueObjectsNamespace}.IValueObject",
+            "global::System.IEquatable<Money>",
             "global::System.IComparable",
             "global::System.IComparable<Money>"
         ];
 
-        var classDefinition = $"public partial class Money : {string.Join(", ", markers)}";
-
+        var classDefinition = $"public partial struct Money : {string.Join(", ", markers)}";
         Assert.NotNull(generated);
         Assert.Contains(classDefinition, generated);
-        Assert.Contains($"private partial {returnType}<{objectType}> GetEqualityComponents()", generated);
+        Assert.Contains("private partial (decimal, string) GetEqualityComponents()", generated);
     }
 
 
@@ -66,7 +59,7 @@ public class ValueObjectGeneratorUnitTest
               using {{ValueObjectsNamespace}};
 
               [ValueObject]
-              public partial class Email
+              public partial struct Email
               {
                   public string Address { get; }
               }
@@ -85,8 +78,6 @@ public class ValueObjectGeneratorUnitTest
 
         Assert.NotNull(generated);
         Assert.Contains("public override global::System.Boolean Equals(global::System.Object? obj)", generated);
-        Assert.Contains("if (obj is not Email other) return false;", generated);
-        Assert.Contains("return GetEqualityComponents().SequenceEqual(other.GetEqualityComponents());", generated);
     }
 
     [Fact]
@@ -97,7 +88,42 @@ public class ValueObjectGeneratorUnitTest
               using {{ValueObjectsNamespace}};
 
               [ValueObject<string>]
-              public partial class Factory
+              public partial struct Factory
+              {
+                  public static Factory Create(string value)
+                  {
+                      return new Factory
+                      {
+                          Value = value
+                      };
+                  }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.DoesNotContain("public static Factory Create(string value)", generated);
+    }
+    
+    [Fact]
+    public void GeneratesValueObjectWithStruct()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject<string>]
+              public readonly partial struct Factory
               {
                   public static Factory Create(string value)
                   {
@@ -132,7 +158,7 @@ public class ValueObjectGeneratorUnitTest
               using {{ValueObjectsNamespace}};
 
               [ValueObject]
-              public partial class UserId
+              public partial struct UserId
               {
                   public required string Id { get; init; }
               }
@@ -150,10 +176,8 @@ public class ValueObjectGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public static global::System.Boolean operator ==(UserId? a, UserId? b)", generated);
-        Assert.Contains("public static global::System.Boolean operator !=(UserId? a, UserId? b)", generated);
-        Assert.Contains("if (a is null && b is null) return true;", generated);
-        Assert.Contains("if (a is null || b is null) return false;", generated);
+        Assert.Contains("public static global::System.Boolean operator ==(UserId left, UserId right)", generated);
+        Assert.Contains("public static global::System.Boolean operator !=(UserId left, UserId right)", generated);
     }
 
     [Fact]
@@ -164,7 +188,7 @@ public class ValueObjectGeneratorUnitTest
               using {{ValueObjectsNamespace}};
 
               [ValueObject]
-              public partial class Price
+              public partial struct Price
               {
                   public decimal Value { get; }
               }
@@ -182,10 +206,7 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public override global::System.Int32 GetHashCode()", generated);
-        Assert.Contains("_cachedHashCode", generated);
         Assert.Contains("GetEqualityComponents()", generated);
-        Assert.Contains("GetEqualityComponents().Aggregate(1, (current, obj) =>", generated);
     }
 
     [Fact]
@@ -196,7 +217,7 @@ public class ValueObjectGeneratorUnitTest
               using {{ValueObjectsNamespace}};
 
               [ValueObject]
-              public partial class Address
+              public partial struct Address
               {
                   public string Street { get; }
                   public string City { get; }
@@ -230,7 +251,7 @@ public class ValueObjectGeneratorUnitTest
               namespace MyApp.Domain
               {
                   [ValueObject]
-                  public partial class DomainValue
+                  public partial struct DomainValue
                   {
                       public int Id { get; }
                   }
@@ -260,7 +281,7 @@ public class ValueObjectGeneratorUnitTest
               using {{ValueObjectsNamespace}};
 
               [ValueObject]
-              public partial class Test
+              public partial struct Test
               {
               }
               """;
@@ -288,7 +309,7 @@ public class ValueObjectGeneratorUnitTest
               using {{ValueObjectsNamespace}};
 
               [ValueObject]
-              public partial class NullTest
+              public partial struct NullTest
               {
                   public string? Value { get; }
               }
@@ -317,7 +338,7 @@ public class ValueObjectGeneratorUnitTest
               using {{ValueObjectsNamespace}};
 
               [ValueObject]
-              public partial class Person
+              public partial struct Person
               {
                   public required string Name { get; init; }
               }
@@ -346,7 +367,7 @@ public class ValueObjectGeneratorUnitTest
               using {{ValueObjectsNamespace}};
 
               [ValueObject]
-              public partial class Address
+              public partial struct Address
               {
                   public string Street { get; set; }
                   public string City { get; set; }
@@ -378,7 +399,7 @@ public class ValueObjectGeneratorUnitTest
              using {ValueObjectsNamespace};
 
              [ValueObject<int>]
-             public partial class ProductId;
+             public partial struct ProductId;
              """;
 
         var compilation = CreateCompilation(source);
@@ -395,17 +416,16 @@ public class ValueObjectGeneratorUnitTest
         string[] markers =
         [
             $"global::{ValueObjectsNamespace}.IValueObject<int>",
+            "global::System.IEquatable<ProductId>",
             "global::System.IComparable",
             "global::System.IComparable<ProductId>"
         ];
 
-        var classDefinition = $"public partial class ProductId : {string.Join(", ", markers)}";
+        var classDefinition = $"public partial struct ProductId : {string.Join(", ", markers)}";
 
         Assert.NotNull(generated);
         Assert.Contains(classDefinition, generated);
         Assert.Contains("public required int Value { get; init; }", generated);
-        Assert.Contains("private ProductId()", generated);
-        Assert.Contains("yield return Value;", generated);
     }
 
     [Fact]
@@ -416,7 +436,7 @@ public class ValueObjectGeneratorUnitTest
              using {ValueObjectsNamespace};
 
              [ValueObject<int>]
-             public partial class Quantity;
+             public partial struct Quantity;
              """;
 
         var compilation = CreateCompilation(source);
@@ -431,10 +451,8 @@ public class ValueObjectGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public global::System.Int32 CompareTo(Quantity? other)", generated);
+        Assert.Contains("public global::System.Int32 CompareTo(Quantity other)", generated);
         Assert.Contains("public global::System.Int32 CompareTo(global::System.Object? other)", generated);
-        Assert.Contains("if (other is null) return 1;", generated);
-        Assert.Contains("if (ReferenceEquals(this, other)) return 0;", generated);
     }
 
     [Fact]
@@ -445,7 +463,7 @@ public class ValueObjectGeneratorUnitTest
              using {ValueObjectsNamespace};
 
              [ValueObject<string>]
-             public partial class OrderId;
+             public partial struct OrderId;
              """;
 
         var compilation = CreateCompilation(source);
@@ -460,8 +478,8 @@ public class ValueObjectGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public static explicit operator OrderId(string value)", generated);
-        Assert.Contains("return Create(value);", generated);
+        Assert.Contains("public static explicit operator OrderId(string value) =>", generated);
+        Assert.Contains("Create(value);", generated);
     }
     
     [Fact]
@@ -472,7 +490,7 @@ public class ValueObjectGeneratorUnitTest
              using {ValueObjectsNamespace};
 
              [ValueObject<string>]
-             public partial class OrderId;
+             public partial struct OrderId;
              """;
 
         var compilation = CreateCompilation(source);
@@ -487,8 +505,8 @@ public class ValueObjectGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public static explicit operator string(OrderId valueObject)", generated);
-        Assert.Contains("return valueObject.Value;", generated);
+        Assert.Contains("public static explicit operator string(OrderId valueObject) => ", generated);
+        Assert.Contains("valueObject.Value;", generated);
     }
 
     [Fact]
@@ -499,7 +517,7 @@ public class ValueObjectGeneratorUnitTest
              using {ValueObjectsNamespace};
 
              [ValueObject<decimal>]
-             public partial class Amount;
+             public partial struct Amount;
              """;
 
         var compilation = CreateCompilation(source);

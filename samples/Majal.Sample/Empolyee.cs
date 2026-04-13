@@ -4,7 +4,7 @@ namespace Majal.Samples;
 [Archivable, Auditable]
 public partial class Empolyee
 {
-    public static Empolyee Create(EmpolyeeName name, EmpolyeeInformation information)
+    public static Empolyee Create(EmployeeName name, EmpolyeeInformation information)
     {
         return new Empolyee
         {
@@ -15,7 +15,7 @@ public partial class Empolyee
         };
     }
 
-    public required EmpolyeeName Name { get; init; }
+    public required EmployeeName Name { get; init; }
     public required EmpolyeeInformation Information { get; init; }
 
 

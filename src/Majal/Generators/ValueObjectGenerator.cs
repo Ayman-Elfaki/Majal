@@ -3,6 +3,7 @@ using System.Text;
 using Majal.Abstractions;
 using Majal.Templates;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
 namespace Majal.Generators;
@@ -103,9 +104,9 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
 
     protected override ValueObjectData? Transform(GeneratorAttributeSyntaxContext context, CancellationToken ct)
     {
-        if (context.TargetSymbol is not INamedTypeSymbol classSymbol) return null;
+        if (context.TargetSymbol is not INamedTypeSymbol symbol) return null;
 
-        var attribute = classSymbol.GetAttribute(ValueObjectAttributeName, AttributeNamespace);
+        var attribute = symbol.GetAttribute(ValueObjectAttributeName, AttributeNamespace);
 
         string? valueType = null;
 
@@ -117,28 +118,28 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             isGeneric = true;
         }
 
-        var properties = classSymbol.GetMembers()
+        var properties = symbol.GetMembers()
             .OfType<IPropertySymbol>()
             .Where(p => p.GetMethod?.DeclaredAccessibility is Accessibility.Public)
             .Select(p => new ValueObjectData.PropertyData(p.Name, Type: p.Type.ToDisplayString()))
             .ToArray();
 
-        var methods = classSymbol.GetMembers()
+        var methods = symbol.GetMembers()
             .OfType<IMethodSymbol>()
             .ToArray();
 
         var hasCreateMethod = methods
             .Any(m => m is { Name: ValueObjectTemplate.FactoryMethodName, IsStatic: true, Parameters.Length: 1 } &&
-                  m.Parameters.First().Type.Name.Equals(valueType, StringComparison.OrdinalIgnoreCase));
+                      m.Parameters.First().Type.Name.Equals(valueType, StringComparison.OrdinalIgnoreCase));
 
         var hasToStringMethod = methods
             .Any(m => m is { Name: nameof(ToString), IsStatic: false, Parameters.Length: 0 });
 
-        var hasConstructor = classSymbol.Constructors.Any(c => !c.IsImplicitlyDeclared);
+        var hasConstructor = symbol.Constructors.Any(c => !c.IsImplicitlyDeclared);
 
         return new ValueObjectData(
-            typeName: classSymbol.GetTypeNameWithGenerics(),
-            @namespace: classSymbol.GetNamespace(),
+            typeName: symbol.GetTypeNameWithGenerics(),
+            @namespace: symbol.GetNamespace(),
             hasConstructor: hasConstructor,
             hasCreateMethod: hasCreateMethod,
             hasToStringMethod: hasToStringMethod,
@@ -146,5 +147,10 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             valueType: valueType,
             isGeneric: isGeneric
         );
+    }
+
+    protected override bool Filter(SyntaxNode node, CancellationToken token)
+    {
+        return node is StructDeclarationSyntax;
     }
 }
