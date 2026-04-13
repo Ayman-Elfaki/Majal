@@ -438,7 +438,34 @@ public class ValueObjectGeneratorUnitTest
     }
 
     [Fact]
-    public void GeneratesSimpleValueObjectWithExplicitOperator()
+    public void GeneratesSimpleValueObjectFromPrimitiveWithExplicitOperator()
+    {
+        const string source =
+            $"""
+             using {ValueObjectsNamespace};
+
+             [ValueObject<string>]
+             public partial class OrderId;
+             """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public static explicit operator OrderId(string value)", generated);
+        Assert.Contains("return Create(value);", generated);
+    }
+    
+    [Fact]
+    public void GeneratesSimpleValueObjectToPrimitiveWithExplicitOperator()
     {
         const string source =
             $"""
