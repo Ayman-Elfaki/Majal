@@ -12,6 +12,8 @@ public class LanguageProvider : ILocaleProvider
     }
 }
 
+
+
 public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbContext(options), ITranslatableDbContext
 {
     public DbSet<Book> Books => Set<Book>();
@@ -20,8 +22,8 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
+        configurationBuilder.RegisterValueObjectsConventions();
         configurationBuilder.Conventions.Add(_ => new ArchivableFilterConvention());
-        configurationBuilder.Conventions.Add(_ => new ValueObjectConvertersConvention());
         configurationBuilder.Conventions.Add(_ => new TranslatableFilterConvention<LibraryDbContext>(this));
     }
 
@@ -44,10 +46,14 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
             .Property(p => p.Name)
             .HasMaxLength(BookName.MaxLength)
             .IsRequired();
-        
+
         modelBuilder.Entity<Book>()
             .Property(p => p.PublishYear)
             .IsRequired();
+
+        modelBuilder.Entity<Book>()
+            .Property(p => p.Category)
+            .IsRequired(false);
 
         modelBuilder.Entity<Book>()
             .HasMany(p => p.Translations)
@@ -55,12 +61,12 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
 
         modelBuilder.Entity<BookTranslation>()
             .HasKey(p => p.Id);
-        
+
         modelBuilder.Entity<BookTranslation>()
             .Property(p => p.Content)
             .HasMaxLength(BookContent.MaxLength)
             .IsRequired();
-        
+
         modelBuilder.Entity<BookTranslation>()
             .Property(p => p.Locale)
             .HasMaxLength(4);
@@ -77,7 +83,7 @@ public class LibraryDbContext(DbContextOptions<LibraryDbContext> options) : DbCo
             .Property(p => p.Name)
             .HasMaxLength(AuthorName.MaxLength)
             .IsRequired();
-        
+
         modelBuilder.Entity<Author>()
             .ComplexProperty(p => p.Address, pb =>
             {

@@ -17,4 +17,7 @@ public partial class Author
 }
 
 [ValueObject<string>]
-public readonly partial struct AddressCity;
+public readonly partial struct AddressCity
+{
+    public const int MaxLength = 255;
+}

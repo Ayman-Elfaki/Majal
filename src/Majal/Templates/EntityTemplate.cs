@@ -30,7 +30,7 @@ public class EntityTemplate : BaseTemplate
 
         if (!Data.HasConstructor)
         {
-            WriteLine($"private {Data.TypeName}()");
+            WriteLine($"protected {Data.TypeName}()");
             WriteLine("{");
             WriteLine("}");
         }

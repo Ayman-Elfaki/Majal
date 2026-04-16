@@ -22,10 +22,12 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
         public bool HasConstructor { get; }
         public bool HasToStringMethod { get; }
         public bool HasCreateMethod { get; }
+        public int? MaxLength { get; }
+
         public EquatableList<PropertyData> Properties { get; }
 
         public ValueObjectData(string typeName, string @namespace, bool hasConstructor, PropertyData[] properties,
-            string? valueType, bool isGeneric, bool hasCreateMethod, bool hasToStringMethod)
+            string? valueType, bool isGeneric, bool hasCreateMethod, bool hasToStringMethod, int? maxLength)
         {
             TypeName = typeName;
             Namespace = @namespace;
@@ -34,6 +36,7 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             HasConstructor = hasConstructor;
             HasCreateMethod = hasCreateMethod;
             HasToStringMethod = hasToStringMethod;
+            MaxLength = maxLength;
             Properties = new EquatableList<PropertyData>(properties);
         }
     }
@@ -79,7 +82,6 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
 
         var provider = genericProvider.Combine(nonGenericProvider).Combine(valueConverterEnabled);
 
-
         context.RegisterImplementationSourceOutput(provider, (ctx, source) =>
         {
             var (generics, nonGenerics) = source.Left;
@@ -89,8 +91,8 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
 
             if (enableEfCore)
             {
-                var code = new ValueObjectConventionTemplate().TransformText();
-                ctx.AddSource("ValueObjectConvention.g.cs", SourceText.From(code, Encoding.UTF8));
+                var code = new ValueObjectConfigurationTemplate([..generics]).TransformText();
+                ctx.AddSource("ValueObjectExtensions.g.cs", SourceText.From(code, Encoding.UTF8));
             }
 
             foreach (var data in entities)
@@ -124,6 +126,11 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             .Select(p => new ValueObjectData.PropertyData(p.Name, Type: p.Type.ToDisplayString()))
             .ToArray();
 
+        var constants = symbol.GetMembers()
+            .OfType<IFieldSymbol>()
+            .Where(p => p is { IsConst: true, Type.SpecialType: SpecialType.System_Int32 })
+            .ToArray();
+
         var methods = symbol.GetMembers()
             .OfType<IMethodSymbol>()
             .ToArray();
@@ -135,6 +142,10 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
         var hasToStringMethod = methods
             .Any(m => m is { Name: nameof(ToString), IsStatic: false, Parameters.Length: 0 });
 
+        var maxLength = constants
+            .Select(p => new { p.Name, Value = p.ConstantValue is { } v ? int.Parse(v.ToString()) : (int?)null })
+            .FirstOrDefault(f => f is { Name: "MaxLength" });
+
         var hasConstructor = symbol.Constructors.Any(c => !c.IsImplicitlyDeclared);
 
         return new ValueObjectData(
@@ -145,6 +156,7 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             hasToStringMethod: hasToStringMethod,
             properties: [.. properties],
             valueType: valueType,
+            maxLength: maxLength?.Value,
             isGeneric: isGeneric
         );
     }

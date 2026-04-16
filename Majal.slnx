@@ -4,6 +4,7 @@
         <File Path=".gitignore" />
         <File Path="Directory.Build.props" />
         <File Path="Readme.md" />
+        <File Path="nuget.config" />
     </Folder>
     <Folder Name="/docs/">
         <File Path="docs/archivables.md" />

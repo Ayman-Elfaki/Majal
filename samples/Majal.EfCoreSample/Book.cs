@@ -8,6 +8,8 @@ public partial class Book
 {
     public required BookName Name { get; init; }
     public required BookPublishYear PublishYear { get; init; }
+    
+    public BookCategory? Category { get; set; }
 
     public List<Author> Authors { get; init; } = [];
     public List<BookTranslation> Translations { get; init; } = [];

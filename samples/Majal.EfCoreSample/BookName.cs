@@ -3,7 +3,7 @@ namespace Majal.EfCoreSample;
 [ValueObject<string>]
 public readonly partial struct BookName
 {
-    public const int MaxLength = 255;
+    public const int MaxLength = 1024;
 
     public static BookName Create(string value)
     {
@@ -15,3 +15,4 @@ public readonly partial struct BookName
 
     public override string ToString() => Value;
 }
+

@@ -8,6 +8,11 @@
     </PropertyGroup>
 
     <PropertyGroup>
+        <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Debug'">true</GeneratePackageOnBuild>
+        <PackageOutputPath Condition="'$(Configuration)' == 'Debug'">../../nuget</PackageOutputPath>
+    </PropertyGroup>
+
+    <PropertyGroup>
         <IsRoslynComponent>true</IsRoslynComponent>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <IncludeBuildOutput>false</IncludeBuildOutput>
