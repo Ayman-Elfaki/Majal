@@ -16,6 +16,10 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.x'
+      
+      # Generate the local NuGet package for the sample project.
+      - name: Generate Local Nuget Package
+        run: dotnet build src/Majal/Majal.csproj -c Release -o ./nuget
 
       # Restore the project dependencies to ensure that all required packages are available for building and testing the project.
       - name: Restore dependencies

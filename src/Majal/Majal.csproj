@@ -8,8 +8,8 @@
     </PropertyGroup>
 
     <PropertyGroup>
-        <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Debug'">true</GeneratePackageOnBuild>
-        <PackageOutputPath Condition="'$(Configuration)' == 'Debug'">../../nuget</PackageOutputPath>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageOutputPath>../../nuget</PackageOutputPath>
     </PropertyGroup>
 
     <PropertyGroup>
