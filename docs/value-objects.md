@@ -16,7 +16,7 @@ using Majal;
 namespace MyProject.Domain;
 
 [ValueObject<string>]
-public partial class ZipCode;
+public readonly partial struct ZipCode;
 
 // Usage
 var zip = new ZipCode("12345");
@@ -33,16 +33,15 @@ using Majal;
 namespace MyProject.Domain;
 
 [ValueObject]
-public partial class Address
+public readonly partial struct Address
 {
     public required string City { get; init; }
     public required string Country { get; init; }
 
     // This method defines which properties are used for equality
-    private partial IEnumerable<object?> GetEqualityComponents()
+    private partial (string, string) GetEqualityComponents()
     {
-        yield return City;
-        yield return Country;
+        return (City, Country);
     }
 }
 ```
