@@ -32,7 +32,7 @@ jobs:
 
       # Build the solution in Release configuration without restoring dependencies again, as they were already restored in the previous step.
       - name: Build solution
-        run: dotnet build -c Release --no-restore
+        run: dotnet build src/Majal/Majal.csproj -c Release --no-restore
 
       # Pack the project into NuGet packages, specifying the output directory for the generated .nupkg files.
       - name: Pack NuGet packages
