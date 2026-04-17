@@ -8,7 +8,7 @@ namespace Majal.Sample.Modules.Projects.Entities;
 public partial class Project
 {
     public required ProjectName Name { get; set; }
-    public ICollection<ProjectTranslation> Translations { get; private set; }
+    public ICollection<ProjectTranslation> Translations { get; private set; } = [];
 
     public static Project Create(ProjectName name, ProjectTranslation[] translations)
     {

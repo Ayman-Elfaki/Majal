@@ -17,7 +17,6 @@
         <File Path="docs/value-objects.md" />
     </Folder>
     <Folder Name="/samples/">
-        <Project Path="samples/Majal.EfCoreSample/Majal.EfCoreSample.csproj" />
         <Project Path="samples/Majal.Sample/Majal.Sample.csproj" />
     </Folder>
     <Folder Name="/src/">
