@@ -24,7 +24,7 @@ jobs:
 
       # Restore the project dependencies to ensure that all required packages are available for building and testing the project.
       - name: Restore dependencies
-        run: dotnet restore Majal.slnx --configuration CI
+        run: dotnet restore Majal.slnx -p:Configuration=CI
 
       # Execute the test project to ensure all tests pass before building the package.
       - name: Run unit tests
