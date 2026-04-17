@@ -5,6 +5,8 @@
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
         <ImplicitUsings>true</ImplicitUsings>
+        <Configurations>Debug;Release;CI</Configurations>
+        <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
 
     <PropertyGroup>

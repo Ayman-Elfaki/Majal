@@ -1,4 +1,9 @@
 <Solution>
+    <Configurations>
+        <BuildType Name="CI" />
+        <BuildType Name="Debug" />
+        <BuildType Name="Release" />
+    </Configurations>
     <Folder Name="/.solution items/">
         <File Path=".github/workflows/nuget-publish.yml" />
         <File Path=".gitignore" />
@@ -17,7 +22,9 @@
         <File Path="docs/value-objects.md" />
     </Folder>
     <Folder Name="/samples/">
-        <Project Path="samples/Majal.Sample/Majal.Sample.csproj" />
+        <Project Path="samples/Majal.Sample/Majal.Sample.csproj">
+            <Build Solution="CI|*" Project="false" />
+        </Project>
     </Folder>
     <Folder Name="/src/">
         <Project Path="src/Majal.Types/Majal.Types.csproj" />

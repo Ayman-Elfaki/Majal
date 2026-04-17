@@ -10,6 +10,8 @@
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
         <DebugType>embedded</DebugType>
         <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <Configurations>Debug;Release;CI</Configurations>
+        <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
     
     
