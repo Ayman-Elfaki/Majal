@@ -1,6 +1,10 @@
+using System.ComponentModel.DataAnnotations;
+using System.Text;
 using Majal.Sample.Common.Persistence;
+using Majal.Sample.Common.Validators;
 using Majal.Sample.Modules.Projects.Entities;
 using Majal.Sample.Modules.Projects.ValueObjects;
+using Microsoft.Extensions.Options;
 
 namespace Majal.Sample.Modules.Projects.Endpoints;
 
@@ -8,14 +12,23 @@ public static class CreateProjectEndpoint
 {
     public class CreateProjectRequest
     {
-        public required ProjectName Name { get; set; }
-        public required IEnumerable<ProjectTranslationDto> Translations { get; set; } = [];
+        [Required]
+        [MaxLength(ProjectName.MaxLength)]
+        public required string Name { get; init; }
 
-        public class ProjectTranslationDto
+        [TranslatablesValidator] public IEnumerable<ProjectTranslationDto> Translations { get; init; } = [];
+
+        public class ProjectTranslationDto : ITranslatable
         {
-            public required ProjectName Name { get; init; }
-            public required ProjectDescription Description { get; init; }
-            public required string Locale { get; init; }
+            [Required]
+            [MaxLength(ProjectName.MaxLength)]
+            public required string DisplayName { get; init; }
+
+            [Required]
+            [MaxLength(ProjectDescription.MaxLength)]
+            public required string Description { get; init; }
+
+            [Required] [Length(2, 2)] public required string Locale { get; init; }
         }
     }
 
@@ -24,10 +37,15 @@ public static class CreateProjectEndpoint
         app.MapPost("/projects", async (CreateProjectRequest req, AppDbContext context, CancellationToken ct) =>
         {
             var translations = req.Translations
-                .Select(t => ProjectTranslation.Create(t.Name, t.Description, t.Locale))
-                .ToArray();
+                .Select(t =>
+                    ProjectTranslation.Create(
+                        ProjectName.From(t.DisplayName),
+                        ProjectDescription.From(t.Description),
+                        t.Locale
+                    )
+                ).ToArray();
 
-            var project = Project.Create(req.Name, translations);
+            var project = Project.Create(ProjectName.From(req.Name), translations);
 
             context.Projects.Add(project);
 

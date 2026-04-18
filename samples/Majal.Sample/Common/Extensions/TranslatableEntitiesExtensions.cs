@@ -8,11 +8,14 @@ public static class TranslatableEntitiesExtensions
     {
         public bool HasRequiredLocales() => 
             Locales.All(l => translatables.Any(t => t.Locale == l));
+        
+        public static string[] SupportedLocales => Locales;
     }
 
     extension(string locale)
     {
         public bool IsLocaleSupported() => 
-            Locales.Contains(locale); 
+            Locales.Contains(locale);
+
     }
 }

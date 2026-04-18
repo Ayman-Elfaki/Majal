@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Majal.Generators;
+using Majal.Templates;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -13,9 +14,9 @@ public sealed class GetEqualityComponentsAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
-        title: "Value object must implement GetEqualityComponents",
+        title: $"Value object must implement {ValueObjectTemplate.EqualityMethodName}",
         messageFormat:
-        "Class '{0}' is marked with [ValueObject] and should provide an implementation of GetEqualityComponents",
+        $"Class '{{0}}' is marked with [ValueObject] and should provide an implementation of {ValueObjectTemplate.EqualityMethodName}",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -35,7 +36,7 @@ public sealed class GetEqualityComponentsAnalyzer : DiagnosticAnalyzer
     {
         var namedType = (INamedTypeSymbol)context.Symbol;
 
-        if (namedType.TypeKind != TypeKind.Class) return;
+        if (namedType.TypeKind != TypeKind.Struct) return;
 
         // look for ValueObjectAttribute
         var valueAttr = namedType.GetAttributes()
@@ -53,7 +54,7 @@ public sealed class GetEqualityComponentsAnalyzer : DiagnosticAnalyzer
         if (!hasPublicProperties) return;
 
         // examine members to find a method implementation
-        var hasImplementation = namedType.GetMembers("GetEqualityComponents")
+        var hasImplementation = namedType.GetMembers(ValueObjectTemplate.EqualityMethodName)
             .OfType<IMethodSymbol>()
             .Any(m => m.MethodKind == MethodKind.Ordinary &&
                       m.DeclaredAccessibility is Accessibility.Private &&

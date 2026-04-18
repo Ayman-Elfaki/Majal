@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Majal.Generators;
+using Majal.Templates;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -7,15 +8,15 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Majal.Analyzers;
 
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public sealed class CreateFactoryMethodAnalyzer : DiagnosticAnalyzer
+public sealed class ValueObjectFactoryMethodAnalyzer : DiagnosticAnalyzer
 {
     public const string DiagnosticId = "MJ002";
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
-        title: "Value object must implement Create Factory Method",
+        title: $"Value object must implement {ValueObjectTemplate.FactoryMethodName} Factory Method",
         messageFormat:
-        "Class '{0}' is marked with [ValueObject] and should provide an implementation of Create",
+        $"Class '{{0}}' is marked with [ValueObject] and should provide an implementation of {ValueObjectTemplate.FactoryMethodName}",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -36,8 +37,8 @@ public sealed class CreateFactoryMethodAnalyzer : DiagnosticAnalyzer
     {
         var namedType = (INamedTypeSymbol)context.Symbol;
 
-        // only classes
-        if (namedType.TypeKind != TypeKind.Class) return;
+        // only Struct
+        if (namedType.TypeKind != TypeKind.Struct) return;
 
         // look for ValueObjectAttribute 
         var valueAttr = namedType.GetAttributes()
@@ -55,7 +56,7 @@ public sealed class CreateFactoryMethodAnalyzer : DiagnosticAnalyzer
         if (!hasPublicProperties) return;
 
         // examine members to find a method implementation
-        var hasImplementation = namedType.GetMembers("Create")
+        var hasImplementation = namedType.GetMembers(ValueObjectTemplate.FactoryMethodName)
             .OfType<IMethodSymbol>()
             .Any(m => m.MethodKind == MethodKind.Ordinary &&
                       m.DeclaredAccessibility is Accessibility.Public && m.IsStatic &&

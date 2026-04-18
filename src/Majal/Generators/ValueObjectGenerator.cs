@@ -21,20 +21,20 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
         public bool IsGeneric { get; }
         public bool HasConstructor { get; }
         public bool HasToStringMethod { get; }
-        public bool HasCreateMethod { get; }
+        public bool HasFactoryMethod { get; }
         public int? MaxLength { get; }
 
         public EquatableList<PropertyData> Properties { get; }
 
         public ValueObjectData(string typeName, string @namespace, bool hasConstructor, PropertyData[] properties,
-            string? valueType, bool isGeneric, bool hasCreateMethod, bool hasToStringMethod, int? maxLength)
+            string? valueType, bool isGeneric, bool hasFactoryMethod, bool hasToStringMethod, int? maxLength)
         {
             TypeName = typeName;
             Namespace = @namespace;
             ValueType = valueType;
             IsGeneric = isGeneric;
             HasConstructor = hasConstructor;
-            HasCreateMethod = hasCreateMethod;
+            HasFactoryMethod = hasFactoryMethod;
             HasToStringMethod = hasToStringMethod;
             MaxLength = maxLength;
             Properties = new EquatableList<PropertyData>(properties);
@@ -152,7 +152,7 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             typeName: symbol.GetTypeNameWithGenerics(),
             @namespace: symbol.GetNamespace(),
             hasConstructor: hasConstructor,
-            hasCreateMethod: hasCreateMethod,
+            hasFactoryMethod: hasCreateMethod,
             hasToStringMethod: hasToStringMethod,
             properties: [.. properties],
             valueType: valueType,

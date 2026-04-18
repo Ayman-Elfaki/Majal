@@ -17,6 +17,8 @@ builder.Services.AddDbContext<AppDbContext>(option =>
     option.UseSqlite(connectionString);
 });
 
+builder.Services.AddValidation();
+
 builder.Services.AddOpenApi();
 
 var app = builder.Build();

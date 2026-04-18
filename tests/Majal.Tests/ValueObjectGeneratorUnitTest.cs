@@ -1,6 +1,7 @@
 using Majal.Generators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using static Majal.Templates.ValueObjectTemplate;
 
 namespace Majal.Tests;
 
@@ -114,7 +115,7 @@ public class ValueObjectGeneratorUnitTest
         Assert.NotNull(generated);
         Assert.DoesNotContain("public static Factory Create(string value)", generated);
     }
-    
+
     [Fact]
     public void GeneratesValueObjectWithStruct()
     {
@@ -356,7 +357,7 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public static partial Person Create(string name);", generated);
+        Assert.Contains($"public static partial Person {FactoryMethodName}(string name);", generated);
     }
 
     [Fact]
@@ -387,7 +388,9 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public static partial Address Create(string street, string city, string zipCode);", generated);
+        Assert.Contains(
+            $"public static partial Address {FactoryMethodName}(string street, string city, string zipCode);",
+            generated);
     }
 
 
@@ -478,10 +481,10 @@ public class ValueObjectGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public static explicit operator OrderId(string value) =>", generated);
-        Assert.Contains("Create(value);", generated);
+        Assert.Contains($"public static explicit operator OrderId(string value) => {FactoryMethodName}(value);",
+            generated);
     }
-    
+
     [Fact]
     public void GeneratesSimpleValueObjectToPrimitiveWithExplicitOperator()
     {
@@ -505,8 +508,7 @@ public class ValueObjectGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public static explicit operator string(OrderId valueObject) => ", generated);
-        Assert.Contains("valueObject.Value;", generated);
+        Assert.Contains("public static implicit operator string(OrderId valueObject) => valueObject.Value;", generated);
     }
 
     [Fact]

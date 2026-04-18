@@ -39,7 +39,7 @@ public sealed class ValueObjectGenericArgumentAnalyzer : DiagnosticAnalyzer
     {
         var namedType = (INamedTypeSymbol)context.Symbol;
 
-        if (namedType.TypeKind != TypeKind.Class) return;
+        if (namedType.TypeKind != TypeKind.Struct) return;
 
         // look for ValueObjectAttribute with a generic argument
         var valueAttr = namedType.GetAttributes()

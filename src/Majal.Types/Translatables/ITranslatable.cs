@@ -8,5 +8,5 @@ public interface ITranslatable
     /// <summary>
     /// Gets the locale of the translation.
     /// </summary>
-    string Locale { get; }
+    string? Locale { get; }
 }

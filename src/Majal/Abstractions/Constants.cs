@@ -9,10 +9,10 @@ public static class Constants
     public const string ExpressionsNamespace = "global::System.Linq.Expressions";
     public const string LinqNamespace = "global::System.Linq";
     public const string GenericCollectionNamespace = "global::System.Collections.Generic";
+    public const string CollectionNamespace = "global::System.Collections";
     public const string ComponentModelNamespace = "global::System.ComponentModel";
     public const string GlobalizationNamespace = "global::System.Globalization";
     public const string ThreadingNamespace = "global::System.Threading";
-
     public const string TasksNamespace = $"{ThreadingNamespace}.Tasks";
     public const string JsonSerializationNamespace = $"{JsonNamespace}.Serialization";
     
@@ -27,6 +27,7 @@ public static class Constants
 
     public const string TypeType = "global::System.Type";
     public const string IntType = "global::System.Int32";
+    public const string CharType = "global::System.Char";
     public const string UIntType = "global::System.UInt32";
     
     public const string BoolType = "global::System.Boolean";

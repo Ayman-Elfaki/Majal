@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Composition;
 using Majal.Analyzers;
+using Majal.Templates;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -10,11 +11,11 @@ using Microsoft.CodeAnalysis.Editing;
 
 namespace Majal.CodeFixes;
 
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(CreateFactoryMethodCodeFix)), Shared]
-public sealed class CreateFactoryMethodCodeFix : CodeFixProvider
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ValueObjectFactoryMethodCodeFix)), Shared]
+public sealed class ValueObjectFactoryMethodCodeFix : CodeFixProvider
 {
     public override ImmutableArray<string> FixableDiagnosticIds =>
-        ImmutableArray.Create(CreateFactoryMethodAnalyzer.DiagnosticId);
+        ImmutableArray.Create(ValueObjectFactoryMethodAnalyzer.DiagnosticId);
 
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
@@ -23,9 +24,9 @@ public sealed class CreateFactoryMethodCodeFix : CodeFixProvider
         var diagnostic = context.Diagnostics.First();
         context.RegisterCodeFix(
             CodeAction.Create(
-                title: "Implement Create Factory Method",
+                title: $"Implement {ValueObjectTemplate.FactoryMethodName} Factory Method",
                 createChangedDocument: c => ImplementMethodAsync(context.Document, diagnostic, c),
-                equivalenceKey: "ImplementCreateFactoryMethod"),
+                equivalenceKey: "ImplementFactoryMethod"),
             diagnostic);
 
         return Task.CompletedTask;
@@ -38,25 +39,24 @@ public sealed class CreateFactoryMethodCodeFix : CodeFixProvider
         if (root == null) return document;
 
         var node = root.FindNode(diagnostic.Location.SourceSpan);
-        var classDecl = node as ClassDeclarationSyntax ??
-                        node.AncestorsAndSelf()
-                            .OfType<ClassDeclarationSyntax>()
-                            .FirstOrDefault();
+        var structDeclaration = node as StructDeclarationSyntax ??
+                                node.AncestorsAndSelf()
+                                    .OfType<StructDeclarationSyntax>()
+                                    .FirstOrDefault();
 
-        if (classDecl == null) return document;
+        if (structDeclaration == null) return document;
 
         var semanticModel = await document.GetSemanticModelAsync(ct).ConfigureAwait(false);
         if (semanticModel == null) return document;
 
-        var classSymbol = semanticModel.GetDeclaredSymbol(classDecl, ct);
-        if (classSymbol == null) return document;
+        var symbol = semanticModel.GetDeclaredSymbol(structDeclaration, ct);
+        if (symbol == null) return document;
 
         // gather property names
-        var parameters = classSymbol.GetMembers().OfType<IPropertySymbol>()
+        var parameters = symbol.GetMembers().OfType<IPropertySymbol>()
             .Where(p => p.GetMethod?.DeclaredAccessibility == Accessibility.Public)
-            .Select(p =>
-                SyntaxFactory.Parameter(SyntaxFactory.Identifier(ToCamelCase(p.Name)))
-                    .WithType(SyntaxFactory.ParseTypeName(p.Type.ToDisplayString()))
+            .Select(p => SyntaxFactory.Parameter(SyntaxFactory.Identifier(ToCamelCase(p.Name)))
+                .WithType(SyntaxFactory.ParseTypeName(p.Type.Name))
             ).ToArray();
 
         // build statements
@@ -68,8 +68,8 @@ public sealed class CreateFactoryMethodCodeFix : CodeFixProvider
         };
 
         // create method declaration
-        var returnType = SyntaxFactory.ParseTypeName(classSymbol.Name);
-        var method = SyntaxFactory.MethodDeclaration(returnType, "Create")
+        var returnType = SyntaxFactory.ParseTypeName(symbol.Name);
+        var method = SyntaxFactory.MethodDeclaration(returnType, ValueObjectTemplate.FactoryMethodName)
             .AddParameterListParameters(parameters)
             .WithModifiers(SyntaxFactory.TokenList(
                 SyntaxFactory.Token(SyntaxKind.PublicKeyword),
@@ -79,12 +79,12 @@ public sealed class CreateFactoryMethodCodeFix : CodeFixProvider
             .WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
 
         var editor = await DocumentEditor.CreateAsync(document, ct).ConfigureAwait(false);
-        var newClass = editor.Generator.AddMembers(classDecl, method);
-        editor.ReplaceNode(classDecl, newClass);
+        var newStruct = editor.Generator.AddMembers(structDeclaration, method);
+        editor.ReplaceNode(structDeclaration, newStruct);
 
         return editor.GetChangedDocument();
     }
-    
+
     private static string ToCamelCase(string str)
     {
         if (string.IsNullOrEmpty(str)) return str;

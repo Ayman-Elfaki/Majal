@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Composition;
 using Majal.Analyzers;
+using Majal.Templates;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -13,7 +14,7 @@ namespace Majal.CodeFixes;
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(GetEqualityComponentsCodeFix)), Shared]
 public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
 {
-    public override ImmutableArray<string> FixableDiagnosticIds => 
+    public override ImmutableArray<string> FixableDiagnosticIds =>
         ImmutableArray.Create(GetEqualityComponentsAnalyzer.DiagnosticId);
 
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -23,9 +24,9 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
         var diagnostic = context.Diagnostics.First();
         context.RegisterCodeFix(
             CodeAction.Create(
-                title: "Implement GetEqualityComponents",
+                title: $"Implement {ValueObjectTemplate.EqualityMethodName}",
                 createChangedDocument: c => ImplementMethodAsync(context.Document, diagnostic, c),
-                equivalenceKey: "ImplementGetEqualityComponents"),
+                equivalenceKey: $"Implement{ValueObjectTemplate.EqualityMethodName}"),
             diagnostic);
 
         return Task.CompletedTask;
@@ -38,32 +39,35 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
         if (root == null) return document;
 
         var node = root.FindNode(diagnostic.Location.SourceSpan);
-        var classDecl = node as ClassDeclarationSyntax ??
-                        node.AncestorsAndSelf().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+        var structDecl = node as StructDeclarationSyntax ??
+                         node.AncestorsAndSelf()
+                             .OfType<StructDeclarationSyntax>()
+                             .FirstOrDefault();
 
-        if (classDecl == null) return document;
+        if (structDecl == null) return document;
 
         var semanticModel = await document.GetSemanticModelAsync(ct).ConfigureAwait(false);
         if (semanticModel == null) return document;
 
-        var classSymbol = semanticModel.GetDeclaredSymbol(classDecl, ct);
-        if (classSymbol == null) return document;
+        var symbol = semanticModel.GetDeclaredSymbol(structDecl, ct);
+        if (symbol == null) return document;
 
         // gather property names and types
-        var props = classSymbol.GetMembers().OfType<IPropertySymbol>()
+        var props = symbol.GetMembers()
+            .OfType<IPropertySymbol>()
             .Where(p => p.GetMethod?.DeclaredAccessibility == Accessibility.Public)
-            .Select(p => (p.Name, Type: p.Type.ToDisplayString()))
+            .Select(p => (p.Name, Type: p.Type.Name))
             .ToList();
 
         TypeSyntax returnType;
         ArrowExpressionClauseSyntax expressionBody;
-        
+
         if (props.Count == 1)
         {
             returnType = SyntaxFactory.ParseTypeName(props[0].Type);
             expressionBody = SyntaxFactory.ArrowExpressionClause(SyntaxFactory.ParseExpression(props[0].Name));
         }
-        else 
+        else
         {
             var tupleTypes = string.Join(", ", props.Select(p => p.Type));
             var tupleValues = string.Join(", ", props.Select(p => p.Name));
@@ -72,7 +76,7 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
         }
 
         // create method declaration
-        var method = SyntaxFactory.MethodDeclaration(returnType, "GetEqualityComponents")
+        var method = SyntaxFactory.MethodDeclaration(returnType, ValueObjectTemplate.EqualityMethodName)
             .WithModifiers(SyntaxFactory.TokenList(
                 SyntaxFactory.Token(SyntaxKind.PrivateKeyword),
                 SyntaxFactory.Token(SyntaxKind.PartialKeyword)))
@@ -81,8 +85,8 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
             .WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
 
         var editor = await DocumentEditor.CreateAsync(document, ct).ConfigureAwait(false);
-        var newClass = editor.Generator.AddMembers(classDecl, method);
-        editor.ReplaceNode(classDecl, newClass);
+        var newStruct = editor.Generator.AddMembers(structDecl, method);
+        editor.ReplaceNode(structDecl, newStruct);
 
         return editor.GetChangedDocument();
     }

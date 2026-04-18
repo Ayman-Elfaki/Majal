@@ -5,13 +5,6 @@
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
         <ImplicitUsings>true</ImplicitUsings>
-        <Configurations>Debug;Release;CI</Configurations>
-        <Platforms>AnyCPU</Platforms>
-    </PropertyGroup>
-
-    <PropertyGroup>
-        <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Debug'">true</GeneratePackageOnBuild>
-        <PackageOutputPath Condition="'$(Configuration)' == 'Debug'">../../nuget</PackageOutputPath>
     </PropertyGroup>
 
     <PropertyGroup>

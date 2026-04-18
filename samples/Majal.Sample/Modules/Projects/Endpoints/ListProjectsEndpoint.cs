@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Majal.Sample.Common.Persistence;
 using Majal.Sample.Modules.Projects.ValueObjects;
 using Microsoft.EntityFrameworkCore;
