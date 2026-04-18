@@ -10,11 +10,6 @@ jobs:
       # This workflow is triggered manually via the GitHub Actions interface. It performs the following steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          sparse-checkout: |
-            /*
-            !nuget.config
-          sparse-checkout-cone-mode: false
 
       # Install the latest .NET SDK to ensure compatibility with the project and to leverage the latest features and improvements.
       - name: Setup .NET SDK
@@ -24,15 +19,11 @@ jobs:
 
       # Restore the project dependencies to ensure that all required packages are available for building and testing the project.
       - name: Restore dependencies
-        run: dotnet restore Majal.slnx -p:Configuration=CI
+        run: dotnet restore
 
       # Execute the test project to ensure all tests pass before building the package.
       - name: Run unit tests
         run: dotnet test ./tests/Majal.Tests/Majal.Tests.csproj -c Release --no-restore
-
-      # Build the solution in Release configuration without restoring dependencies again, as they were already restored in the previous step.
-      - name: Build solution
-        run: dotnet build src/Majal/Majal.csproj -c Release --no-restore
 
       # Pack the project into NuGet packages, specifying the output directory for the generated .nupkg files.
       - name: Pack NuGet packages
