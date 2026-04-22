@@ -13,9 +13,9 @@ public class TranslatableConventionTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
-        WriteLine("public class TranslatableFilterConvention<TContext>(TContext dbContext)");
+        WriteLine("public class TranslatableFilterConvention<TLocale,TContext>(TContext dbContext)");
         WriteLine($"    : {EfCoreConventions}.IModelFinalizingConvention");
-        WriteLine($"    where TContext : {EfCoreNamespace}.DbContext, {MajalNamespace}.ITranslatableDbContext");
+        WriteLine($"    where TContext : {EfCoreNamespace}.DbContext, {MajalNamespace}.ITranslatableDbContext<TLocale>");
         WriteLine("{");
         PushIndent();
         WriteLine("public void ProcessModelFinalizing(");
@@ -27,23 +27,24 @@ public class TranslatableConventionTemplate : BaseTemplate
         WriteLine("{");
         PushIndent();
         WriteLine("// Check if the entity implements ITranslatable");
-        WriteLine($"if (!typeof({MajalNamespace}.ITranslatable).IsAssignableFrom(entityType.ClrType)) continue;");
+        WriteLine(
+            $"if (!typeof({MajalNamespace}.ITranslatable<TLocale>).IsAssignableFrom(entityType.ClrType)) continue;");
         WriteLine("");
         WriteLine("// Equivalent to: t => t.Locale");
         WriteLine($"""var parameter = {ExpressionsType}.Parameter(entityType.ClrType, "t");""");
         WriteLine($"var property = {ExpressionsType}.Property(parameter, ");
-        WriteLine($"    nameof({MajalNamespace}.ITranslatable.Locale));");
+        WriteLine($"    nameof({MajalNamespace}.ITranslatable<>.Locale));");
         WriteLine("");
         WriteLine("// dbContext.CurrentLocale");
         WriteLine($"var dbContextExpr = {ExpressionsType}.Constant(dbContext);");
         WriteLine($"var currentLocale = {ExpressionsType}.Property(dbContextExpr, ");
-        WriteLine($"    nameof({MajalNamespace}.ITranslatableDbContext.CurrentLocale));");
+        WriteLine($"    nameof({MajalNamespace}.ITranslatableDbContext<>.Locale));");
         WriteLine("");
         WriteLine($"var body = {ExpressionsType}.Equal(property, currentLocale);");
         WriteLine($"var lambda = {ExpressionsType}.Lambda(body, parameter);");
         WriteLine("");
         WriteLine("// Set the query filter");
-        WriteLine("entityType.SetQueryFilter(nameof(ITranslatable), lambda);");
+        WriteLine("entityType.SetQueryFilter(nameof(ITranslatable<>), lambda);");
         PopIndent();
         WriteLine("}");
         PopIndent();
@@ -51,7 +52,7 @@ public class TranslatableConventionTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        
+
         WriteLine("public static class TranslatableEfCoreExtensions");
         WriteLine("{");
         PushIndent();
@@ -61,7 +62,7 @@ public class TranslatableConventionTemplate : BaseTemplate
         WriteLine("{");
         PushIndent();
         WriteLine($"return {EfCoreNamespace}.EntityFrameworkQueryableExtensions");
-        WriteLine($"    .IgnoreQueryFilters(source, [nameof({MajalNamespace}.ITranslatable)]);");
+        WriteLine($"    .IgnoreQueryFilters(source, [nameof({MajalNamespace}.ITranslatable<> )]);");
         PopIndent();
         WriteLine("}");
         PopIndent();

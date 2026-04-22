@@ -11,33 +11,46 @@ namespace Majal.Generators;
 [Generator]
 public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.ValueObjectData>
 {
+    public record PropertyData(
+        Accessibility Accessibility,
+        bool IsComputed,
+        bool IsRequired,
+        string Name,
+        string Type
+    );
+
+    public record MethodData(
+        Accessibility Accessibility,
+        bool IsStatic,
+        string ReturnType,
+        string Name,
+        EquatableList<ValueTuple<string, string>> Parameters
+    );
+    
     public readonly record struct ValueObjectData
     {
-        public record PropertyData(string Name, string Type);
+
+        public record ValueData(string GenericType);
 
         public string TypeName { get; }
         public string Namespace { get; }
-        public string? ValueType { get; }
-        public bool IsGeneric { get; }
+        public ValueData? Value { get; }
         public bool HasConstructor { get; }
-        public bool HasToStringMethod { get; }
-        public bool HasFactoryMethod { get; }
         public int? MaxLength { get; }
 
+        public EquatableList<MethodData> Methods { get; }
         public EquatableList<PropertyData> Properties { get; }
 
-        public ValueObjectData(string typeName, string @namespace, bool hasConstructor, PropertyData[] properties,
-            string? valueType, bool isGeneric, bool hasFactoryMethod, bool hasToStringMethod, int? maxLength)
+        public ValueObjectData(string typeName, string @namespace, bool hasConstructor, string? value, int? maxLength,
+            PropertyData[] properties, MethodData[] methods)
         {
             TypeName = typeName;
             Namespace = @namespace;
-            ValueType = valueType;
-            IsGeneric = isGeneric;
             HasConstructor = hasConstructor;
-            HasFactoryMethod = hasFactoryMethod;
-            HasToStringMethod = hasToStringMethod;
             MaxLength = maxLength;
+            Methods = new EquatableList<MethodData>(methods);
             Properties = new EquatableList<PropertyData>(properties);
+            Value = !string.IsNullOrEmpty(value) && value is not null ? new ValueData(value) : null;
         }
     }
 
@@ -112,35 +125,34 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
 
         string? valueType = null;
 
-        var isGeneric = false;
-
         if (attribute?.AttributeClass is { TypeArguments.Length: > 0 })
-        {
             valueType = attribute.AttributeClass.TypeArguments[0].ToDisplayString();
-            isGeneric = true;
-        }
 
         var properties = symbol.GetMembers()
             .OfType<IPropertySymbol>()
             .Where(p => p.GetMethod?.DeclaredAccessibility is Accessibility.Public)
-            .Select(p => new ValueObjectData.PropertyData(p.Name, Type: p.Type.ToDisplayString()))
-            .ToArray();
+            .Select(p => new PropertyData(
+                    p.DeclaredAccessibility,
+                    p.IsComputed,
+                    p.IsRequired,
+                    p.Name,
+                    p.Type.ToDisplayString()
+                )
+            );
 
         var constants = symbol.GetMembers()
             .OfType<IFieldSymbol>()
-            .Where(p => p is { IsConst: true, Type.SpecialType: SpecialType.System_Int32 })
-            .ToArray();
+            .Where(p => p is { IsConst: true, Type.SpecialType: SpecialType.System_Int32 });
 
         var methods = symbol.GetMembers()
             .OfType<IMethodSymbol>()
-            .ToArray();
-
-        var hasCreateMethod = methods
-            .Any(m => m is { Name: ValueObjectTemplate.FactoryMethodName, IsStatic: true, Parameters.Length: 1 } &&
-                      m.Parameters.First().Type.Name.Equals(valueType, StringComparison.OrdinalIgnoreCase));
-
-        var hasToStringMethod = methods
-            .Any(m => m is { Name: nameof(ToString), IsStatic: false, Parameters.Length: 0 });
+            .Select(m => new MethodData(
+                m.DeclaredAccessibility,
+                m.IsStatic,
+                m.Name,
+                m.ReturnType.ToDisplayString(),
+                new EquatableList<(string, string)>(m.Parameters.Select(p => (Type: p.Type.ToDisplayString(), p.Name)))
+            ));
 
         var maxLength = constants
             .Select(p => new { p.Name, Value = p.ConstantValue is { } v ? int.Parse(v.ToString()) : (int?)null })
@@ -152,14 +164,13 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             typeName: symbol.GetTypeNameWithGenerics(),
             @namespace: symbol.GetNamespace(),
             hasConstructor: hasConstructor,
-            hasFactoryMethod: hasCreateMethod,
-            hasToStringMethod: hasToStringMethod,
-            properties: [.. properties],
-            valueType: valueType,
-            maxLength: maxLength?.Value,
-            isGeneric: isGeneric
+            properties: [..properties],
+            methods: [..methods],
+            value: valueType,
+            maxLength: maxLength?.Value
         );
     }
+
 
     protected override bool Filter(SyntaxNode node, CancellationToken token)
     {

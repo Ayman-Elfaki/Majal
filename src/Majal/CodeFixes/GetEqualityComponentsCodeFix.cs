@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Composition;
+using Majal.Abstractions;
 using Majal.Analyzers;
 using Majal.Templates;
 using Microsoft.CodeAnalysis;
@@ -8,6 +9,7 @@ using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
+using static Majal.Abstractions.Constants;
 
 namespace Majal.CodeFixes;
 
@@ -55,25 +57,20 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
         // gather property names and types
         var props = symbol.GetMembers()
             .OfType<IPropertySymbol>()
-            .Where(p => p.GetMethod?.DeclaredAccessibility == Accessibility.Public)
-            .Select(p => (p.Name, Type: p.Type.Name))
+            .Where(p => p is
+                { IsComputed: false, IsStatic: false, GetMethod.DeclaredAccessibility: Accessibility.Public })
+            .Select(p => (p.Name, Type: p.Type.ToDisplayString()))
             .ToList();
 
-        TypeSyntax returnType;
-        ArrowExpressionClauseSyntax expressionBody;
+        var tupleTypes = string.Join(", ", props.Select(p => p.Type));
+        var tupleValues = string.Join(", ", props.Select(p => p.Name));
 
-        if (props.Count == 1)
-        {
-            returnType = SyntaxFactory.ParseTypeName(props[0].Type);
-            expressionBody = SyntaxFactory.ArrowExpressionClause(SyntaxFactory.ParseExpression(props[0].Name));
-        }
-        else
-        {
-            var tupleTypes = string.Join(", ", props.Select(p => p.Type));
-            var tupleValues = string.Join(", ", props.Select(p => p.Name));
-            returnType = SyntaxFactory.ParseTypeName($"({tupleTypes})");
-            expressionBody = SyntaxFactory.ArrowExpressionClause(SyntaxFactory.ParseExpression($"({tupleValues})"));
-        }
+
+        var returnType = props.Count > 0
+            ? SyntaxFactory.ParseTypeName($"ValueTuple<{tupleTypes}>")
+            : SyntaxFactory.ParseTypeName("ValueTuple");
+
+        var expressionBody = SyntaxFactory.ArrowExpressionClause(SyntaxFactory.ParseExpression($"new({tupleValues})"));
 
         // create method declaration
         var method = SyntaxFactory.MethodDeclaration(returnType, ValueObjectTemplate.EqualityMethodName)

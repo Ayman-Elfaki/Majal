@@ -12,6 +12,7 @@ public static class SymbolExtensions
                 ? string.Empty
                 : $"namespace {symbol.ContainingNamespace.ToDisplayString()};";
         }
+        
 
         public string GetTypeNameWithGenerics()
         {
@@ -48,5 +49,13 @@ public static class SymbolExtensions
                 ad.AttributeClass?.Name == attributeName &&
                 ad.AttributeClass.ContainingNamespace.ToDisplayString() == attributeNamespace);
         }
+    }
+    
+    extension(IPropertySymbol propertySymbol)
+    {
+        public bool IsComputed =>
+            !propertySymbol.ContainingType.GetMembers()
+                .OfType<IFieldSymbol>()
+                .Any(f => SymbolEqualityComparer.Default.Equals(f.AssociatedSymbol, propertySymbol));
     }
 }

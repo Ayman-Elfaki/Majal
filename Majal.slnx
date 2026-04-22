@@ -1,29 +1,31 @@
 <Solution>
 
     <Folder Name="/.solution items/">
-        <File Path=".github/workflows/nuget-publish.yml"/>
-        <File Path=".gitignore"/>
-        <File Path="Directory.Build.props"/>
-        <File Path="Readme.md"/>
+        <File Path=".github/workflows/nuget-publish.yml" />
+        <File Path=".gitignore" />
+        <File Path="Directory.Build.props" />
+        <File Path="Readme.md" />
     </Folder>
     <Folder Name="/docs/">
-        <File Path="docs/archivables.md"/>
-        <File Path="docs/auditables.md"/>
-        <File Path="docs/entities.md"/>
-        <File Path="docs/getting-started.md"/>
-        <File Path="docs/aggregates.md"/>
-        <File Path="docs/translatables.md"/>
-        <File Path="docs/ordinals.md"/>
-        <File Path="docs/value-objects.md"/>
+        <File Path="docs/archivables.md" />
+        <File Path="docs/auditables.md" />
+        <File Path="docs/ef-core.md" />
+        <File Path="docs/entities.md" />
+        <File Path="docs/getting-started.md" />
+        <File Path="docs/aggregates.md" />
+        <File Path="docs/translatables.md" />
+        <File Path="docs/majal.skill.md" />
+        <File Path="docs/ordinals.md" />
+        <File Path="docs/value-objects.md" />
     </Folder>
     <Folder Name="/samples/">
-        <Project Path="samples/Majal.Sample/Majal.Sample.csproj"/>
+        <Project Path="samples/Majal.Sample/Majal.Sample.csproj" />
     </Folder>
     <Folder Name="/src/">
-        <Project Path="src/Majal.Types/Majal.Types.csproj"/>
-        <Project Path="src/Majal/Majal.csproj"/>
+        <Project Path="src/Majal.Types/Majal.Types.csproj" />
+        <Project Path="src/Majal/Majal.csproj" />
     </Folder>
     <Folder Name="/tests/">
-        <Project Path="tests/Majal.Tests/Majal.Tests.csproj"/>
+        <Project Path="tests/Majal.Tests/Majal.Tests.csproj" />
     </Folder>
 </Solution>

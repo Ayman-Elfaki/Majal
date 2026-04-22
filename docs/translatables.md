@@ -1,4 +1,4 @@
-# Localizables Guide
+# Translatables Guide
 
 Building applications for a global audience often requires storing and managing content in multiple languages.
 
@@ -32,9 +32,9 @@ var desc = new ProductDescription
 
 ## Generated Code
 
-The `[Localizable]` generator produces a partial class that:
+The `[Translatable]` generator produces a partial class that:
 
-1.  **Implements `ILocalizable`**: A marker interface for localizable entities.
+1.  **Implements `ITranslatable`**: An interface for translatable entities.
 2.  **Adds the `Locale` Property**:
     *   `Locale`: A required `string` property that stores the language and region associated with the content.
 

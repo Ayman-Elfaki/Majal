@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Majal.Sample.Common.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260416213738_Initial")]
+    [Migration("20260422192802_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -19,6 +19,48 @@ namespace Majal.Sample.Common.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.6");
+
+            modelBuilder.Entity("Majal.Sample.Modules.Issues.Entities.Issue", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("ArchivedOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<uint>("Ordinal")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("StoryPoints")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("UpdatedOn")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("Issues");
+                });
 
             modelBuilder.Entity("Majal.Sample.Modules.Projects.Entities.Project", b =>
                 {
@@ -83,6 +125,17 @@ namespace Majal.Sample.Common.Persistence.Migrations
                     b.ToTable("ProjectsTranslations", (string)null);
                 });
 
+            modelBuilder.Entity("Majal.Sample.Modules.Issues.Entities.Issue", b =>
+                {
+                    b.HasOne("Majal.Sample.Modules.Projects.Entities.Project", "Project")
+                        .WithMany("Issues")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("Majal.Sample.Modules.Projects.Entities.ProjectTranslation", b =>
                 {
                     b.HasOne("Majal.Sample.Modules.Projects.Entities.Project", null)
@@ -92,6 +145,8 @@ namespace Majal.Sample.Common.Persistence.Migrations
 
             modelBuilder.Entity("Majal.Sample.Modules.Projects.Entities.Project", b =>
                 {
+                    b.Navigation("Issues");
+
                     b.Navigation("Translations");
                 });
 #pragma warning restore 612, 618

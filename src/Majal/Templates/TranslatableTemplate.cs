@@ -1,5 +1,4 @@
 using static Majal.Abstractions.Constants;
-
 using Majal.Generators;
 
 namespace Majal.Templates;
@@ -7,7 +6,7 @@ namespace Majal.Templates;
 public class TranslatableTemplate : BaseTemplate
 {
     public TranslatableGenerator.TranslatableData Data { get; init; }
-    
+
     public override string TransformText()
     {
         Clear();
@@ -17,11 +16,14 @@ public class TranslatableTemplate : BaseTemplate
         WriteLine("");
         WriteLine(Data.Namespace);
         WriteLine("");
-        WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.ITranslatable");
+
+        var type = Data.Value?.GenericType ?? StringType;
+
+        WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.ITranslatable<{type}>");
         WriteLine("{");
         PushIndent();
         WriteLine("/// <inheritdoc />");
-        WriteLine($"public required {StringType} Locale {{ get; set; }}");
+        WriteLine($"public required {type} Locale {{ get; set; }}");
         PopIndent();
         WriteLine("}");
 

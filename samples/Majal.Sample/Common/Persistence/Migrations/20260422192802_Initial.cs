@@ -30,6 +30,33 @@ namespace Majal.Sample.Common.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Issues",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Title = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Priority = table.Column<int>(type: "INTEGER", nullable: false),
+                    StoryPoints = table.Column<int>(type: "INTEGER", nullable: false),
+                    ProjectId = table.Column<int>(type: "INTEGER", nullable: false),
+                    IsArchived = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ArchivedOn = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    CreatedOn = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    UpdatedOn = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
+                    Ordinal = table.Column<uint>(type: "INTEGER", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Issues", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Issues_Projects_ProjectId",
+                        column: x => x.ProjectId,
+                        principalTable: "Projects",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ProjectsTranslations",
                 columns: table => new
                 {
@@ -51,6 +78,11 @@ namespace Majal.Sample.Common.Persistence.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Issues_ProjectId",
+                table: "Issues",
+                column: "ProjectId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ProjectsTranslations_ProjectId_Locale",
                 table: "ProjectsTranslations",
                 columns: new[] { "ProjectId", "Locale" },
@@ -60,6 +92,9 @@ namespace Majal.Sample.Common.Persistence.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "Issues");
+
             migrationBuilder.DropTable(
                 name: "ProjectsTranslations");
 

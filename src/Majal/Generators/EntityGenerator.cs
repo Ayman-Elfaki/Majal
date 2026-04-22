@@ -30,6 +30,7 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 
     public const string AttributeNamespace = "Majal";
     public const string EntityAttributeName = nameof(EntityAttribute);
+    private const string OptionsAttributeName = nameof(EntityOptionsAttribute);
     private const string FilenameSuffix = ".Entity.g.cs";
 
     protected override string AttributeFullName => $"{AttributeNamespace}.{EntityAttributeName}";
@@ -37,6 +38,9 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 
     public override void Initialize(IncrementalGeneratorInitializationContext context)
     {
+        var optionsProvider = context.CompilationProvider
+            .Select(static (compilation, _) => GetDefaultIdType(compilation));
+
         var genericProvider = context.SyntaxProvider
             .ForAttributeWithMetadataName(GenericAttributeFullName, Filter, Transform)
             .WithTrackingName(TrackingNames.InitialExtraction)
@@ -53,13 +57,18 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
             .WithTrackingName(TrackingNames.Transform)
             .Collect();
 
-        var provider = genericProvider.Combine(nonGenericProvider);
+        var provider = genericProvider.Combine(nonGenericProvider).Combine(optionsProvider);
 
         context.RegisterImplementationSourceOutput(provider, (productionContext, source) =>
         {
-            var (generics, nonGenerics) = source;
+            var ((generics, nonGenerics), defaultIdType) = source;
 
-            EntityData[] entities = [..generics, ..nonGenerics];
+            var resolvedNonGenerics = nonGenerics.Select(e =>
+                string.Equals(e.IdType, "int", StringComparison.Ordinal) && defaultIdType is not null
+                    ? new EntityData(e.TypeName, e.Namespace, [..e.Properties], defaultIdType, e.HasConstructor)
+                    : e);
+
+            EntityData[] entities = [..generics, ..resolvedNonGenerics];
 
             foreach (var data in entities)
             {
@@ -90,5 +99,22 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
             idType,
             hasConstructor
         );
+    }
+
+    private static string? GetDefaultIdType(Compilation compilation)
+    {
+        foreach (var attribute in compilation.Assembly.GetAttributes())
+        {
+            if (attribute.AttributeClass?.Name != OptionsAttributeName ||
+                attribute.AttributeClass.ContainingNamespace.ToDisplayString() != AttributeNamespace) continue;
+
+            foreach (var arg in attribute.NamedArguments)
+            {
+                if (arg is { Key: nameof(EntityOptionsAttribute.DefaultIdType), Value.Value: INamedTypeSymbol type })
+                    return type.ToDisplayString();
+            }
+        }
+
+        return null;
     }
 }

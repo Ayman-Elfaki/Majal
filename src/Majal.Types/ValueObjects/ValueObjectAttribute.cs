@@ -6,15 +6,10 @@ namespace Majal;
 /// Marks a class as a value object.
 /// </summary>
 [AttributeUsage(AttributeTargets.Struct)]
-public sealed class ValueObjectAttribute : Attribute
-{
-}
-
+public sealed class ValueObjectAttribute : Attribute;
 
 /// <summary>
 /// Marks a class as a value object and specifies the type of its value.
 /// </summary>
 [AttributeUsage(AttributeTargets.Struct)]
-public sealed class ValueObjectAttribute<TValue> : Attribute
-{
-}
+public sealed class ValueObjectAttribute<TValue> : Attribute;

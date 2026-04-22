@@ -15,5 +15,8 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
 
         builder.HasMany(p => p.Translations)
             .WithOne();
+
+        builder.HasMany(p => p.Issues)
+            .WithOne(p => p.Project);
     }
 }

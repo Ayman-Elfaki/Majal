@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Composition;
+using Majal.Abstractions;
 using Majal.Analyzers;
 using Majal.Templates;
 using Microsoft.CodeAnalysis;
@@ -54,9 +55,10 @@ public sealed class ValueObjectFactoryMethodCodeFix : CodeFixProvider
 
         // gather property names
         var parameters = symbol.GetMembers().OfType<IPropertySymbol>()
-            .Where(p => p.GetMethod?.DeclaredAccessibility == Accessibility.Public)
+            .Where(p => p is
+                { GetMethod.DeclaredAccessibility: Accessibility.Public, IsStatic: false, IsComputed: false })
             .Select(p => SyntaxFactory.Parameter(SyntaxFactory.Identifier(ToCamelCase(p.Name)))
-                .WithType(SyntaxFactory.ParseTypeName(p.Type.Name))
+                .WithType(SyntaxFactory.ParseTypeName(p.Type.ToDisplayString()))
             ).ToArray();
 
         // build statements

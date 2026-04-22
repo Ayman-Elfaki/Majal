@@ -60,5 +60,6 @@ Explore the detailed guides for each component:
 - [Value Objects Guide](value-objects.md)
 - [Archivables Guide](archivables.md)
 - [Auditables Guide](auditables.md)
-- [Localizables Guide](localizables.md)
+- [Translatables Guide](translatables.md)
 - [Ordinals Guide](ordinals.md)
+- [EF Core Integration](ef-core.md)

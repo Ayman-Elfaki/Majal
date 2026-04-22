@@ -10,10 +10,16 @@ namespace Majal.Generators;
 [Generator]
 public sealed class AggregateGenerator : BaseGenerator<AggregateGenerator.AggregateData>
 {
-    public readonly record struct AggregateData(string TypeName, string Namespace, string DomainEventType);
+
+    public readonly record struct AggregateData(
+        string TypeName,
+        string Namespace,
+        string DomainEventType
+    );
 
     public const string AttributeNamespace = "Majal";
     public const string AttributeName = nameof(AggregateAttribute);
+    private const string OptionsAttributeName = nameof(AggregateOptionsAttribute);
 
     private const string FilenameSuffix = ".Aggregate.g.cs";
     private const string EntityAttributeName = nameof(EntityAttribute);
@@ -23,6 +29,9 @@ public sealed class AggregateGenerator : BaseGenerator<AggregateGenerator.Aggreg
 
     public override void Initialize(IncrementalGeneratorInitializationContext context)
     {
+        var optionsProvider = context.CompilationProvider
+            .Select(static (compilation, _) => GetDefaultDomainEventType(compilation));
+
         var genericProvider = context.SyntaxProvider
             .ForAttributeWithMetadataName(GenericAttributeFullName, Filter, Transform)
             .WithTrackingName(TrackingNames.InitialExtraction)
@@ -39,13 +48,20 @@ public sealed class AggregateGenerator : BaseGenerator<AggregateGenerator.Aggreg
             .WithTrackingName(TrackingNames.Transform)
             .Collect();
 
-        var provider = genericProvider.Combine(nonGenericProvider);
+        var provider = genericProvider.Combine(nonGenericProvider).Combine(optionsProvider);
 
         context.RegisterImplementationSourceOutput(provider, (productionContext, source) =>
         {
-            var (generics, nonGenerics) = source;
+            var ((generics, nonGenerics), defaultDomainEventType) = source;
 
-            AggregateData[] entities = [.. generics, .. nonGenerics];
+            var resolvedNonGenerics = nonGenerics.Select(a =>
+                string.Equals(a.DomainEventType, "object", StringComparison.Ordinal) &&
+                defaultDomainEventType is not null
+                    ? a with { DomainEventType = defaultDomainEventType }
+                    : a
+            );
+
+            AggregateData[] entities = [.. generics, .. resolvedNonGenerics];
 
             foreach (var data in entities)
             {
@@ -58,11 +74,11 @@ public sealed class AggregateGenerator : BaseGenerator<AggregateGenerator.Aggreg
 
     protected override AggregateData? Transform(GeneratorAttributeSyntaxContext context, CancellationToken ct)
     {
-        if (context.TargetSymbol is not INamedTypeSymbol classSymbol) return null;
+        if (context.TargetSymbol is not INamedTypeSymbol symbol) return null;
 
-        var attribute = classSymbol.GetAttribute(AttributeName, AttributeNamespace);
+        var attribute = symbol.GetAttribute(AttributeName, AttributeNamespace);
 
-        var hasEntityAttribute = classSymbol.HasAttribute(EntityAttributeName, AttributeNamespace);
+        var hasEntityAttribute = symbol.HasAttribute(EntityAttributeName, AttributeNamespace);
 
         if (!hasEntityAttribute) return null;
 
@@ -72,9 +88,32 @@ public sealed class AggregateGenerator : BaseGenerator<AggregateGenerator.Aggreg
             domainEventType = attribute.AttributeClass.TypeArguments[0].ToDisplayString();
 
         return new AggregateData(
-            TypeName: classSymbol.GetTypeNameWithGenerics(),
-            Namespace: classSymbol.GetNamespace(),
+            TypeName: symbol.GetTypeNameWithGenerics(),
+            Namespace: symbol.GetNamespace(),
             DomainEventType: domainEventType
         );
+    }
+
+    private static string? GetDefaultDomainEventType(Compilation compilation)
+    {
+        foreach (var attribute in compilation.Assembly.GetAttributes())
+        {
+            if (attribute.AttributeClass?.Name != OptionsAttributeName ||
+                attribute.AttributeClass.ContainingNamespace.ToDisplayString() != AttributeNamespace) continue;
+
+            foreach (var arg in attribute.NamedArguments)
+            {
+                if (arg is
+                    {
+                        Key: nameof(AggregateOptionsAttribute.DefaultDomainEventType),
+                        Value.Value: INamedTypeSymbol type
+                    })
+                {
+                    return type.ToDisplayString();
+                }
+            }
+        }
+
+        return null;
     }
 }

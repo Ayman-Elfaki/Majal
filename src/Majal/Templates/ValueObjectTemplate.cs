@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Majal.Generators;
 using static Majal.Abstractions.Constants;
 
@@ -10,6 +11,9 @@ public class ValueObjectTemplate : BaseTemplate
 
     public const string FactoryMethodName = "From";
     public const string EqualityMethodName = "GetEqualityComponents";
+    public const string EfCoreValueConverterTypeName = "EfCoreValueConverter";
+    public const string ParseMethodName = "TryParse";
+
 
     public override string TransformText()
     {
@@ -22,144 +26,405 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine(Data.Namespace);
         WriteLine("");
 
+        GenerateClassCode();
+
+        return ToString();
+    }
+
+    private void GenerateClassCode()
+    {
         List<string> interfaces =
         [
-            Data.IsGeneric ? $"{MajalNamespace}.IValueObject<{Data.ValueType}>" : $"{MajalNamespace}.IValueObject",
             $"{SystemNamespace}.IEquatable<{Data.TypeName}>",
             $"{SystemNamespace}.IComparable",
             $"{SystemNamespace}.IComparable<{Data.TypeName}>",
         ];
 
-        var isStringType = Data is { IsGeneric: true, ValueType: "string" };
+        List<string> attributes = [];
 
-        if (Data.IsGeneric)
+        if (Data.Value?.GenericType is { } type)
         {
-            WriteLine(
-                $"[{ComponentModelNamespace}.TypeConverterAttribute(typeof({Data.TypeName}.ValueObjectTypeConverter))]");
-            WriteLine(
-                $"[{JsonSerializationNamespace}.JsonConverterAttribute(typeof({Data.TypeName}.JsonValueConverter))]");
+            interfaces.Add($"{MajalNamespace}.IValueObject<{type}>");
+            interfaces.Add($"{SystemNamespace}.IParsable<{Data.TypeName}>");
+
+            var jsonConverterType = $"typeof({Data.TypeName}.JsonValueObjectConverter)";
+            attributes.Add($"{JsonSerializationNamespace}.JsonConverterAttribute({jsonConverterType})");
+
+            var typeConverter = $"typeof({Data.TypeName}.ValueObjectTypeConverter)";
+            attributes.Add($"{ComponentModelNamespace}.TypeConverterAttribute({typeConverter})");
+        }
+        else
+        {
+            interfaces.Add($"{MajalNamespace}.IValueObject");
+        }
+
+        foreach (var attribute in attributes)
+        {
+            WriteLine($"[{attribute}]");
         }
 
         WriteLine($"public partial struct {Data.TypeName} : {string.Join(", ", interfaces)}");
         WriteLine("{");
         PushIndent();
+        GenerateCommonImplementation();
+        GenerateNonGenericValueObject();
+        GenerateGenericValueObject();
+        PopIndent();
+        WriteLine("}");
+    }
 
-        if (Data.IsGeneric && !string.IsNullOrWhiteSpace(Data.ValueType))
+    private void GenerateNonGenericValueObject()
+    {
+        if (Data.Value?.GenericType is not null)
+            return;
+
+        var properties = Data.Properties.Where(p => !p.IsComputed).ToImmutableArray();
+
+        var arguments = string.Join(", ", properties.Select(p => $"{p.Type} {ToCamelCase(p.Name)}"));
+        WriteLine($"public static partial {Data.TypeName} {FactoryMethodName}({arguments});");
+        WriteLine("");
+
+        var genericArgs = properties.Length > 0
+            ? $"<{string.Join(", ", properties.Select(p => p.Type))}>"
+            : string.Empty;
+
+        WriteLine($"private partial {SystemNamespace}.ValueTuple{genericArgs} {EqualityMethodName}();");
+        WriteLine("");
+    }
+
+    private void GenerateGenericValueObject()
+    {
+        if (Data.Value?.GenericType is { } type)
         {
+            if (!Data.Methods.Any(m => m is { Name: FactoryMethodName, IsStatic: true, Parameters.Count: 1 }))
+            {
+                var returnType = Data.TypeName;
+                WriteLine($"public static {returnType} {FactoryMethodName}({type} value) => new(){{ Value = value }};");
+                WriteLine("");
+            }
+
+
+            WriteLine($"public required {type} Value {{ get; init; }}");
+            WriteLine("");
+
+            WriteLine($"public {SystemNamespace}.ValueTuple<{type}> {EqualityMethodName}() => new(Value);");
+            WriteLine("");
+
+            WriteLine($"public static implicit operator {type}({Data.TypeName} valueObject) => valueObject.Value;");
+            WriteLine("");
+
+            WriteLine($"public static explicit operator {Data.TypeName}({type} value) => {FactoryMethodName}(value);");
+            WriteLine("");
+
+            if (!Data.Methods.Any(m => m is { Name: "ToString", IsStatic: false, Parameters.Count: 0 }))
+            {
+                var returnStatement = type is "string" ? "Value" : "Value.ToString()";
+                WriteLine($"public override {StringType} ToString() => {returnStatement};");
+                WriteLine("");
+            }
+
+            GenerateIParseableCode();
+
+            GenerateTypeConverter();
+
+            GenerateJsonConverter();
+
             if (EnableEfCore)
             {
-                WriteLine("public sealed class EFCoreValueConverter :");
-                WriteLine($"    {EfCoreValueConversion}.ValueConverter<{Data.TypeName}, {Data.ValueType}>");
-                WriteLine("{");
+                const string converter = $"v => v.Value, v => {FactoryMethodName}(v)";
+                WriteLine($"public sealed class {EfCoreValueConverterTypeName}() :");
                 PushIndent();
-                WriteLine($"public EFCoreValueConverter() : base(v => v.Value, v => {FactoryMethodName}(v))");
+                WriteLine($"{EfCoreValueConversion}.ValueConverter<{Data.TypeName}, {type}>({converter})");
+                PopIndent();
                 WriteLine("{");
                 WriteLine("}");
+                WriteLine("");
+            }
+
+            WriteLine("");
+        }
+
+        WriteLine("");
+        return;
+
+
+        void GenerateTypeConverter()
+        {
+            string[] implementations =
+            [
+                $"{ComponentModelNamespace}.TypeConverter"
+            ];
+
+            WriteLine($"public sealed class ValueObjectTypeConverter : {string.Join(", ", implementations)} ");
+            WriteLine("{");
+            PushIndent();
+
+            {
+                string[] parameters =
+                [
+                    $"{ComponentModelNamespace}.ITypeDescriptorContext? context",
+                    $"{TypeType} sourceType"
+                ];
+
+                WriteLine($"public override {BoolType} CanConvertFrom({string.Join(", ", parameters)})");
+                WriteLine("{");
+                PushIndent();
+                WriteLine("return sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);");
                 PopIndent();
                 WriteLine("}");
                 WriteLine("");
             }
 
-            WriteLine("public sealed class ValueObjectTypeConverter : ");
-            PushIndent();
-            WriteLine($"{ComponentModelNamespace}.TypeConverter");
-            PopIndent();
-            WriteLine("{");
-            PushIndent();
-            WriteLine($"public override {BoolType} CanConvertFrom(");
-            PushIndent();
-            WriteLine($"{ComponentModelNamespace}.ITypeDescriptorContext? context,");
-            WriteLine($"{TypeType} sourceType) =>");
-            WriteLine("    sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);");
-            WriteLine("");
-            PopIndent();
-
-            WriteLine($"public override {ObjectType}? ConvertFrom(");
-            PushIndent();
-            WriteLine($"{ComponentModelNamespace}.ITypeDescriptorContext? context,");
-            WriteLine($"{GlobalizationNamespace}.CultureInfo? culture,");
-            WriteLine(
-                $"{ObjectType} value) => value is string s ? {Data.TypeName}.Parse(s) : base.ConvertFrom(context, culture, value);");
-            PopIndent();
-            WriteLine("}");
-            WriteLine("");
-
-            WriteLine("public sealed class JsonValueConverter :");
-            WriteLine($"    {JsonSerializationNamespace}.JsonConverter<{Data.TypeName}>");
-            WriteLine("{");
-            PushIndent();
-            WriteLine("");
-            WriteLine($"public override {Data.TypeName} Read(");
-            PushIndent();
-            WriteLine($"ref {JsonNamespace}.Utf8JsonReader reader,");
-            WriteLine($"{TypeType} typeToConvert,");
-            WriteLine($"{JsonNamespace}.JsonSerializerOptions options) => {Data.TypeName}.Parse(reader.GetString()!);");
-            WriteLine("");
-
-            WriteLine("public override void Write(");
-            PushIndent();
-            WriteLine($"{JsonNamespace}.Utf8JsonWriter writer,");
-            WriteLine($"{Data.TypeName} value,");
-            WriteLine($"{JsonNamespace}.JsonSerializerOptions options) =>");
-            WriteLine("     writer.WriteStringValue(value.ToString());");
-            PopIndent();
-
-            PopIndent();
-            WriteLine("}");
-            WriteLine("");
-            WriteLine("");
-
-            WriteLine($"public required {Data.ValueType} Value {{ get; init; }}");
-            WriteLine("");
-
-            if (!Data.HasFactoryMethod)
             {
-                WriteLine(
-                    $"public static {Data.TypeName} {FactoryMethodName}({Data.ValueType} value) => new {Data.TypeName}() {{Value = value}};");
+                string[] parameters =
+                [
+                    $"{ComponentModelNamespace}.ITypeDescriptorContext? context",
+                    $"{GlobalizationNamespace}.CultureInfo? culture",
+                    $"{ObjectType} value"
+                ];
+
+                WriteLine($"public override {ObjectType}? ConvertFrom({string.Join(", ", parameters)})");
+                WriteLine("{");
+                PushIndent();
+                WriteLine("return value is string s ? ");
+                PushIndent();
+                WriteLine($"{Data.TypeName}.Parse(s) : base.ConvertFrom(context, culture, value);");
+                PopIndent();
+                PopIndent();
+                WriteLine("}");
+                WriteLine("");
+
+                PopIndent();
+                WriteLine("}");
                 WriteLine("");
             }
-
-            WriteLine($"private static {Data.TypeName} Parse({StringType} value) =>");
-            PushIndent();
-            WriteLine(isStringType
-                ? $"{FactoryMethodName}(value);"
-                : $"{FactoryMethodName}({Data.ValueType}.Parse(value));");
-            PopIndent();
-            WriteLine("");
-
-            WriteLine($"public static implicit operator {Data.ValueType}({Data.TypeName} valueObject) => valueObject.Value;");
-            WriteLine("");
-
-            WriteLine($"public static explicit operator {Data.TypeName}({Data.ValueType} value) => {FactoryMethodName}(value);");
-            WriteLine("");
-
-            if (!Data.HasToStringMethod)
-            {
-                WriteLine($"public override {StringType} ToString() => Value.ToString();");
-                WriteLine("");
-            }
-
-            WriteLine($"private {Data.ValueType} {EqualityMethodName}() => Value;");
-            WriteLine("");
         }
+
+        void GenerateJsonConverter()
+        {
+            string[] implementations =
+            [
+                $"{JsonSerializationNamespace}.JsonConverter<{Data.TypeName}>"
+            ];
+
+            WriteLine($"public sealed class JsonValueObjectConverter : {string.Join(", ", implementations)} ");
+            WriteLine("{");
+            PushIndent();
+            {
+                string[] parameters =
+                [
+                    $"ref {JsonNamespace}.Utf8JsonReader reader",
+                    $"{SystemNamespace}.Type typeToConvert",
+                    $"{JsonNamespace}.JsonSerializerOptions options"
+                ];
+
+                WriteLine($"public override {Data.TypeName} Read({string.Join(", ", parameters)})");
+                WriteLine("{");
+                PushIndent();
+                WriteLine("var value = reader.GetString();");
+                WriteLine($"var culture =  {GlobalizationNamespace}.CultureInfo.InvariantCulture;");
+                WriteLine("");
+                WriteLine($"if ({Data.TypeName}.TryParse(value, culture, out var result))");
+                PushIndent();
+                WriteLine("return result;");
+                PopIndent();
+                WriteLine("");
+                WriteLine($$"""var errorMessage = $"Unable to parse '{value}' as {{Data.TypeName}}."; """);
+                WriteLine($"throw new {JsonNamespace}.JsonException(errorMessage);");
+                PopIndent();
+                WriteLine("}");
+                WriteLine("");
+            }
+
+
+            {
+                string[] parameters =
+                [
+                    $"{JsonNamespace}.Utf8JsonWriter writer",
+                    $"{Data.TypeName} value",
+                    $"{JsonNamespace}.JsonSerializerOptions options"
+                ];
+
+                WriteLine($"public override void Write({string.Join(", ", parameters)})");
+                WriteLine("{");
+                PushIndent();
+                WriteLine("writer.WriteStringValue(value.ToString());");
+                PopIndent();
+                WriteLine("}");
+                WriteLine("");
+
+                PopIndent();
+                WriteLine("}");
+                WriteLine("");
+            }
+        }
+
+        void GenerateIParseableCode()
+        {
+            {
+                string[] parameters =
+                [
+                    $"{StringType} s",
+                    $"{SystemNamespace}.IFormatProvider? provider"
+                ];
+
+                WriteLine($"public static {Data.TypeName} Parse({string.Join(", ", parameters)})");
+                WriteLine("{");
+                PushIndent();
+                WriteLine("if (TryParse(s, provider, out var result)) return result;");
+                WriteLine("");
+                WriteLine($$"""var errorMessage = $"'{s}' is not a valid {{Data.TypeName}}.";""");
+                WriteLine($"throw new {SystemNamespace}.FormatException(errorMessage);");
+                PopIndent();
+                WriteLine("}");
+                WriteLine("");
+            }
+
+            if (!Data.Methods.Any(m => m is { Name: "TryParse", IsStatic: true, Parameters.Count: 3 }))
+            {
+                string[] parameters =
+                [
+                    $"[{CodeAnalysisNamespace}.NotNullWhen(true)] {StringType}? s",
+                    $"{SystemNamespace}.IFormatProvider? provider",
+                    $"[{CodeAnalysisNamespace}.MaybeNullWhen(false)] out {Data.TypeName} result"
+                ];
+
+                WriteLine($"public static {BoolType} TryParse({string.Join(", ", parameters)})");
+                WriteLine("{");
+                PushIndent();
+                WriteLine("result = default;");
+                WriteLine($"if ({StringType}.IsNullOrWhiteSpace(s)) return false;");
+
+                if (type == "string")
+                {
+                    WriteLine("return true;");
+                }
+                else
+                {
+                    WriteLine($"if ({type}.TryParse(s, provider, out var value))");
+                    WriteLine("{");
+                    PushIndent();
+                    WriteLine($"result = {FactoryMethodName}(value);");
+                    WriteLine("return true;");
+                    PopIndent();
+                    WriteLine("}");
+                    WriteLine("return false;");
+                }
+
+                PopIndent();
+                WriteLine("}");
+                WriteLine("");
+            }
+
+
+            WriteLine($"public static {Data.TypeName} Parse({StringType} s) => ");
+            PushIndent();
+            WriteLine($"Parse(s, {GlobalizationNamespace}.CultureInfo.CurrentCulture);");
+            PopIndent();
+            WriteLine("");
+
+            {
+                string[] parameters =
+                [
+                    $"[{CodeAnalysisNamespace}.NotNullWhen(true)] {StringType}? s",
+                    $"[{CodeAnalysisNamespace}.MaybeNullWhen(false)] out {Data.TypeName} result"
+                ];
+
+                WriteLine($"public static {BoolType} TryParse({string.Join(", ", parameters)}) =>");
+                PushIndent();
+                WriteLine($"TryParse(s, {GlobalizationNamespace}.CultureInfo.CurrentCulture, out result);");
+                PopIndent();
+                WriteLine("");
+            }
+        }
+    }
+
+    private void GenerateCommonImplementation()
+    {
+        WriteLine($"public override {IntType} GetHashCode()");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"return this.{EqualityMethodName}().GetHashCode();");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+
+        WriteLine($"public {IntType} CompareTo({Data.TypeName} other)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"return {EqualityMethodName}().CompareTo(other.{EqualityMethodName}());");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        WriteLine("");
+
+        WriteLine($"public {IntType} CompareTo({ObjectType}? obj)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"return obj is {Data.TypeName} other ? this.CompareTo(other) : 0;");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        WriteLine("");
+
+        WriteLine($"public {BoolType} Equals({Data.TypeName} other)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"return this.{EqualityMethodName}().Equals(other.{EqualityMethodName}());");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        WriteLine("");
+
+        WriteLine($"public override {BoolType} Equals({ObjectType}? obj)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"return obj is {Data.TypeName} other && Equals(other);");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        WriteLine("");
+
+        WriteLine($"public static {BoolType} operator ==({Data.TypeName} left, {Data.TypeName} right)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("return left.Equals(right);");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        WriteLine("");
+
+        WriteLine($"public static {BoolType} operator !=({Data.TypeName} left, {Data.TypeName} right)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("return !left.Equals(right);");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        WriteLine("");
+
+        WriteLine($"public static {BoolType} operator <({Data.TypeName} left, {Data.TypeName} right)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("return left.CompareTo(right) < 0;");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        WriteLine("");
+
+        WriteLine($"public static {BoolType} operator >({Data.TypeName} left, {Data.TypeName} right)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("return left.CompareTo(right) > 0;");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        WriteLine("");
 
 
         if (Data.Properties.Count > 0)
         {
-            WriteLine(Data.Properties.Count == 1
-                ? $"private partial {Data.Properties[0].Type} {EqualityMethodName}();"
-                : $"private partial ({string.Join(", ", Data.Properties.Select(p => p.Type))}) {EqualityMethodName}();");
-
-            WriteLine("");
-
-            var properties = isStringType ? Data.Properties.Where(p => !p.Name.Equals("Count")) : Data.Properties;
-
-            var factoryMethodsArgs = string.Join(", ", properties.Select(p => $"{p.Type} {ToCamelCase(p.Name)}"));
-            WriteLine($"public static partial {Data.TypeName} {FactoryMethodName}({factoryMethodsArgs});");
-            WriteLine("");
-
-
-            if (!Data.HasToStringMethod)
+            if (!Data.Methods.Any(m => m is { Name: nameof(ToString), IsStatic: false, Parameters.Count: 0 }))
             {
                 WriteLine($"public override {StringType} ToString()");
                 WriteLine("{");
@@ -178,74 +443,10 @@ public class ValueObjectTemplate : BaseTemplate
                 WriteLine("return sb.ToString();");
                 PopIndent();
                 WriteLine("}");
+                WriteLine("");
             }
         }
 
-
-        WriteLine("");
-
-        GenerateCommonImplementation();
-
-        PopIndent();
-        WriteLine("}");
-
-        return ToString();
-    }
-
-    private void GenerateCommonImplementation()
-    {
-        WriteLine($"public override {IntType} GetHashCode() => ");
-        PushIndent();
-        WriteLine($"this.{EqualityMethodName}().GetHashCode();");
-        PopIndent();
-        WriteLine("");
-
-        WriteLine($"public {IntType} CompareTo({Data.TypeName} other) => ");
-        PushIndent();
-        WriteLine($"this.{EqualityMethodName}().CompareTo(other.{EqualityMethodName}());");
-        PopIndent();
-        WriteLine("");
-
-        WriteLine($"public {IntType} CompareTo({ObjectType}? other) => ");
-        PushIndent();
-        WriteLine($"this.CompareTo(({Data.TypeName}?)other);");
-        PopIndent();
-        WriteLine("");
-
-        WriteLine($"public {BoolType} Equals({Data.TypeName} other) =>");
-        PushIndent();
-        WriteLine($"this.{EqualityMethodName}().Equals(other.{EqualityMethodName}());");
-        PopIndent();
-        WriteLine("");
-
-        WriteLine($"public override {BoolType} Equals({ObjectType}? obj) => ");
-        PushIndent();
-        WriteLine($"obj is {Data.TypeName} other && Equals(({Data.TypeName})other);");
-        PopIndent();
-        WriteLine("");
-
-        WriteLine($"public static {BoolType} operator ==({Data.TypeName} left, {Data.TypeName} right) => ");
-        PushIndent();
-        WriteLine("left.Equals(right);");
-        PopIndent();
-        WriteLine("");
-
-        WriteLine($"public static {BoolType} operator !=({Data.TypeName} left, {Data.TypeName} right) =>");
-        PushIndent();
-        WriteLine("!left.Equals(right);");
-        PopIndent();
-        WriteLine("");
-
-        WriteLine($"public static {BoolType} operator <({Data.TypeName} left, {Data.TypeName} right) => ");
-        PushIndent();
-        WriteLine("left.CompareTo(right) < 0;");
-        PopIndent();
-        WriteLine("");
-
-        WriteLine($"public static {BoolType} operator >({Data.TypeName} left, {Data.TypeName} right) =>");
-        PushIndent();
-        WriteLine("left.CompareTo(right) > 0;");
-        PopIndent();
         WriteLine("");
     }
 

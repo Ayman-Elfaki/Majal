@@ -1,16 +1,14 @@
 using System.ComponentModel.DataAnnotations;
-using System.Text;
 using Majal.Sample.Common.Persistence;
 using Majal.Sample.Common.Validators;
 using Majal.Sample.Modules.Projects.Entities;
 using Majal.Sample.Modules.Projects.ValueObjects;
-using Microsoft.Extensions.Options;
 
 namespace Majal.Sample.Modules.Projects.Endpoints;
 
 public static class CreateProjectEndpoint
 {
-    public class CreateProjectRequest
+    public class Request
     {
         [Required]
         [MaxLength(ProjectName.MaxLength)]
@@ -18,7 +16,7 @@ public static class CreateProjectEndpoint
 
         [TranslatablesValidator] public IEnumerable<ProjectTranslationDto> Translations { get; init; } = [];
 
-        public class ProjectTranslationDto : ITranslatable
+        public class ProjectTranslationDto : ITranslatable<string>
         {
             [Required]
             [MaxLength(ProjectName.MaxLength)]
@@ -28,13 +26,15 @@ public static class CreateProjectEndpoint
             [MaxLength(ProjectDescription.MaxLength)]
             public required string Description { get; init; }
 
-            [Required] [Length(2, 2)] public required string Locale { get; init; }
+            [Required]
+            [RegularExpression("^[a-zA-Z]{2}$")]
+            public required string Locale { get; init; }
         }
     }
 
     public static void MapCreateProjectEndpoint(this WebApplication app)
     {
-        app.MapPost("/projects", async (CreateProjectRequest req, AppDbContext context, CancellationToken ct) =>
+        app.MapPost("/projects", async (Request req, AppDbContext context, CancellationToken ct) =>
         {
             var translations = req.Translations
                 .Select(t =>

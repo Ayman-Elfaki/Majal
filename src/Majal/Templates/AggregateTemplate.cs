@@ -1,4 +1,5 @@
 using Majal.Generators;
+using Microsoft.CodeAnalysis;
 using static Majal.Abstractions.Constants;
 
 namespace Majal.Templates;
@@ -19,10 +20,10 @@ public class AggregateTemplate : BaseTemplate
         WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.IAggregate<{Data.DomainEventType}>");
         WriteLine("{");
         PushIndent();
-        WriteLine($"private readonly {GenericCollectionNamespace}.List<{Data.DomainEventType}> _events = [];");
+        WriteLine($"private readonly {GenericsNamespace}.List<{Data.DomainEventType}> _events = [];");
         WriteLine("");
         WriteLine("/// <inheritdoc />");
-        WriteLine($"public {GenericCollectionNamespace}.IEnumerable<{Data.DomainEventType}> Events => _events;");
+        WriteLine($"public {GenericsNamespace}.IEnumerable<{Data.DomainEventType}> Events => _events;");
         WriteLine("");
         WriteLine("/// <inheritdoc />");
         WriteLine($"public void Publish({Data.DomainEventType} @event)");

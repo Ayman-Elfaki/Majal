@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Majal.Abstractions;
 using Majal.Generators;
 using Majal.Templates;
 using Microsoft.CodeAnalysis;
@@ -49,7 +50,7 @@ public sealed class GetEqualityComponentsAnalyzer : DiagnosticAnalyzer
         // check for public properties if none then ignore
         var hasPublicProperties = namedType.GetMembers()
             .OfType<IPropertySymbol>()
-            .Any(p => p.DeclaredAccessibility == Accessibility.Public && !p.IsStatic);
+            .Any(p => p is { DeclaredAccessibility: Accessibility.Public, IsStatic: false, IsComputed: false });
 
         if (!hasPublicProperties) return;
 

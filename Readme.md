@@ -15,12 +15,12 @@
 ## Overview
 Majal is a **C# source generator library** that helps you implement Domain-Driven Design (DDD) patterns with minimal boilerplate. It provides source generators for:
 
-- **Entities**
-- **Aggregates**
-- **Value Objects**
+- **Entities** (with equality and comparison helpers)
+- **Aggregates** (domain events publishing)
+- **Value Objects** (with equality and comparison helpers)
 - **Archivables** (Soft-deletion)
 - **Auditables** (Creation/Update tracking)
-- **Localizables** (Multi-language support)
+- **Translatables** (Multi-language support)
 - **Ordinals** (Sort order)
 
 The library ships as a Roslyn analyzer/source generator package that can be referenced from any .NET project.
@@ -32,12 +32,6 @@ The library ships as a Roslyn analyzer/source generator package that can be refe
 ```
 
 The package contains the generators and the required analyzer DLL (`Majal.dll`).
-
-## Quick Start
-
-1. Add the package to your project.
-2. Mark your domain classes with the appropriate attributes (`[Aggregate]`, `[Entity]`, `[ValueObject]`, `[Auditable]`, `[Archivable]`, etc.).
-3. Build the project - the source generator will emit the boilerplate code.
 
 ## Building the Project
 
@@ -69,20 +63,14 @@ dotnet test tests/Majal.Tests/Majal.Tests.csproj
 - [Value Objects Guide](docs/value-objects.md)
 - [Archivables Guide](docs/archivables.md)
 - [Auditables Guide](docs/auditables.md)
-- [Localizables Guide](docs/localizables.md)
+- [Translatables Guide](docs/translatables.md)
 - [Ordinals Guide](docs/ordinals.md)
+- [EF Core Integration](docs/ef-core.md)
 
 
 ## Contributing
 
 Contributions are welcome! Feel free to open issues or submit pull requests.
-
-
-## Aknowledgements
-
-This library implementation is based on the domain-driven design components found in [CSharpFunctionalExtensions
-](https://github.com/vkhorikov/CSharpFunctionalExtensions)
-
 
 ## License
 This project is licensed under the MIT License.

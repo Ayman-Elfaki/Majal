@@ -1,13 +1,15 @@
+using System.Globalization;
 using Majal;
 using Majal.Sample.Common.Persistence;
 using Majal.Sample.Common.Services;
+using Majal.Sample.Modules.Issues.Endpoints;
 using Majal.Sample.Modules.Projects.Endpoints;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScoped<ILocaleProvider, HttpLocaleProvider>();
+builder.Services.AddScoped<ILocaleProvider<CultureInfo>, HttpLocaleProvider>();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -29,8 +31,9 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
+app.MapCreateIssueEndpoint();
 app.MapListProjectsEndpoint();
-
 app.MapCreateProjectEndpoint();
+
 
 app.Run();

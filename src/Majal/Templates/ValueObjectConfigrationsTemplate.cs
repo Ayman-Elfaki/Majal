@@ -27,11 +27,12 @@ public class ValueObjectConfigurationTemplate(ValueObjectGenerator.ValueObjectDa
             var fullTypeName = $"{@namespace}.{valueObject.TypeName}";
             WriteLine($"config.Properties<{fullTypeName}>()");
             PushIndent();
-            if (valueObject is { MaxLength: { } maxLength, IsGeneric: true, ValueType: "string" })
+            if (valueObject is { MaxLength: { } maxLength, Value.GenericType: "string" })
             {
                 WriteLine($".HaveMaxLength({maxLength})");
             }
-            WriteLine($".HaveConversion<{fullTypeName}.EFCoreValueConverter>();");
+
+            WriteLine($".HaveConversion<{fullTypeName}.{ValueObjectTemplate.EfCoreValueConverterTypeName}>();");
             PopIndent();
             WriteLine("");
         }

@@ -1,15 +1,15 @@
+using System.Globalization;
 using Majal.Sample.Common.Extensions;
 using Majal.Sample.Modules.Projects.ValueObjects;
 
 namespace Majal.Sample.Modules.Projects.Entities;
 
 [Entity]
-[Translatable]
+[Translatable<CultureInfo>]
 public partial class ProjectTranslation
 {
     public required ProjectName DisplayName { get; set; }
     public required ProjectDescription Description { get; set; }
-
     public static ProjectTranslation Create(ProjectName displayName, ProjectDescription description, string locale)
     {
         if (!locale.IsLocaleSupported())
@@ -19,7 +19,7 @@ public partial class ProjectTranslation
         {
             DisplayName = displayName,
             Description = description,
-            Locale = locale
+            Locale = CultureInfo.GetCultureInfoByIetfLanguageTag(locale)
         };
     }
 }

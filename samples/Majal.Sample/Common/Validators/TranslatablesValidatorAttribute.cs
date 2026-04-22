@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using System.Reflection;
+using System.Globalization;
 using Majal.Sample.Common.Extensions;
 
 namespace Majal.Sample.Common.Validators;
@@ -11,9 +11,9 @@ public class TranslatablesValidatorAttribute : ValidationAttribute
     {
         if (value == null) return ValidationResult.Success;
 
-        var locales = string.Join(", ", IEnumerable<ITranslatable>.SupportedLocales);
+        var locales = string.Join(", ", IEnumerable<ITranslatable<string>>.SupportedLocales);
         
-        if (value is not IEnumerable<ITranslatable> translatables)
+        if (value is not IEnumerable<ITranslatable<string>> translatables)
             return ValidationResult.Success;
         
         return !translatables.HasRequiredLocales()

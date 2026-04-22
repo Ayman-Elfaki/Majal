@@ -4,9 +4,7 @@ namespace Majal;
 /// <summary>
 /// Defines the base interface for a value object.
 /// </summary>
-public interface IValueObject
-{
-}
+public interface IValueObject;
 
 
 /// <summary>
