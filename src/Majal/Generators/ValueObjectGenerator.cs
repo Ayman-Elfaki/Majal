@@ -13,6 +13,7 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
 {
     public record PropertyData(
         Accessibility Accessibility,
+        bool IsGetterOnly,
         bool IsComputed,
         bool IsRequired,
         string Name,
@@ -133,6 +134,7 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             .Where(p => p.GetMethod?.DeclaredAccessibility is Accessibility.Public)
             .Select(p => new PropertyData(
                     p.DeclaredAccessibility,
+                    p.IsReadOnly,
                     p.IsComputed,
                     p.IsRequired,
                     p.Name,
@@ -149,8 +151,8 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             .Select(m => new MethodData(
                 m.DeclaredAccessibility,
                 m.IsStatic,
+                m.ReturnType.Name,
                 m.Name,
-                m.ReturnType.ToDisplayString(),
                 new EquatableList<(string, string)>(m.Parameters.Select(p => (Type: p.Type.ToDisplayString(), p.Name)))
             ));
 

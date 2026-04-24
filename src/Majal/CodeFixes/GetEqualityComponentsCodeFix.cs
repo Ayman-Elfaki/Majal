@@ -74,9 +74,7 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
 
         // create method declaration
         var method = SyntaxFactory.MethodDeclaration(returnType, ValueObjectTemplate.EqualityMethodName)
-            .WithModifiers(SyntaxFactory.TokenList(
-                SyntaxFactory.Token(SyntaxKind.PrivateKeyword),
-                SyntaxFactory.Token(SyntaxKind.PartialKeyword)))
+            .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)))
             .WithExpressionBody(expressionBody)
             .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
             .WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);

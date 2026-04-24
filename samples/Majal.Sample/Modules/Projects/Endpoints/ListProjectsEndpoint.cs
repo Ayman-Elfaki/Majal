@@ -15,8 +15,12 @@ public static class ListProjectsEndpoint
     public class IssueDto
     {
         public required IssueTitle Title { get; set; }
+
+        public required IssuePriority Priority { get; set; }
+
+        public required int StoryPoints { get; set; }
     }
-    
+
     public class ProjectDto
     {
         public required ProjectName Name { get; set; }
@@ -32,6 +36,7 @@ public static class ListProjectsEndpoint
         {
             var projectsQuery = await context.Projects
                 .AsNoTracking()
+                .AsSplitQuery()
                 .Select(p => new { p.Name, p.Translations, p.Issues })
                 .ToListAsync(ct);
 
@@ -44,7 +49,8 @@ public static class ListProjectsEndpoint
                     DisplayName = translation.DisplayName,
                     Description = translation.Description,
                     Locale = translation.Locale.ToString(),
-                    Issues = project.Issues.Select(i => new IssueDto { Title = i.Title })
+                    Issues = project.Issues.Select(i => new IssueDto
+                        { Title = i.Title, Priority = i.Priority, StoryPoints = i.StoryPoints })
                 };
 
             return Results.Ok(new ListProjectsResponse { Projects = projects });

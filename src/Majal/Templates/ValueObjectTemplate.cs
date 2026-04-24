@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using Majal.Generators;
 using static Majal.Abstractions.Constants;
 
@@ -12,7 +11,6 @@ public class ValueObjectTemplate : BaseTemplate
     public const string FactoryMethodName = "From";
     public const string EqualityMethodName = "GetEqualityComponents";
     public const string EfCoreValueConverterTypeName = "EfCoreValueConverter";
-    public const string ParseMethodName = "TryParse";
 
 
     public override string TransformText()
@@ -66,62 +64,42 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine($"public partial struct {Data.TypeName} : {string.Join(", ", interfaces)}");
         WriteLine("{");
         PushIndent();
+        GenerateValueObjectImplementation();
         GenerateCommonImplementation();
-        GenerateNonGenericValueObject();
-        GenerateGenericValueObject();
         PopIndent();
         WriteLine("}");
     }
 
-    private void GenerateNonGenericValueObject()
-    {
-        if (Data.Value?.GenericType is not null)
-            return;
 
-        var properties = Data.Properties.Where(p => !p.IsComputed).ToImmutableArray();
-
-        var arguments = string.Join(", ", properties.Select(p => $"{p.Type} {ToCamelCase(p.Name)}"));
-        WriteLine($"public static partial {Data.TypeName} {FactoryMethodName}({arguments});");
-        WriteLine("");
-
-        var genericArgs = properties.Length > 0
-            ? $"<{string.Join(", ", properties.Select(p => p.Type))}>"
-            : string.Empty;
-
-        WriteLine($"private partial {SystemNamespace}.ValueTuple{genericArgs} {EqualityMethodName}();");
-        WriteLine("");
-    }
-
-    private void GenerateGenericValueObject()
+    private void GenerateValueObjectImplementation()
     {
         if (Data.Value?.GenericType is { } type)
         {
-            if (!Data.Methods.Any(m => m is { Name: FactoryMethodName, IsStatic: true, Parameters.Count: 1 }))
-            {
-                var returnType = Data.TypeName;
-                WriteLine($"public static {returnType} {FactoryMethodName}({type} value) => new(){{ Value = value }};");
-                WriteLine("");
-            }
-
-
             WriteLine($"public required {type} Value {{ get; init; }}");
             WriteLine("");
 
-            WriteLine($"public {SystemNamespace}.ValueTuple<{type}> {EqualityMethodName}() => new(Value);");
-            WriteLine("");
+            if (!Data.Methods.Any(m =>
+                    m.ReturnType.Equals(Data.TypeName) && m is
+                        { Name: FactoryMethodName, IsStatic: true, Parameters.Count: 1 }))
+            {
+                Write($"public static {Data.TypeName} {FactoryMethodName}({type} value) => ");
+                WriteLine("new() { Value = value };");
+                WriteLine("");
+            }
+
+            if (!Data.Methods.Any(m => m is { Name: EqualityMethodName, IsStatic: false, Parameters.Count: 0 }))
+            {
+                Write($"private {SystemNamespace}.ValueTuple<{type}> {EqualityMethodName}() =>");
+                WriteLine(" new(Value);");
+                WriteLine("");
+            }
+
 
             WriteLine($"public static implicit operator {type}({Data.TypeName} valueObject) => valueObject.Value;");
             WriteLine("");
 
             WriteLine($"public static explicit operator {Data.TypeName}({type} value) => {FactoryMethodName}(value);");
             WriteLine("");
-
-            if (!Data.Methods.Any(m => m is { Name: "ToString", IsStatic: false, Parameters.Count: 0 }))
-            {
-                var returnStatement = type is "string" ? "Value" : "Value.ToString()";
-                WriteLine($"public override {StringType} ToString() => {returnStatement};");
-                WriteLine("");
-            }
 
             GenerateIParseableCode();
 
@@ -142,6 +120,37 @@ public class ValueObjectTemplate : BaseTemplate
             }
 
             WriteLine("");
+        }
+
+        if (!Data.Methods.Any(m => m is { Name: nameof(ToString), IsStatic: false, Parameters.Count: 0 }))
+        {
+            if (Data.Properties.Count > 0)
+            {
+                WriteLine($"public override {StringType} ToString()");
+                WriteLine("{");
+                PushIndent();
+                WriteLine($"var sb = new {SystemNamespace}.Text.StringBuilder();");
+                WriteLine("""sb.Append("{ ");""");
+                for (var i = 0; i < Data.Properties.Count; i++)
+                {
+                    var prop = Data.Properties[i];
+                    Write($$"""sb.Append($"{{prop.Name}} = { {{prop.Name}} }");""");
+                    if (i < Data.Properties.Count - 1) WriteLine(""" sb.Append(", "); """);
+                    WriteLine("");
+                }
+
+                WriteLine("""sb.Append(" }");""");
+                WriteLine("return sb.ToString();");
+                PopIndent();
+                WriteLine("}");
+                WriteLine("");
+            }
+            else if (Data.Value?.GenericType is not null)
+            {
+                var returnStatement = Data.Value.GenericType is "string" ? "Value" : "Value.ToString()";
+                WriteLine($"public override {StringType} ToString() => {returnStatement};");
+                WriteLine("");
+            }
         }
 
         WriteLine("");
@@ -356,7 +365,6 @@ public class ValueObjectTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine("");
 
         WriteLine($"public {IntType} CompareTo({ObjectType}? obj)");
         WriteLine("{");
@@ -364,7 +372,6 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine($"return obj is {Data.TypeName} other ? this.CompareTo(other) : 0;");
         PopIndent();
         WriteLine("}");
-        WriteLine("");
         WriteLine("");
 
         WriteLine($"public {BoolType} Equals({Data.TypeName} other)");
@@ -374,7 +381,6 @@ public class ValueObjectTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine("");
 
         WriteLine($"public override {BoolType} Equals({ObjectType}? obj)");
         WriteLine("{");
@@ -382,7 +388,6 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine($"return obj is {Data.TypeName} other && Equals(other);");
         PopIndent();
         WriteLine("}");
-        WriteLine("");
         WriteLine("");
 
         WriteLine($"public static {BoolType} operator ==({Data.TypeName} left, {Data.TypeName} right)");
@@ -392,7 +397,6 @@ public class ValueObjectTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine("");
 
         WriteLine($"public static {BoolType} operator !=({Data.TypeName} left, {Data.TypeName} right)");
         WriteLine("{");
@@ -400,7 +404,6 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("return !left.Equals(right);");
         PopIndent();
         WriteLine("}");
-        WriteLine("");
         WriteLine("");
 
         WriteLine($"public static {BoolType} operator <({Data.TypeName} left, {Data.TypeName} right)");
@@ -410,7 +413,6 @@ public class ValueObjectTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine("");
 
         WriteLine($"public static {BoolType} operator >({Data.TypeName} left, {Data.TypeName} right)");
         WriteLine("{");
@@ -418,35 +420,6 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("return left.CompareTo(right) > 0;");
         PopIndent();
         WriteLine("}");
-        WriteLine("");
-        WriteLine("");
-
-
-        if (Data.Properties.Count > 0)
-        {
-            if (!Data.Methods.Any(m => m is { Name: nameof(ToString), IsStatic: false, Parameters.Count: 0 }))
-            {
-                WriteLine($"public override {StringType} ToString()");
-                WriteLine("{");
-                PushIndent();
-                WriteLine($"var sb = new {SystemNamespace}.Text.StringBuilder();");
-                WriteLine("""sb.Append("{ ");""");
-                for (var i = 0; i < Data.Properties.Count; i++)
-                {
-                    var prop = Data.Properties[i];
-                    Write($$"""sb.Append($"{{prop.Name}} = { {{prop.Name}} }");""");
-                    if (i < Data.Properties.Count - 1) Write(""" sb.Append(", "); """);
-                    WriteLine("");
-                }
-
-                WriteLine("""sb.Append(" }");""");
-                WriteLine("return sb.ToString();");
-                PopIndent();
-                WriteLine("}");
-                WriteLine("");
-            }
-        }
-
         WriteLine("");
     }
 

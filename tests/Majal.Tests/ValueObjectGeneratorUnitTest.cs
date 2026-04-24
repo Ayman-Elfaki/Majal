@@ -11,49 +11,6 @@ public class ValueObjectGeneratorUnitTest
     private const string ValueObjectsNamespace = ValueObjectGenerator.AttributeNamespace;
 
     [Fact]
-    public void GeneratesBasicNonGenericValueObject()
-    {
-        const string source =
-            $$"""
-              using {{ValueObjectsNamespace}};
-
-              [ValueObject]
-              public partial struct Money
-              {
-                  public decimal Amount { get; }
-                  public string Currency { get; }
-                  
-                  private partial global::System.ValueTuple<decimal, string> GetEqualityComponents() => new(Amount, Currency);
-              }
-              """;
-
-        var compilation = CreateCompilation(source);
-        var generator = new ValueObjectGenerator();
-
-        var driver = CSharpGeneratorDriver.Create(generator);
-        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
-
-        var runResult = result.GetRunResult();
-        var generated = runResult.GeneratedTrees
-            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
-            .ToString();
-
-        string[] markers =
-        [
-            "global::System.IEquatable<Money>",
-            "global::System.IComparable",
-            "global::System.IComparable<Money>",
-            $"global::{ValueObjectsNamespace}.IValueObject",
-        ];
-        
-        var classDefinition = $"public partial struct Money : {string.Join(", ", markers)}";
-        Assert.NotNull(generated);
-        Assert.Contains(classDefinition, generated);
-        Assert.Contains("private partial global::System.ValueTuple<decimal, string> GetEqualityComponents()", generated);
-    }
-
-
-    [Fact]
     public void GeneratesValueObjectWithEquals()
     {
         const string source =
@@ -83,42 +40,7 @@ public class ValueObjectGeneratorUnitTest
     }
 
     [Fact]
-    public void GeneratesValueObjectWithoutCreateMethod()
-    {
-        const string source =
-            $$"""
-              using {{ValueObjectsNamespace}};
-
-              [ValueObject<string>]
-              public partial struct Factory
-              {
-                  public static Factory Create(string value)
-                  {
-                      return new Factory
-                      {
-                          Value = value
-                      };
-                  }
-              }
-              """;
-
-        var compilation = CreateCompilation(source);
-        var generator = new ValueObjectGenerator();
-
-        var driver = CSharpGeneratorDriver.Create(generator);
-        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
-
-        var runResult = result.GetRunResult();
-        var generated = runResult.GeneratedTrees
-            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
-            .ToString();
-
-        Assert.NotNull(generated);
-        Assert.DoesNotContain("public static Factory Create(string value)", generated);
-    }
-
-    [Fact]
-    public void GeneratesValueObjectWithStruct()
+    public void GeneratesValueObjectWithoutFactoryMethod()
     {
         const string source =
             $$"""
@@ -127,7 +49,7 @@ public class ValueObjectGeneratorUnitTest
               [ValueObject<string>]
               public readonly partial struct Factory
               {
-                  public static Factory Create(string value)
+                  public static Factory {{FactoryMethodName}}(string value)
                   {
                       return new Factory
                       {
@@ -149,7 +71,7 @@ public class ValueObjectGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(generated);
-        Assert.DoesNotContain("public static Factory Create(string value)", generated);
+        Assert.DoesNotContain($"public static Factory {FactoryMethodName}(string value)", generated);
     }
 
     [Fact]
@@ -330,68 +252,6 @@ public class ValueObjectGeneratorUnitTest
 
         Assert.NotNull(generated);
         Assert.Contains("#nullable enable", generated);
-    }
-
-    [Fact]
-    public void GeneratesValueObjectWithCreateFactoryMethod()
-    {
-        const string source =
-            $$"""
-              using {{ValueObjectsNamespace}};
-
-              [ValueObject]
-              public readonly partial struct Person
-              {
-                  public required string Name { get; init; }
-              }
-              """;
-
-        var compilation = CreateCompilation(source);
-        var generator = new ValueObjectGenerator();
-
-        var driver = CSharpGeneratorDriver.Create(generator);
-        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
-
-        var runResult = result.GetRunResult();
-        var generated = runResult.GeneratedTrees
-            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))
-            ?.ToString();
-
-        Assert.NotNull(generated);
-        Assert.Contains($"public static partial Person {FactoryMethodName}(string name);", generated);
-    }
-
-    [Fact]
-    public void GeneratesValueObjectWithCreateFactoryMethodMultipleProperties()
-    {
-        const string source =
-            $$"""
-              using {{ValueObjectsNamespace}};
-
-              [ValueObject]
-              public readonly partial struct Address
-              {
-                  public string Street { get; set; }
-                  public string City { get; set; }
-                  public string ZipCode { get; set; }
-              }
-              """;
-
-        var compilation = CreateCompilation(source);
-        var generator = new ValueObjectGenerator();
-
-        var driver = CSharpGeneratorDriver.Create(generator);
-        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
-
-        var runResult = result.GetRunResult();
-        var generated = runResult.GeneratedTrees
-            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))
-            ?.ToString();
-
-        Assert.NotNull(generated);
-        Assert.Contains(
-            $"public static partial Address {FactoryMethodName}(string street, string city, string zipCode);",
-            generated);
     }
 
 
@@ -598,38 +458,7 @@ public class ValueObjectGeneratorUnitTest
     }
 
     [Fact]
-    public void GeneratesValueObjectWithMultiplePropertiesEqualityComponents()
-    {
-        const string source =
-            $$"""
-              using {{ValueObjectsNamespace}};
-
-              [ValueObject]
-              public readonly partial struct Coordinates
-              {
-                  public double Latitude { get; }
-                  public double Longitude { get; }
-              }
-              """;
-
-        var compilation = CreateCompilation(source);
-        var generator = new ValueObjectGenerator();
-
-        var driver = CSharpGeneratorDriver.Create(generator);
-        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
-
-        var runResult = result.GetRunResult();
-        var generated = runResult.GeneratedTrees
-            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
-            .ToString();
-
-        Assert.NotNull(generated);
-        Assert.Contains("GetEqualityComponents()", generated);
-        Assert.Contains($"public static partial Coordinates {ValueObjectTemplate.FactoryMethodName}(double latitude, double longitude);", generated);
-    }
-
-    [Fact]
-    public void GeneratesValueObjectWithConstructorNoExtraFactory()
+    public void GeneratesValueObjectWithFactoryMethod()
     {
         const string source =
             $$"""
@@ -638,7 +467,7 @@ public class ValueObjectGeneratorUnitTest
               [ValueObject<int>]
               public readonly partial struct WrappedInt
               {
-                  public WrappedInt(int value) { Value = value; }
+                  public static WrappedInt From(int value) { return new WrappedInt(value); }
               }
               """;
 
@@ -654,7 +483,6 @@ public class ValueObjectGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(generated);
-        // Generic value objects always generate a factory method (unless user-defined From exists)
         Assert.Contains("public required int Value { get; init; }", generated);
     }
 

@@ -75,8 +75,7 @@ public sealed class ValueObjectFactoryMethodCodeFix : CodeFixProvider
             .AddParameterListParameters(parameters)
             .WithModifiers(SyntaxFactory.TokenList(
                 SyntaxFactory.Token(SyntaxKind.PublicKeyword),
-                SyntaxFactory.Token(SyntaxKind.StaticKeyword),
-                SyntaxFactory.Token(SyntaxKind.PartialKeyword)))
+                SyntaxFactory.Token(SyntaxKind.StaticKeyword)))
             .WithBody(SyntaxFactory.Block(statements))
             .WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
 
