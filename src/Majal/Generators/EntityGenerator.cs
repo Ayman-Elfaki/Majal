@@ -13,14 +13,17 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
     public readonly record struct EntityData
     {
         public string TypeName { get; }
+        public string RawTypeName { get; }
         public string Namespace { get; }
         public string IdType { get; }
         public bool HasConstructor { get; }
         public EquatableList<string> Properties { get; }
 
-        public EntityData(string typeName, string @namespace, string[] properties, string idType, bool hasConstructor)
+        public EntityData(string typeName, string rawTypeName, string @namespace, string[] properties, string idType,
+            bool hasConstructor)
         {
             TypeName = typeName;
+            RawTypeName = rawTypeName;
             Namespace = @namespace;
             IdType = idType;
             HasConstructor = hasConstructor;
@@ -65,16 +68,18 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 
             var resolvedNonGenerics = nonGenerics.Select(e =>
                 string.Equals(e.IdType, "int", StringComparison.Ordinal) && defaultIdType is not null
-                    ? new EntityData(e.TypeName, e.Namespace, [..e.Properties], defaultIdType, e.HasConstructor)
+                    ? new EntityData(e.TypeName, e.RawTypeName, e.Namespace, [..e.Properties], defaultIdType,
+                        e.HasConstructor)
                     : e);
 
             EntityData[] entities = [..generics, ..resolvedNonGenerics];
 
             foreach (var data in entities)
             {
-                var template = new EntityTemplate { Data = data };
+                var template = new EntityTemplate(data);
                 var code = template.TransformText();
-                productionContext.AddSource($"{data.TypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
+                productionContext.AddSource($"{data.RawTypeName}{FilenameSuffix}",
+                    SourceText.From(code, Encoding.UTF8));
             }
         });
     }
@@ -94,6 +99,7 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 
         return new EntityData(
             classSymbol.GetTypeNameWithGenerics(),
+            classSymbol.Name,
             classSymbol.GetNamespace(),
             classSymbol.GetPropertyNames(),
             idType,

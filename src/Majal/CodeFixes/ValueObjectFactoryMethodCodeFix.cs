@@ -40,17 +40,17 @@ public sealed class ValueObjectFactoryMethodCodeFix : CodeFixProvider
         if (root == null) return document;
 
         var node = root.FindNode(diagnostic.Location.SourceSpan);
-        var structDeclaration = node as StructDeclarationSyntax ??
-                                node.AncestorsAndSelf()
-                                    .OfType<StructDeclarationSyntax>()
-                                    .FirstOrDefault();
+        var typeDeclaration = node as TypeDeclarationSyntax ??
+                              node.AncestorsAndSelf()
+                                  .OfType<TypeDeclarationSyntax>()
+                                  .FirstOrDefault(t => t is StructDeclarationSyntax or ClassDeclarationSyntax);
 
-        if (structDeclaration == null) return document;
+        if (typeDeclaration == null) return document;
 
         var semanticModel = await document.GetSemanticModelAsync(ct).ConfigureAwait(false);
         if (semanticModel == null) return document;
 
-        var symbol = semanticModel.GetDeclaredSymbol(structDeclaration, ct);
+        var symbol = semanticModel.GetDeclaredSymbol(typeDeclaration, ct);
         if (symbol == null) return document;
 
         // gather property names
@@ -58,7 +58,8 @@ public sealed class ValueObjectFactoryMethodCodeFix : CodeFixProvider
             .Where(p => p is
                 { GetMethod.DeclaredAccessibility: Accessibility.Public, IsStatic: false, IsComputed: false })
             .Select(p => SyntaxFactory.Parameter(SyntaxFactory.Identifier(ToCamelCase(p.Name)))
-                .WithType(SyntaxFactory.ParseTypeName(p.Type.ToDisplayString()))
+                .WithType(SyntaxFactory.ParseTypeName(
+                    p.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
             ).ToArray();
 
         // build statements
@@ -80,8 +81,8 @@ public sealed class ValueObjectFactoryMethodCodeFix : CodeFixProvider
             .WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
 
         var editor = await DocumentEditor.CreateAsync(document, ct).ConfigureAwait(false);
-        var newStruct = editor.Generator.AddMembers(structDeclaration, method);
-        editor.ReplaceNode(structDeclaration, newStruct);
+        var newDeclaration = editor.Generator.AddMembers(typeDeclaration, method);
+        editor.ReplaceNode(typeDeclaration, newDeclaration);
 
         return editor.GetChangedDocument();
     }

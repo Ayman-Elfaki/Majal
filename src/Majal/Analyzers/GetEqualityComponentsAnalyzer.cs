@@ -37,7 +37,8 @@ public sealed class GetEqualityComponentsAnalyzer : DiagnosticAnalyzer
     {
         var namedType = (INamedTypeSymbol)context.Symbol;
 
-        if (namedType.TypeKind != TypeKind.Struct) return;
+        // only Struct or Class
+        if (namedType.TypeKind != TypeKind.Struct && namedType.TypeKind != TypeKind.Class) return;
 
         // look for ValueObjectAttribute
         var valueAttr = namedType.GetAttributes()

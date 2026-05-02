@@ -8,7 +8,7 @@ public class ValueObjectTemplate : BaseTemplate
     public bool EnableEfCore { get; init; }
     public ValueObjectGenerator.ValueObjectData Data { get; init; }
 
-    public const string FactoryMethodName = "From";
+    public const string FactoryMethodName = "Create";
     public const string EqualityMethodName = "GetEqualityComponents";
     public const string EfCoreValueConverterTypeName = "EfCoreValueConverter";
 
@@ -61,7 +61,8 @@ public class ValueObjectTemplate : BaseTemplate
             WriteLine($"[{attribute}]");
         }
 
-        WriteLine($"public partial struct {Data.TypeName} : {string.Join(", ", interfaces)}");
+        var typeKeyword = Data.IsStruct ? "struct" : "class";
+        WriteLine($"public partial {typeKeyword} {Data.TypeName} : {string.Join(", ", interfaces)}");
         WriteLine("{");
         PushIndent();
         GenerateValueObjectImplementation();
@@ -350,6 +351,8 @@ public class ValueObjectTemplate : BaseTemplate
 
     private void GenerateCommonImplementation()
     {
+        var nullable = !Data.IsStruct ? "?" : "";
+
         WriteLine($"public override {IntType} GetHashCode()");
         WriteLine("{");
         PushIndent();
@@ -358,9 +361,16 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
-        WriteLine($"public {IntType} CompareTo({Data.TypeName} other)");
+        WriteLine($"public {IntType} CompareTo({Data.TypeName}{nullable} other)");
         WriteLine("{");
         PushIndent();
+
+        if (!Data.IsStruct)
+        {
+            WriteLine("if (other is null) return 1;");
+            WriteLine("if (ReferenceEquals(this, other)) return 0;");
+        }
+
         WriteLine($"return {EqualityMethodName}().CompareTo(other.{EqualityMethodName}());");
         PopIndent();
         WriteLine("}");
@@ -374,9 +384,16 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
-        WriteLine($"public {BoolType} Equals({Data.TypeName} other)");
+        WriteLine($"public {BoolType} Equals({Data.TypeName}{nullable} other)");
         WriteLine("{");
         PushIndent();
+
+        if (!Data.IsStruct)
+        {
+            WriteLine("if (other is null) return false;");
+            WriteLine("if (ReferenceEquals(this, other)) return true;");
+        }
+
         WriteLine($"return this.{EqualityMethodName}().Equals(other.{EqualityMethodName}());");
         PopIndent();
         WriteLine("}");
@@ -390,18 +407,25 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
-        WriteLine($"public static {BoolType} operator ==({Data.TypeName} left, {Data.TypeName} right)");
+        WriteLine(
+            $"public static {BoolType} operator ==({Data.TypeName}{nullable} left, {Data.TypeName}{nullable} right)");
         WriteLine("{");
         PushIndent();
+
+        if (!Data.IsStruct)
+        {
+            WriteLine("if (left is null || right is null) return false;");
+            WriteLine("if (ReferenceEquals(left, right)) return true;");
+        }
         WriteLine("return left.Equals(right);");
         PopIndent();
         WriteLine("}");
         WriteLine("");
 
-        WriteLine($"public static {BoolType} operator !=({Data.TypeName} left, {Data.TypeName} right)");
+        WriteLine($"public static {BoolType} operator !=({Data.TypeName}{nullable} left, {Data.TypeName}{nullable} right)");
         WriteLine("{");
         PushIndent();
-        WriteLine("return !left.Equals(right);");
+        WriteLine("return !(left == right);");
         PopIndent();
         WriteLine("}");
         WriteLine("");
@@ -421,11 +445,5 @@ public class ValueObjectTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
-    }
-
-    private static string ToCamelCase(string str)
-    {
-        if (string.IsNullOrEmpty(str)) return str;
-        return char.ToLower(str[0]) + str.Substring(1);
     }
 }

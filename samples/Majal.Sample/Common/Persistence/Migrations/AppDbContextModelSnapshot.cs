@@ -41,6 +41,11 @@ namespace Majal.Sample.Common.Persistence.Migrations
                     b.Property<int>("ProjectId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("StoryPoints")
                         .HasColumnType("INTEGER");
 
@@ -56,7 +61,11 @@ namespace Majal.Sample.Common.Persistence.Migrations
 
                     b.HasIndex("ProjectId");
 
-                    b.ToTable("Issues");
+                    b.ToTable("Issues", (string)null);
+
+                    b.HasDiscriminator<string>("Status").IsComplete(true).HasValue("Issue");
+
+                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("Majal.Sample.Modules.Projects.Entities.Project", b =>
@@ -120,6 +129,23 @@ namespace Majal.Sample.Common.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ProjectsTranslations", (string)null);
+                });
+
+            modelBuilder.Entity("Majal.Sample.Modules.Issues.Entities.PendingIssue", b =>
+                {
+                    b.HasBaseType("Majal.Sample.Modules.Issues.Entities.Issue");
+
+                    b.HasDiscriminator().HasValue("Pending");
+                });
+
+            modelBuilder.Entity("Majal.Sample.Modules.Issues.Entities.ResolvedIssue", b =>
+                {
+                    b.HasBaseType("Majal.Sample.Modules.Issues.Entities.Issue");
+
+                    b.Property<DateTimeOffset>("ResolvedOn")
+                        .HasColumnType("TEXT");
+
+                    b.HasDiscriminator().HasValue("Resolved");
                 });
 
             modelBuilder.Entity("Majal.Sample.Modules.Issues.Entities.Issue", b =>

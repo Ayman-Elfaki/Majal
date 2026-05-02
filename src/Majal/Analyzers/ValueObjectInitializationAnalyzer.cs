@@ -41,8 +41,8 @@ public sealed class ValueObjectInitializationAnalyzer : DiagnosticAnalyzer
         var typeInfo = context.SemanticModel.GetTypeInfo(objectCreation, context.CancellationToken);
         if (typeInfo.Type is not INamedTypeSymbol namedType) return;
 
-        // Only check structs
-        if (namedType.TypeKind != TypeKind.Struct) return;
+        // Only check structs and classes
+        if (namedType.TypeKind != TypeKind.Struct && namedType.TypeKind != TypeKind.Class) return;
 
         // Check for [ValueObject] attribute
         var hasValueObjectAttribute = namedType.GetAttributes().Any(a =>

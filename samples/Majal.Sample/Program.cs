@@ -32,6 +32,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapCreateIssueEndpoint();
+app.MapResolveIssueEndpoint();
 app.MapListProjectsEndpoint();
 app.MapCreateProjectEndpoint();
 

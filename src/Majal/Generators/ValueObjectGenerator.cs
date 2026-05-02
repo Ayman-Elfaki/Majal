@@ -34,6 +34,7 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
         public record ValueData(string GenericType);
 
         public string TypeName { get; }
+        public string RawTypeName { get; }
         public string Namespace { get; }
         public ValueData? Value { get; }
         public bool HasConstructor { get; }
@@ -41,14 +42,17 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
 
         public EquatableList<MethodData> Methods { get; }
         public EquatableList<PropertyData> Properties { get; }
+        public bool IsStruct { get; }
 
-        public ValueObjectData(string typeName, string @namespace, bool hasConstructor, string? value, int? maxLength,
-            PropertyData[] properties, MethodData[] methods)
+        public ValueObjectData(string typeName, string rawTypeName, string @namespace, bool hasConstructor, string? value, int? maxLength,
+            PropertyData[] properties, MethodData[] methods, bool isStruct)
         {
             TypeName = typeName;
+            RawTypeName = rawTypeName;
             Namespace = @namespace;
             HasConstructor = hasConstructor;
             MaxLength = maxLength;
+            IsStruct = isStruct;
             Methods = new EquatableList<MethodData>(methods);
             Properties = new EquatableList<PropertyData>(properties);
             Value = !string.IsNullOrEmpty(value) && value is not null ? new ValueData(value) : null;
@@ -113,7 +117,7 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             {
                 var template = new ValueObjectTemplate { Data = data, EnableEfCore = enableEfCore };
                 var code = template.TransformText();
-                ctx.AddSource($"{data.TypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
+                ctx.AddSource($"{data.RawTypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
             }
         });
     }
@@ -164,18 +168,20 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
 
         return new ValueObjectData(
             typeName: symbol.GetTypeNameWithGenerics(),
+            rawTypeName: symbol.Name,
             @namespace: symbol.GetNamespace(),
             hasConstructor: hasConstructor,
             properties: [..properties],
             methods: [..methods],
             value: valueType,
-            maxLength: maxLength?.Value
+            maxLength: maxLength?.Value,
+            isStruct: symbol.IsValueType
         );
     }
 
 
     protected override bool Filter(SyntaxNode node, CancellationToken token)
     {
-        return node is StructDeclarationSyntax;
+        return node is StructDeclarationSyntax or ClassDeclarationSyntax;
     }
 }

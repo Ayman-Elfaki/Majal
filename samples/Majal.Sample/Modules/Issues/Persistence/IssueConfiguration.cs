@@ -8,6 +8,14 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
 {
     public void Configure(EntityTypeBuilder<Issue> builder)
     {
+        builder.ToTable("Issues");
+
+        builder.UseTphMappingStrategy()
+            .HasDiscriminator<string>("Status")
+            .HasValue<ResolvedIssue>("Resolved")
+            .HasValue<PendingIssue>("Pending")
+            .IsComplete();
+        
         builder.HasKey(p => p.Id);
 
         builder.Property(p => p.Title)

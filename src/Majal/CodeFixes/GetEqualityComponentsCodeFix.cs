@@ -41,17 +41,17 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
         if (root == null) return document;
 
         var node = root.FindNode(diagnostic.Location.SourceSpan);
-        var structDecl = node as StructDeclarationSyntax ??
-                         node.AncestorsAndSelf()
-                             .OfType<StructDeclarationSyntax>()
-                             .FirstOrDefault();
+        var typeDeclaration = node as TypeDeclarationSyntax ??
+                              node.AncestorsAndSelf()
+                                  .OfType<TypeDeclarationSyntax>()
+                                  .FirstOrDefault(t => t is StructDeclarationSyntax or ClassDeclarationSyntax);
 
-        if (structDecl == null) return document;
+        if (typeDeclaration == null) return document;
 
         var semanticModel = await document.GetSemanticModelAsync(ct).ConfigureAwait(false);
         if (semanticModel == null) return document;
 
-        var symbol = semanticModel.GetDeclaredSymbol(structDecl, ct);
+        var symbol = semanticModel.GetDeclaredSymbol(typeDeclaration, ct);
         if (symbol == null) return document;
 
         // gather property names and types
@@ -59,7 +59,7 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
             .OfType<IPropertySymbol>()
             .Where(p => p is
                 { IsComputed: false, IsStatic: false, GetMethod.DeclaredAccessibility: Accessibility.Public })
-            .Select(p => (p.Name, Type: p.Type.ToDisplayString()))
+            .Select(p => (p.Name, Type: p.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
             .ToList();
 
         var tupleTypes = string.Join(", ", props.Select(p => p.Type));
@@ -80,8 +80,8 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
             .WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
 
         var editor = await DocumentEditor.CreateAsync(document, ct).ConfigureAwait(false);
-        var newStruct = editor.Generator.AddMembers(structDecl, method);
-        editor.ReplaceNode(structDecl, newStruct);
+        var newTypeDeclaration = editor.Generator.AddMembers(typeDeclaration, method);
+        editor.ReplaceNode(typeDeclaration, newTypeDeclaration);
 
         return editor.GetChangedDocument();
     }

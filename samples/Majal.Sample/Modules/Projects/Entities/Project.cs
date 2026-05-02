@@ -17,7 +17,6 @@ public partial class Project
         if (!translations.HasRequiredLocales())
             throw new ArgumentException("translation must include all required locales.");
 
-
         return new Project
         {
             Ordinal = 1,

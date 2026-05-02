@@ -28,6 +28,10 @@ public class ArchivableConventionTemplate : BaseTemplate
         WriteLine("// Check if the entity implements IArchivable");
         WriteLine($"if (!typeof({MajalNamespace}.IArchivable).IsAssignableFrom(entityType.ClrType)) continue;");
         WriteLine("");
+        WriteLine("// If it's a derived type and its base type also implements IArchivable, skip it");
+        WriteLine("// because the filter should be applied to the root of the hierarchy.");
+        WriteLine($"if (entityType.BaseType != null && typeof({MajalNamespace}.IArchivable).IsAssignableFrom(entityType.BaseType.ClrType)) continue;");
+        WriteLine("");
         WriteLine("// Equivalent to: t => t.IsArchived");
         WriteLine($"""var parameter = {ExpressionsType}.Parameter(entityType.ClrType, "t");""");
         WriteLine($"var property = {ExpressionsType}.Property(parameter, ");

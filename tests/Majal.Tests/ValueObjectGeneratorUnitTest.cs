@@ -467,7 +467,7 @@ public class ValueObjectGeneratorUnitTest
               [ValueObject<int>]
               public readonly partial struct WrappedInt
               {
-                  public static WrappedInt From(int value) { return new WrappedInt(value); }
+                  public static WrappedInt Create(int value) { return new WrappedInt(value); }
               }
               """;
 
@@ -540,6 +540,36 @@ public class ValueObjectGeneratorUnitTest
 
         Assert.NotNull(generated);
         Assert.Contains($"global::{ValueObjectsNamespace}.IValueObject<decimal>", generated);
+    }
+
+    [Fact]
+    public void GeneratesValueObjectAsClass()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              [ValueObject]
+              public partial class UserProfile
+              {
+                  public string Name { get; }
+              }
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public partial class UserProfile", generated);
+        Assert.Contains("if (ReferenceEquals(left, right)) return true;", generated);
     }
 
     private static CSharpCompilation CreateCompilation(string source)

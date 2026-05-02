@@ -3,10 +3,8 @@ using static Majal.Abstractions.Constants;
 
 namespace Majal.Templates;
 
-public class EntityTemplate : BaseTemplate
+public class EntityTemplate(EntityGenerator.EntityData data) : BaseTemplate
 {
-    public EntityGenerator.EntityData Data { get; init; }
-
     public override string TransformText()
     {
         Clear();
@@ -14,38 +12,38 @@ public class EntityTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
-        WriteLine(Data.Namespace);
+        WriteLine(data.Namespace);
         WriteLine("");
 
         string[] interfaces =
         [
-            $"{MajalNamespace}.IEntity<{Data.IdType}>",
+            $"{MajalNamespace}.IEntity<{data.IdType}>",
             $"{SystemNamespace}.IComparable",
-            $"{SystemNamespace}.IComparable<{Data.TypeName}>"
+            $"{SystemNamespace}.IComparable<{data.TypeName}>"
         ];
 
-        WriteLine($"public partial class {Data.TypeName} : {string.Join(", ", interfaces)}");
+        WriteLine($"public partial class {data.TypeName} : {string.Join(", ", interfaces)}");
         WriteLine("{");
         PushIndent();
 
-        if (!Data.HasConstructor)
+        if (!data.HasConstructor)
         {
-            WriteLine($"protected {Data.TypeName}()");
+            WriteLine($"protected {data.RawTypeName}()");
             WriteLine("{");
             WriteLine("}");
         }
 
-        if (!Data.Properties.Contains("Id"))
+        if (!data.Properties.Contains("Id"))
         {
             WriteLine("/// <inheritdoc />");
-            WriteLine($"public {Data.IdType} Id {{ get; set; }} = default!;");
+            WriteLine($"public {data.IdType} Id {{ get; set; }} = default!;");
         }
 
         WriteLine("");
         WriteLine($"public override {BoolType} Equals({ObjectType}? obj)");
         WriteLine("{");
         PushIndent();
-        WriteLine($"if (obj is not {Data.TypeName} other) return false;");
+        WriteLine($"if (obj is not {data.TypeName} other) return false;");
         WriteLine("if (ReferenceEquals(this, other)) return true;");
         WriteLine("if (IsTransient() || other.IsTransient()) return false;");
         WriteLine("return Id.Equals(other.Id);");
@@ -55,11 +53,11 @@ public class EntityTemplate : BaseTemplate
         WriteLine($"private {BoolType} IsTransient()");
         WriteLine("{");
         PushIndent();
-        WriteLine($"return Id.Equals(default({Data.IdType}));");
+        WriteLine($"return Id.Equals(default({data.IdType}));");
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine($"public static {BoolType} operator ==({Data.TypeName}? a, {Data.TypeName}? b)");
+        WriteLine($"public static {BoolType} operator ==({data.TypeName}? a, {data.TypeName}? b)");
         WriteLine("{");
         PushIndent();
         WriteLine("if (a is null && b is null) return true;");
@@ -68,7 +66,7 @@ public class EntityTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine($"public static {BoolType} operator !=({Data.TypeName}? a, {Data.TypeName}? b)");
+        WriteLine($"public static {BoolType} operator !=({data.TypeName}? a, {data.TypeName}? b)");
         WriteLine("{");
         PushIndent();
         WriteLine("return !(a == b);");
@@ -82,7 +80,7 @@ public class EntityTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine($"public {IntType} CompareTo({Data.TypeName}? other)");
+        WriteLine($"public {IntType} CompareTo({data.TypeName}? other)");
         WriteLine("{");
         PushIndent();
         WriteLine("if (other is null) return 1;");
@@ -95,7 +93,7 @@ public class EntityTemplate : BaseTemplate
         WriteLine($"public {IntType} CompareTo({ObjectType}? other)");
         WriteLine("{");
         PushIndent();
-        WriteLine($"return CompareTo(other as {Data.TypeName});");
+        WriteLine($"return CompareTo(other as {data.TypeName});");
         PopIndent();
         WriteLine("}");
 

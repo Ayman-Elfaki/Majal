@@ -27,8 +27,11 @@ public class TranslatableConventionTemplate : BaseTemplate
         WriteLine("{");
         PushIndent();
         WriteLine("// Check if the entity implements ITranslatable");
-        WriteLine(
-            $"if (!typeof({MajalNamespace}.ITranslatable<TLocale>).IsAssignableFrom(entityType.ClrType)) continue;");
+        WriteLine($"if (!typeof({MajalNamespace}.ITranslatable<TLocale>).IsAssignableFrom(entityType.ClrType)) continue;");
+        WriteLine("");
+        WriteLine("// If it's a derived type and its base type also implements ITranslatable, skip it");
+        WriteLine("// because the filter should be applied to the root of the hierarchy.");
+        WriteLine($"if (entityType.BaseType != null && typeof({MajalNamespace}.ITranslatable<TLocale>).IsAssignableFrom(entityType.BaseType.ClrType)) continue;");
         WriteLine("");
         WriteLine("// Equivalent to: t => t.Locale");
         WriteLine($"""var parameter = {ExpressionsType}.Parameter(entityType.ClrType, "t");""");

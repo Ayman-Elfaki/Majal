@@ -445,6 +445,34 @@ public class EntityGeneratorUnitTest
         Assert.Contains("public string Id { get; set; }", generated);
     }
 
+    [Fact]
+    public void GeneratesGenericEntity()
+    {
+        const string source =
+            $$"""
+              using {{EntitiesNamespace}};
+
+              [Entity<int>]
+              public partial class GenericEntity<T>;
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new EntityGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("GenericEntity.Entity.g.cs", StringComparison.OrdinalIgnoreCase))
+            ?.ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public partial class GenericEntity<T>", generated);
+        Assert.Contains("protected", generated);
+        Assert.Contains("if (obj is not GenericEntity<T> other) return false;", generated);
+    }
+
     private static CSharpCompilation CreateCompilation(string source)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(source);

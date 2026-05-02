@@ -43,7 +43,9 @@ namespace Majal.Sample.Common.Persistence.Migrations
                     ArchivedOn = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
                     CreatedOn = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
                     UpdatedOn = table.Column<DateTimeOffset>(type: "TEXT", nullable: true),
-                    Ordinal = table.Column<uint>(type: "INTEGER", nullable: false)
+                    Ordinal = table.Column<uint>(type: "INTEGER", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 8, nullable: false),
+                    ResolvedOn = table.Column<DateTimeOffset>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
