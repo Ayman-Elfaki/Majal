@@ -10,9 +10,9 @@ namespace Majal.Generators;
 [Generator]
 public sealed class AggregateGenerator : BaseGenerator<AggregateGenerator.AggregateData>
 {
-
     public readonly record struct AggregateData(
         string TypeName,
+        string RawTypeName,
         string Namespace,
         string DomainEventType
     );
@@ -65,9 +65,9 @@ public sealed class AggregateGenerator : BaseGenerator<AggregateGenerator.Aggreg
 
             foreach (var data in entities)
             {
-                var template = new AggregateTemplate { Data = data };
+                var template = new AggregateTemplate(data);
                 var code = template.TransformText();
-                productionContext.AddSource($"{data.TypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
+                productionContext.AddSource($"{data.RawTypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
             }
         });
     }
@@ -89,6 +89,7 @@ public sealed class AggregateGenerator : BaseGenerator<AggregateGenerator.Aggreg
 
         return new AggregateData(
             TypeName: symbol.GetTypeNameWithGenerics(),
+            RawTypeName: symbol.Name,
             Namespace: symbol.GetNamespace(),
             DomainEventType: domainEventType
         );

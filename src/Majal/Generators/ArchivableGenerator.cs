@@ -13,13 +13,16 @@ public sealed class ArchivableGenerator : BaseGenerator<ArchivableGenerator.Arch
     public readonly record struct ArchivableData
     {
         public string TypeName { get; }
+        public string RawTypeName { get; }
+        
         public string Namespace { get; }
         public EquatableList<string> Properties { get; }
 
-        public ArchivableData(string typeName, string @namespace, string[] properties)
+        public ArchivableData(string typeName, string @namespace, string[] properties, string rawTypeName)
         {
             TypeName = typeName;
             Namespace = @namespace;
+            RawTypeName = rawTypeName;
             Properties = new EquatableList<string>(properties);
         }
     }
@@ -67,7 +70,7 @@ public sealed class ArchivableGenerator : BaseGenerator<ArchivableGenerator.Arch
             {
                 var template = new ArchivableTemplate { Data = data };
                 var code = template.TransformText();
-                productionContext.AddSource($"{data.TypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
+                productionContext.AddSource($"{data.RawTypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
             }
         });
     }
@@ -78,6 +81,7 @@ public sealed class ArchivableGenerator : BaseGenerator<ArchivableGenerator.Arch
 
         return new ArchivableData(
             typeName: classSymbol.GetTypeNameWithGenerics(),
+            rawTypeName: classSymbol.Name,
             @namespace: classSymbol.GetNamespace(),
             properties: classSymbol.GetPropertyNames()
         );

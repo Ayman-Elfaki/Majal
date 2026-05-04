@@ -4,9 +4,8 @@ using static Majal.Abstractions.Constants;
 
 namespace Majal.Templates;
 
-public class AggregateTemplate : BaseTemplate
+public class AggregateTemplate(AggregateGenerator.AggregateData data) : BaseTemplate
 {
-    public AggregateGenerator.AggregateData Data { get; init; }
 
     public override string TransformText()
     {
@@ -15,18 +14,18 @@ public class AggregateTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
-        WriteLine(Data.Namespace);
+        WriteLine(data.Namespace);
         WriteLine("");
-        WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.IAggregate<{Data.DomainEventType}>");
+        WriteLine($"public partial class {data.TypeName} : {MajalNamespace}.IAggregate<{data.DomainEventType}>");
         WriteLine("{");
         PushIndent();
-        WriteLine($"private readonly {GenericsNamespace}.List<{Data.DomainEventType}> _events = [];");
+        WriteLine($"private readonly {GenericsNamespace}.List<{data.DomainEventType}> _events = [];");
         WriteLine("");
         WriteLine("/// <inheritdoc />");
-        WriteLine($"public {GenericsNamespace}.IEnumerable<{Data.DomainEventType}> Events => _events;");
+        WriteLine($"public {GenericsNamespace}.IEnumerable<{data.DomainEventType}> Events => _events;");
         WriteLine("");
         WriteLine("/// <inheritdoc />");
-        WriteLine($"public void Publish({Data.DomainEventType} @event)");
+        WriteLine($"public void Publish({data.DomainEventType} @event)");
         WriteLine("{");
         PushIndent();
         WriteLine("_events.Add(@event);");

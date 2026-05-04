@@ -9,7 +9,6 @@ using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
-using static Majal.Abstractions.Constants;
 
 namespace Majal.CodeFixes;
 

@@ -30,8 +30,7 @@ public class AuditableInterceptorTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine(
-            $"public override {TasksNamespace}.ValueTask<{EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}>> SavingChangesAsync(");
+        WriteLine($"public override {TasksNamespace}.ValueTask<{EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}>> SavingChangesAsync(");
         WriteLine($"    {EfCoreDiagnosticsNamespace}.DbContextEventData eventData,");
         WriteLine($"    {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> result,");
         WriteLine("    global::System.Threading.CancellationToken ct)");
@@ -50,9 +49,10 @@ public class AuditableInterceptorTemplate : BaseTemplate
         WriteLine("{");
         PushIndent();
         WriteLine("var entries = context.ChangeTracker");
-        WriteLine($"    .Entries<{MajalNamespace}.IAuditable>()");
-        WriteLine(
-            $"    .Where(e => e.State is {EfCoreNamespace}.EntityState.Added or {EfCoreNamespace}.EntityState.Modified);");
+        PushIndent();
+        WriteLine($".Entries<{MajalNamespace}.IAuditable>()");
+        WriteLine($".Where(e => e.State is {EfCoreNamespace}.EntityState.Added or {EfCoreNamespace}.EntityState.Modified);");
+        PushIndent();
         WriteLine("");
         WriteLine("foreach (var entry in entries)");
         WriteLine("{");

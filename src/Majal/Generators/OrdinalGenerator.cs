@@ -13,13 +13,16 @@ public sealed class OrdinalGenerator : BaseGenerator<OrdinalGenerator.OrdinalDat
     public readonly record struct OrdinalData
     {
         public string TypeName { get; }
+        public string RawTypeName { get; }
+        
         public string Namespace { get; }
         public EquatableList<string> Properties { get; }
 
-        public OrdinalData(string typeName, string @namespace, string[] properties)
+        public OrdinalData(string typeName, string @namespace, string[] properties, string rawTypeName)
         {
             TypeName = typeName;
             Namespace = @namespace;
+            RawTypeName = rawTypeName;
             Properties = new EquatableList<string>(properties);
         }
     }
@@ -49,7 +52,7 @@ public sealed class OrdinalGenerator : BaseGenerator<OrdinalGenerator.OrdinalDat
             {
                 var template = new OrdinalTemplate { Data = data };
                 var code = template.TransformText();
-                productionContext.AddSource($"{data.TypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
+                productionContext.AddSource($"{data.RawTypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
             }
         });
     }
@@ -68,6 +71,7 @@ public sealed class OrdinalGenerator : BaseGenerator<OrdinalGenerator.OrdinalDat
 
         return new OrdinalData(
             typeName: classSymbol.GetTypeNameWithGenerics(),
+            rawTypeName: classSymbol.Name,
             @namespace: classSymbol.GetNamespace(),
             properties: classSymbol.GetPropertyNames()
         );

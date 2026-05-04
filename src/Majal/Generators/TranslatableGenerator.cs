@@ -15,15 +15,17 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
     public readonly record struct TranslatableData
     {
         public string TypeName { get; }
+        public string RawTypeName { get; }
         public string Namespace { get; }
         public ValueData? Value { get; }
 
         public EquatableList<string> Properties { get; }
 
-        public TranslatableData(string typeName, string @namespace, string[] properties, string? value)
+        public TranslatableData(string typeName, string @namespace, string[] properties, string? value, string rawTypeName)
         {
             TypeName = typeName;
             Namespace = @namespace;
+            RawTypeName = rawTypeName;
             Value = !string.IsNullOrEmpty(value) && value is not null ? new ValueData(value) : null;
             Properties = new EquatableList<string>(properties);
         }
@@ -84,7 +86,7 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
 
             var resolvedNonGenerics = nonGenerics.Select(t =>
                 t.Value is null && defaultLocaleType is not null
-                    ? new TranslatableData(t.TypeName, t.Namespace, [..t.Properties], defaultLocaleType)
+                    ? new TranslatableData(t.TypeName, t.Namespace, [..t.Properties], defaultLocaleType, t.RawTypeName)
                     : t
             );
 
@@ -94,7 +96,7 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
             {
                 var template = new TranslatableTemplate { Data = data };
                 var code = template.TransformText();
-                productionContext.AddSource($"{data.TypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
+                productionContext.AddSource($"{data.RawTypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
             }
         });
     }
@@ -117,6 +119,7 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
         return new TranslatableData(
             value: valueType,
             typeName: symbol.GetTypeNameWithGenerics(),
+            rawTypeName: symbol.Name,
             @namespace: symbol.GetNamespace(),
             properties: symbol.GetPropertyNames()
         );

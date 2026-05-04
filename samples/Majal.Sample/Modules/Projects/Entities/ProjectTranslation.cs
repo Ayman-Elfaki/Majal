@@ -10,6 +10,7 @@ public partial class ProjectTranslation
 {
     public required ProjectName DisplayName { get; set; }
     public required ProjectDescription Description { get; set; }
+
     public static ProjectTranslation Create(ProjectName displayName, ProjectDescription description, string locale)
     {
         if (!locale.IsLocaleSupported())
