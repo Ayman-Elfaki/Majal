@@ -90,8 +90,8 @@ public class ValueObjectTemplate : BaseTemplate
 
             if (!Data.Methods.Any(m => m is { Name: EqualityMethodName, IsStatic: false, Parameters.Count: 0 }))
             {
-                Write($"private {SystemNamespace}.ValueTuple<{type}> {EqualityMethodName}() =>");
-                WriteLine(" new(Value);");
+                Write($"private {GenericsNamespace}.IEnumerable<{ObjectType}> {EqualityMethodName}()");
+                WriteLine(" { yield return Value; }");
                 WriteLine("");
             }
 
@@ -135,7 +135,22 @@ public class ValueObjectTemplate : BaseTemplate
                 for (var i = 0; i < Data.Properties.Count; i++)
                 {
                     var prop = Data.Properties[i];
-                    Write($$"""sb.Append($"{{prop.Name}} = { {{prop.Name}} }");""");
+                    WriteLine($$"""sb.Append("{{prop.Name}} = ");""");
+                    WriteLine($$"""if (({{ObjectType}}){{prop.Name}} is {{CollectionNamespace}}.IEnumerable enumerable{{i}} && ({{ObjectType}}){{prop.Name}} is not {{StringType}})""");
+                    WriteLine("{");
+                    PushIndent();
+                    WriteLine("""sb.Append("[");""");
+                    WriteLine($$"""sb.Append({{StringType}}.Join(", ", {{LinqNamespace}}.Enumerable.Cast<{{ObjectType}}>(enumerable{{i}})));""");
+                    WriteLine("""sb.Append("]");""");
+                    PopIndent();
+                    WriteLine("}");
+                    WriteLine("else");
+                    WriteLine("{");
+                    PushIndent();
+                WriteLine($$"""sb.Append({{prop.Name}});""");
+                    PopIndent();
+                    WriteLine("}");
+
                     if (i < Data.Properties.Count - 1) WriteLine(""" sb.Append(", "); """);
                     WriteLine("");
                 }
@@ -148,8 +163,20 @@ public class ValueObjectTemplate : BaseTemplate
             }
             else if (Data.Value?.GenericType is not null)
             {
+                WriteLine($"public override {StringType} ToString()");
+                WriteLine("{");
+                PushIndent();
+                WriteLine($"if ((({ObjectType})Value) is {CollectionNamespace}.IEnumerable enumerable && (({ObjectType})Value) is not {StringType})");
+                WriteLine("{");
+                PushIndent();
+                WriteLine($$"""return "[" + {{StringType}}.Join(", ", {{LinqNamespace}}.Enumerable.Cast<{{ObjectType}}>(enumerable)) + "]"; """);
+                PopIndent();
+                WriteLine("}");
+                WriteLine("");
                 var returnStatement = Data.Value.GenericType is "string" ? "Value" : "Value.ToString()";
-                WriteLine($"public override {StringType} ToString() => {returnStatement};");
+                WriteLine($"return {returnStatement};");
+                PopIndent();
+                WriteLine("}");
                 WriteLine("");
             }
         }
@@ -356,7 +383,30 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine($"public override {IntType} GetHashCode()");
         WriteLine("{");
         PushIndent();
-        WriteLine($"return this.{EqualityMethodName}().GetHashCode();");
+        WriteLine($"var hashCode = new {SystemNamespace}.HashCode();");
+        WriteLine($"foreach (var obj in {EqualityMethodName}())");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"if (obj is {CollectionNamespace}.IEnumerable enumerable && obj is not {StringType})");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("foreach (var item in enumerable)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("hashCode.Add(item);");
+        PopIndent();
+        WriteLine("}");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("else");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("hashCode.Add(obj);");
+        PopIndent();
+        WriteLine("}");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("return hashCode.ToHashCode();");
         PopIndent();
         WriteLine("}");
         WriteLine("");
@@ -371,7 +421,27 @@ public class ValueObjectTemplate : BaseTemplate
             WriteLine("if (ReferenceEquals(this, other)) return 0;");
         }
 
-        WriteLine($"return {EqualityMethodName}().CompareTo(other.{EqualityMethodName}());");
+        WriteLine($"using var thisEnumerator = {EqualityMethodName}().GetEnumerator();");
+        WriteLine($"using var otherEnumerator = other.{EqualityMethodName}().GetEnumerator();");
+        WriteLine("");
+        WriteLine("while (thisEnumerator.MoveNext() && otherEnumerator.MoveNext())");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("if (thisEnumerator.Current is null && otherEnumerator.Current is null) continue;");
+        WriteLine("if (thisEnumerator.Current is null) return -1;");
+        WriteLine("if (otherEnumerator.Current is null) return 1;");
+        WriteLine("");
+        WriteLine($"if (thisEnumerator.Current is {SystemNamespace}.IComparable comparable)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("var result = comparable.CompareTo(otherEnumerator.Current);");
+        WriteLine("if (result != 0) return result;");
+        PopIndent();
+        WriteLine("}");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        WriteLine("return 0;");
         PopIndent();
         WriteLine("}");
         WriteLine("");
@@ -394,7 +464,35 @@ public class ValueObjectTemplate : BaseTemplate
             WriteLine("if (ReferenceEquals(this, other)) return true;");
         }
 
-        WriteLine($"return this.{EqualityMethodName}().Equals(other.{EqualityMethodName}());");
+        WriteLine($"using var thisEnumerator = this.{EqualityMethodName}().GetEnumerator();");
+        WriteLine($"using var otherEnumerator = other.{EqualityMethodName}().GetEnumerator();");
+        WriteLine("");
+        WriteLine("while (thisEnumerator.MoveNext() && otherEnumerator.MoveNext())");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"if (thisEnumerator.Current is {CollectionNamespace}.IEnumerable thisEnumerable &&");
+        WriteLine($"    otherEnumerator.Current is {CollectionNamespace}.IEnumerable otherEnumerable &&");
+        WriteLine($"    thisEnumerator.Current is not {StringType})");
+        WriteLine("{");
+        PushIndent();
+        WriteLine($"if (!{LinqNamespace}.Enumerable.SequenceEqual(");
+        PushIndent();
+        WriteLine($"{LinqNamespace}.Enumerable.Cast<{ObjectType}>(thisEnumerable),");
+        WriteLine($"{LinqNamespace}.Enumerable.Cast<{ObjectType}>(otherEnumerable)))");
+        WriteLine("return false;");
+        PopIndent();
+        PopIndent();
+        WriteLine("}");
+        WriteLine($"else if (!{ObjectType}.Equals(thisEnumerator.Current, otherEnumerator.Current))");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("return false;");
+        PopIndent();
+        WriteLine("}");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
+        WriteLine("return !thisEnumerator.MoveNext() && !otherEnumerator.MoveNext();");
         PopIndent();
         WriteLine("}");
         WriteLine("");
@@ -417,12 +515,14 @@ public class ValueObjectTemplate : BaseTemplate
             WriteLine("if (left is null || right is null) return false;");
             WriteLine("if (ReferenceEquals(left, right)) return true;");
         }
+
         WriteLine("return left.Equals(right);");
         PopIndent();
         WriteLine("}");
         WriteLine("");
 
-        WriteLine($"public static {BoolType} operator !=({Data.TypeName}{nullable} left, {Data.TypeName}{nullable} right)");
+        WriteLine(
+            $"public static {BoolType} operator !=({Data.TypeName}{nullable} left, {Data.TypeName}{nullable} right)");
         WriteLine("{");
         PushIndent();
         WriteLine("return !(left == right);");

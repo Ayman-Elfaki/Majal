@@ -61,21 +61,16 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
             .Select(p => (p.Name, Type: p.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
             .ToList();
 
-        var tupleTypes = string.Join(", ", props.Select(p => p.Type));
-        var tupleValues = string.Join(", ", props.Select(p => p.Name));
+        var returnType = SyntaxFactory.ParseTypeName("IEnumerable<object>");
 
-
-        var returnType = props.Count > 0
-            ? SyntaxFactory.ParseTypeName($"ValueTuple<{tupleTypes}>")
-            : SyntaxFactory.ParseTypeName("ValueTuple");
-
-        var expressionBody = SyntaxFactory.ArrowExpressionClause(SyntaxFactory.ParseExpression($"new({tupleValues})"));
+        // build statements
+        var statements = props.Select(p =>
+            SyntaxFactory.YieldStatement(SyntaxKind.YieldReturnStatement, SyntaxFactory.IdentifierName(p.Name)));
 
         // create method declaration
         var method = SyntaxFactory.MethodDeclaration(returnType, ValueObjectTemplate.EqualityMethodName)
             .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)))
-            .WithExpressionBody(expressionBody)
-            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
+            .WithBody(SyntaxFactory.Block(statements))
             .WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
 
         var editor = await DocumentEditor.CreateAsync(document, ct).ConfigureAwait(false);

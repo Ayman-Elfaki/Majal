@@ -395,7 +395,8 @@ public class ValueObjectGeneratorUnitTest
             ?.ToString();
 
         Assert.NotNull(generated);
-        Assert.Contains("public override global::System.String ToString() => Value.ToString();", generated);
+        Assert.Contains("public override global::System.String ToString()", generated);
+        Assert.Contains("Value.ToString()", generated);
     }
 
     [Fact]

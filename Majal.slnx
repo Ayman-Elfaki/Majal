@@ -26,6 +26,7 @@
         <Project Path="src/Majal/Majal.csproj" />
     </Folder>
     <Folder Name="/tests/">
+        <Project Path="tests/Majal.FunctionalTests/Majal.FunctionalTests.csproj" />
         <Project Path="tests/Majal.Tests/Majal.Tests.csproj" />
     </Folder>
 </Solution>

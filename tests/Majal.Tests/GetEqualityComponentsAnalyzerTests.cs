@@ -38,7 +38,7 @@ public class GetEqualityComponentsAnalyzerTests
             public partial class UserProfile
             {
                 public string Name { get; }
-                private (string) GetEqualityComponents() => new(Name);
+                private System.Collections.Generic.IEnumerable<object> GetEqualityComponents() => new object[] { Name };
             }
             """;
 

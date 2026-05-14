@@ -37,9 +37,10 @@ public readonly partial struct Money
     }
 
     // This method defines which properties are used for equality
-    private partial ValueTuple<decimal, string> GetEqualityComponents()
+    private partial IEnumerable<object> GetEqualityComponents()
     {
-        return (Amount, Currency);
+        yield return Amount;
+        yield return Currency;
     }
 }
 ```
