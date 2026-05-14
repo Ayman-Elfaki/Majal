@@ -25,3 +25,19 @@ public partial class Project
         };
     }
 }
+
+[Entity, Aggregate]
+[Archivable, Auditable, Ordinal]
+public partial class Product
+{
+    public required ProjectName Name { get; set; }
+
+    public static Product Create(ProjectName name, ProjectTags tags, ProjectTranslation[] translations)
+    {
+        return new Product
+        {
+            Ordinal = 0,
+            Name = name,
+        };
+    }
+}

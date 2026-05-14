@@ -1,32 +1,39 @@
-using System.ComponentModel.DataAnnotations;
+using FluentValidation;
+using Majal.Sample.Common.Filters;
 using Majal.Sample.Common.Persistence;
-using Majal.Sample.Common.Validators;
 using Majal.Sample.Modules.Projects.Entities;
 using Majal.Sample.Modules.Projects.ValueObjects;
 
 namespace Majal.Sample.Modules.Projects.Endpoints;
 
-public class CreateProjectRequest
+[DtoFor<Project>]
+public partial record ProjectDto;
+
+public class ProjectDtoValidator : AbstractValidator<ProjectDto>
 {
-    [Required]
-    [MaxLength(ProjectName.MaxLength)]
-    public required string Name { get; init; }
-
-    [TranslatablesValidator] public IEnumerable<ProjectTranslationDto> Translations { get; init; } = [];
-
-    public class ProjectTranslationDto : ITranslatable<string>
+    public ProjectDtoValidator()
     {
-        [Required]
-        [MaxLength(ProjectName.MaxLength)]
-        public required string DisplayName { get; init; }
+        RuleFor(dto => dto.Name)
+            .NotEmpty()
+            .MaximumLength(ProjectName.MaxLength);
 
-        [Required]
-        [MaxLength(ProjectDescription.MaxLength)]
-        public required string Description { get; init; }
+        RuleFor(dto => dto.Translations)
+            .NotEmpty();
 
-        [Required]
-        [RegularExpression("^[a-zA-Z]{2}$")]
-        public required string Locale { get; init; }
+        RuleForEach(dto => dto.Translations).ChildRules(r =>
+        {
+            r.RuleFor(p => p.DisplayName)
+                .NotEmpty()
+                .MaximumLength(ProjectName.MaxLength);
+
+            r.RuleFor(p => p.Description)
+                .NotEmpty()
+                .MaximumLength(ProjectDescription.MaxLength);
+
+            r.RuleFor(p => p.Locale)
+                .NotEmpty()
+                .Matches("^[a-zA-Z]{2}$");
+        });
     }
 }
 
@@ -35,7 +42,7 @@ public static class CreateProjectEndpoint
     public static void MapCreateProjectEndpoint(this WebApplication app)
     {
         app.MapPost("/projects",
-            async (CreateProjectRequest req, AppDbContext context, CancellationToken ct) =>
+            async (ProjectDto req, AppDbContext context, CancellationToken ct) =>
             {
                 var translations = req.Translations
                     .Select(t =>
@@ -55,6 +62,6 @@ public static class CreateProjectEndpoint
                 await context.SaveChangesAsync(ct);
 
                 return Results.Ok();
-            });
+            }).AddEndpointFilter<ValidationFilter<ProjectDtoValidator>>();
     }
 }

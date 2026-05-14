@@ -27,10 +27,9 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
         string Name,
         EquatableList<ValueTuple<string, string>> Parameters
     );
-    
+
     public readonly record struct ValueObjectData
     {
-
         public record ValueData(string GenericType);
 
         public string TypeName { get; }
@@ -44,7 +43,8 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
         public EquatableList<PropertyData> Properties { get; }
         public bool IsStruct { get; }
 
-        public ValueObjectData(string typeName, string rawTypeName, string @namespace, bool hasConstructor, string? value, int? maxLength,
+        public ValueObjectData(string typeName, string rawTypeName, string @namespace, bool hasConstructor,
+            string? value, int? maxLength,
             PropertyData[] properties, MethodData[] methods, bool isStruct)
         {
             TypeName = typeName;

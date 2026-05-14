@@ -1,19 +1,25 @@
-using System.ComponentModel.DataAnnotations;
+using FluentValidation;
+using Majal.Sample.Common.Filters;
 using Majal.Sample.Common.Persistence;
 using Majal.Sample.Modules.Issues.Entities;
 using Majal.Sample.Modules.Issues.ValueObjects;
 
 namespace Majal.Sample.Modules.Issues.Endpoints;
 
-public class CreateIssueRequest
+[DtoFor<PendingIssue>]
+public partial record IssueDto;
+
+public class IssueDtoValidator : AbstractValidator<IssueDto>
 {
-    [Required]
-    [MaxLength(IssueTitle.MaxLength)]
-    public required string Title { get; init; }
-
-    [Required] [Range(0, 10)] public required int StoryPoint { get; init; }
-
-    [Required] [Range(0, 5)] public required int Priority { get; init; }
+    public IssueDtoValidator()
+    {
+        RuleFor(dto => dto.Title)
+            .NotEmpty()
+            .MaximumLength(IssueTitle.MaxLength);
+        
+        RuleFor(dto => dto.StoryPoints).InclusiveBetween(0, 10);
+        RuleFor(dto => dto.Priority).InclusiveBetween(0, 5);
+    }
 }
 
 public static class CreateIssueEndpoint
@@ -21,7 +27,7 @@ public static class CreateIssueEndpoint
     public static void MapCreateIssueEndpoint(this WebApplication app)
     {
         app.MapPost("/projects/{id:int}/issues",
-            async (int id, CreateIssueRequest req, AppDbContext context, CancellationToken ct) =>
+            async (int id, IssueDto req, AppDbContext context, CancellationToken ct) =>
             {
                 var project = context.Projects.FirstOrDefault(p => p.Id == id);
 
@@ -29,13 +35,13 @@ public static class CreateIssueEndpoint
 
                 var issue = PendingIssue.Create(
                     IssueTitle.Create(req.Title),
-                    IssuePriority.Create(req.StoryPoint),
-                    IssueStoryPoints.Create(req.StoryPoint)
+                    IssuePriority.Create(req.StoryPoints),
+                    IssueStoryPoints.Create(req.StoryPoints)
                 );
 
                 project.Issues.Add(issue);
                 await context.SaveChangesAsync(ct);
                 return Results.Ok();
-            });
+            }).AddEndpointFilter<ValidationFilter<IssueDtoValidator>>();
     }
 }
