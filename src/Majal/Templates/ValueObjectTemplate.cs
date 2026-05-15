@@ -23,7 +23,10 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("");
         WriteLine(Data.Namespace);
         WriteLine("");
-
+        
+        WriteLine("/// <summary>");
+        WriteLine($"/// Provides value-object infrastructure for <see cref=\"{Data.TypeName}\"/>.");
+        WriteLine("/// </summary>");
         GenerateClassCode();
 
         return ToString();
@@ -62,6 +65,7 @@ public class ValueObjectTemplate : BaseTemplate
         }
 
         var typeKeyword = Data.IsStruct ? "struct" : "class";
+       
         WriteLine($"public partial {typeKeyword} {Data.TypeName} : {string.Join(", ", interfaces)}");
         WriteLine("{");
         PushIndent();
@@ -76,6 +80,7 @@ public class ValueObjectTemplate : BaseTemplate
     {
         if (Data.Value?.GenericType is { } type)
         {
+            WriteLine("/// <summary>Gets the underlying primitive value encapsulated by this value object.</summary>");
             WriteLine($"public required {type} Value {{ get; init; }}");
             WriteLine("");
 
@@ -83,6 +88,11 @@ public class ValueObjectTemplate : BaseTemplate
                     m.ReturnType.Equals(Data.TypeName) && m is
                         { Name: FactoryMethodName, IsStatic: true, Parameters.Count: 1 }))
             {
+                WriteLine("/// <summary>");
+                WriteLine($"/// Creates a new <see cref=\"{Data.TypeName}\"/> wrapping the specified <paramref name=\"value\"/>.");
+                WriteLine("/// </summary>");
+                WriteLine($"/// <param name=\"value\">The primitive value to wrap.</param>");
+                WriteLine($"/// <returns>A new <see cref=\"{Data.TypeName}\"/> instance.</returns>");
                 Write($"public static {Data.TypeName} {FactoryMethodName}({type} value) => ");
                 WriteLine("new() { Value = value };");
                 WriteLine("");
@@ -90,15 +100,18 @@ public class ValueObjectTemplate : BaseTemplate
 
             if (!Data.Methods.Any(m => m is { Name: EqualityMethodName, IsStatic: false, Parameters.Count: 0 }))
             {
+                WriteLine("/// <summary>Returns the sequence of components used for structural equality comparisons.</summary>");
                 Write($"private {GenericsNamespace}.IEnumerable<{ObjectType}?> {EqualityMethodName}()");
                 WriteLine(" { yield return Value; }");
                 WriteLine("");
             }
 
 
+            WriteLine("/// <summary>Implicitly converts a <see cref=\"Value\"/> to its underlying primitive type.</summary>");
             WriteLine($"public static implicit operator {type}({Data.TypeName} valueObject) => valueObject.Value;");
             WriteLine("");
 
+            WriteLine("/// <summary>Explicitly converts a primitive value to a <see cref=\"Value\"/>.</summary>");
             WriteLine($"public static explicit operator {Data.TypeName}({type} value) => {FactoryMethodName}(value);");
             WriteLine("");
 
@@ -111,6 +124,7 @@ public class ValueObjectTemplate : BaseTemplate
             if (EnableEfCore)
             {
                 const string converter = $"v => v.Value, v => {FactoryMethodName}(v)";
+                WriteLine("/// <summary>Provides an EF Core <c>ValueConverter</c> for persisting this value object as its primitive type.</summary>");
                 WriteLine($"public sealed class {EfCoreValueConverterTypeName}() :");
                 PushIndent();
                 WriteLine($"{EfCoreValueConversion}.ValueConverter<{Data.TypeName}, {type}>({converter})");
@@ -127,6 +141,7 @@ public class ValueObjectTemplate : BaseTemplate
         {
             if (Data.Properties.Count > 0)
             {
+                WriteLine("/// <inheritdoc />");
                 WriteLine($"public override {StringType} ToString()");
                 WriteLine("{");
                 PushIndent();
@@ -163,6 +178,7 @@ public class ValueObjectTemplate : BaseTemplate
             }
             else if (Data.Value?.GenericType is not null)
             {
+                WriteLine("/// <inheritdoc />");
                 WriteLine($"public override {StringType} ToString()");
                 WriteLine("{");
                 PushIndent();
@@ -194,6 +210,7 @@ public class ValueObjectTemplate : BaseTemplate
                 $"{ComponentModelNamespace}.TypeConverter"
             ];
 
+            WriteLine("/// <summary>A <see cref=\"global::System.ComponentModel.TypeConverter\"/> that converts string values to this value object and back.</summary>");
             WriteLine($"public sealed class ValueObjectTypeConverter : {string.Join(", ", implementations)} ");
             WriteLine("{");
             PushIndent();
@@ -205,6 +222,7 @@ public class ValueObjectTemplate : BaseTemplate
                     $"{TypeType} sourceType"
                 ];
 
+                WriteLine("/// <inheritdoc />");
                 WriteLine($"public override {BoolType} CanConvertFrom({string.Join(", ", parameters)})");
                 WriteLine("{");
                 PushIndent();
@@ -222,6 +240,7 @@ public class ValueObjectTemplate : BaseTemplate
                     $"{ObjectType} value"
                 ];
 
+                WriteLine("/// <inheritdoc />");
                 WriteLine($"public override {ObjectType}? ConvertFrom({string.Join(", ", parameters)})");
                 WriteLine("{");
                 PushIndent();
@@ -246,6 +265,7 @@ public class ValueObjectTemplate : BaseTemplate
                 $"{JsonSerializationNamespace}.JsonConverter<{Data.TypeName}>"
             ];
 
+            WriteLine("/// <summary>A <see cref=\"global::System.Text.Json.Serialization.JsonConverter\"/> for serializing this value object as a JSON string.</summary>");
             WriteLine($"public sealed class JsonValueObjectConverter : {string.Join(", ", implementations)} ");
             WriteLine("{");
             PushIndent();
@@ -257,6 +277,7 @@ public class ValueObjectTemplate : BaseTemplate
                     $"{JsonNamespace}.JsonSerializerOptions options"
                 ];
 
+                WriteLine("/// <inheritdoc />");
                 WriteLine($"public override {Data.TypeName} Read({string.Join(", ", parameters)})");
                 WriteLine("{");
                 PushIndent();
@@ -284,6 +305,7 @@ public class ValueObjectTemplate : BaseTemplate
                     $"{JsonNamespace}.JsonSerializerOptions options"
                 ];
 
+                WriteLine("/// <inheritdoc />");
                 WriteLine($"public override void Write({string.Join(", ", parameters)})");
                 WriteLine("{");
                 PushIndent();
@@ -307,6 +329,7 @@ public class ValueObjectTemplate : BaseTemplate
                     $"{SystemNamespace}.IFormatProvider? provider"
                 ];
 
+                WriteLine("/// <inheritdoc />");
                 WriteLine($"public static {Data.TypeName} Parse({string.Join(", ", parameters)})");
                 WriteLine("{");
                 PushIndent();
@@ -328,6 +351,7 @@ public class ValueObjectTemplate : BaseTemplate
                     $"[{CodeAnalysisNamespace}.MaybeNullWhen(false)] out {Data.TypeName} result"
                 ];
 
+                WriteLine("/// <inheritdoc />");
                 WriteLine($"public static {BoolType} TryParse({string.Join(", ", parameters)})");
                 WriteLine("{");
                 PushIndent();
@@ -356,6 +380,7 @@ public class ValueObjectTemplate : BaseTemplate
             }
 
 
+            WriteLine("/// <inheritdoc />");
             WriteLine($"public static {Data.TypeName} Parse({StringType} s) => ");
             PushIndent();
             WriteLine($"Parse(s, {GlobalizationNamespace}.CultureInfo.CurrentCulture);");
@@ -369,6 +394,7 @@ public class ValueObjectTemplate : BaseTemplate
                     $"[{CodeAnalysisNamespace}.MaybeNullWhen(false)] out {Data.TypeName} result"
                 ];
 
+                WriteLine("/// <inheritdoc />");
                 WriteLine($"public static {BoolType} TryParse({string.Join(", ", parameters)}) =>");
                 PushIndent();
                 WriteLine($"TryParse(s, {GlobalizationNamespace}.CultureInfo.CurrentCulture, out result);");
@@ -382,6 +408,7 @@ public class ValueObjectTemplate : BaseTemplate
     {
         var nullable = !Data.IsStruct ? "?" : "";
 
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public override {IntType} GetHashCode()");
         WriteLine("{");
         PushIndent();
@@ -413,6 +440,7 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public {IntType} CompareTo({Data.TypeName}{nullable} other)");
         WriteLine("{");
         PushIndent();
@@ -448,6 +476,7 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public {IntType} CompareTo({ObjectType}? obj)");
         WriteLine("{");
         PushIndent();
@@ -456,6 +485,7 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public {BoolType} Equals({Data.TypeName}{nullable} other)");
         WriteLine("{");
         PushIndent();
@@ -499,6 +529,7 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public override {BoolType} Equals({ObjectType}? obj)");
         WriteLine("{");
         PushIndent();
@@ -507,6 +538,7 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
+        WriteLine("/// <inheritdoc />");
         WriteLine(
             $"public static {BoolType} operator ==({Data.TypeName}{nullable} left, {Data.TypeName}{nullable} right)");
         WriteLine("{");
@@ -523,6 +555,7 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
+        WriteLine("/// <inheritdoc />");
         WriteLine(
             $"public static {BoolType} operator !=({Data.TypeName}{nullable} left, {Data.TypeName}{nullable} right)");
         WriteLine("{");
@@ -532,6 +565,7 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public static {BoolType} operator <({Data.TypeName} left, {Data.TypeName} right)");
         WriteLine("{");
         PushIndent();
@@ -540,6 +574,7 @@ public class ValueObjectTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public static {BoolType} operator >({Data.TypeName} left, {Data.TypeName} right)");
         WriteLine("{");
         PushIndent();

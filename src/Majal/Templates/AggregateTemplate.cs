@@ -16,6 +16,9 @@ public class AggregateTemplate(AggregateGenerator.AggregateData data) : BaseTemp
         WriteLine("");
         WriteLine(data.Namespace);
         WriteLine("");
+        WriteLine("/// <summary>");
+        WriteLine($"/// Provides aggregate event management for <see cref=\"{data.TypeName}\"/>.");
+        WriteLine("/// </summary>");
         WriteLine($"public partial class {data.TypeName} : {MajalNamespace}.IAggregate<{data.DomainEventType}>");
         WriteLine("{");
         PushIndent();

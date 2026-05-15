@@ -13,9 +13,11 @@ public class AuditableInterceptorTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
+        WriteLine("/// <summary>Intercepts EF Core save operations to automatically populate auditing timestamps.</summary>");
         WriteLine($"public class AuditableSaveChangesInterceptor : {EfCoreDiagnosticsNamespace}.SaveChangesInterceptor");
         WriteLine("{");
         PushIndent();
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public override {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> SavingChanges(");
         WriteLine($"    {EfCoreDiagnosticsNamespace}.DbContextEventData eventData,");
         WriteLine($"    {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> result)");
@@ -30,6 +32,7 @@ public class AuditableInterceptorTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public override {TasksNamespace}.ValueTask<{EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}>> SavingChangesAsync(");
         WriteLine($"    {EfCoreDiagnosticsNamespace}.DbContextEventData eventData,");
         WriteLine($"    {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> result,");
@@ -45,6 +48,7 @@ public class AuditableInterceptorTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        WriteLine("/// <summary>Updates <see cref=\"global::Majal.IAuditable\"/> entities in the change tracker with the current UTC timestamp.</summary>");
         WriteLine($"private static void UpdateAuditableEntities({EfCoreNamespace}.DbContext context)");
         WriteLine("{");
         PushIndent();

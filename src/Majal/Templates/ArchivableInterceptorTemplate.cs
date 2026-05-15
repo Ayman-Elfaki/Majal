@@ -14,9 +14,11 @@ public class ArchivableInterceptorTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
+        WriteLine("/// <summary>Intercepts EF Core save operations to convert hard-deletes into soft-deletes for archivable entities.</summary>");
         WriteLine($"public class ArchivableSaveChangesInterceptor : {EfCoreDiagnosticsNamespace}.SaveChangesInterceptor");
         WriteLine("{");
         PushIndent();
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public override {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> SavingChanges(");
         WriteLine($"    {EfCoreDiagnosticsNamespace}.DbContextEventData eventData,");
         WriteLine($"    {EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}> result)");
@@ -31,6 +33,7 @@ public class ArchivableInterceptorTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        WriteLine("/// <inheritdoc />");
         WriteLine(
             $"public override {TasksNamespace}.ValueTask<{EfCoreDiagnosticsNamespace}.InterceptionResult<{IntType}>> SavingChangesAsync(");
         WriteLine($"    {EfCoreDiagnosticsNamespace}.DbContextEventData eventData, ");
@@ -47,6 +50,7 @@ public class ArchivableInterceptorTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        WriteLine("/// <summary>Converts deleted <see cref=\"global::Majal.IArchivable\"/> entities into soft-deletes by setting <c>IsArchived</c> and <c>ArchivedOn</c>.</summary>");
         WriteLine($"private static void UpdateArchivableEntities({EfCoreNamespace}.DbContext context)");
         WriteLine("{");
         PushIndent();

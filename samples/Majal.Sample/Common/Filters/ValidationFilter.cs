@@ -2,7 +2,7 @@ using FluentValidation;
 
 namespace Majal.Sample.Common.Filters;
 
-public class ValidationFilter<T> : IEndpointFilter
+internal class ValidationFilter<T> : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {

@@ -9,7 +9,7 @@ namespace Majal.Sample.Modules.Issues.Endpoints;
 [DtoFor<PendingIssue>]
 public partial record IssueDto;
 
-public class IssueDtoValidator : AbstractValidator<IssueDto>
+internal class IssueDtoValidator : AbstractValidator<IssueDto>
 {
     public IssueDtoValidator()
     {
@@ -22,7 +22,7 @@ public class IssueDtoValidator : AbstractValidator<IssueDto>
     }
 }
 
-public static class CreateIssueEndpoint
+internal static class CreateIssueEndpoint
 {
     public static void MapCreateIssueEndpoint(this WebApplication app)
     {

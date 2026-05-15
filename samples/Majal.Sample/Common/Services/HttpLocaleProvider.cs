@@ -3,7 +3,7 @@ using Majal.Sample.Common.Extensions;
 
 namespace Majal.Sample.Common.Services;
 
-public class HttpLocaleProvider(IHttpContextAccessor accessor) : ILocaleProvider<CultureInfo>
+internal class HttpLocaleProvider(IHttpContextAccessor accessor) : ILocaleProvider<CultureInfo>
 {
     private readonly HttpContext? _context = accessor.HttpContext;
     public CultureInfo GetCurrentLocale() =>

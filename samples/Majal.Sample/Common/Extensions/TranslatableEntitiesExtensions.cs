@@ -1,6 +1,6 @@
 namespace Majal.Sample.Common.Extensions;
 
-public static class TranslatableEntitiesExtensions
+internal static class TranslatableEntitiesExtensions
 {
     private static readonly string[] Locales = ["ar", "en"];
 

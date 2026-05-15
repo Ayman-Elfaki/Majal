@@ -4,7 +4,7 @@ using Majal.Sample.Common.Extensions;
 namespace Majal.Sample.Common.Validators;
 
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
-public class TranslatablesValidatorAttribute : ValidationAttribute
+internal class TranslatablesValidatorAttribute : ValidationAttribute
 {
     protected override ValidationResult? IsValid(object? value, ValidationContext context)
     {

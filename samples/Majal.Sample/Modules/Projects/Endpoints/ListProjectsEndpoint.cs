@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Majal.Sample.Modules.Projects.Endpoints;
 
-public static class ListProjectsEndpoint
+internal static class ListProjectsEndpoint
 {
-    public class ListProjectsResponse
+    private class ListProjectsResponse
     {
         public IEnumerable<ProjectDto> Projects { get; set; } = [];
     }

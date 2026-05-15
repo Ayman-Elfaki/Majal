@@ -13,10 +13,12 @@ public class ArchivableConventionTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
+        WriteLine("/// <summary>An EF Core model-finalizing convention that applies a global query filter to exclude archived entities.</summary>");
         WriteLine("public class ArchivableFilterConvention()");
         WriteLine($"    : {EfCoreConventions}.IModelFinalizingConvention");
         WriteLine("{");
         PushIndent();
+        WriteLine("/// <inheritdoc />");
         WriteLine("public void ProcessModelFinalizing(");
         WriteLine($"    {EfCoreBuilders}.IConventionModelBuilder modelBuilder,");
         WriteLine($"    {EfCoreConventions}.IConventionContext<{EfCoreBuilders}.IConventionModelBuilder> context)");
@@ -51,9 +53,11 @@ public class ArchivableConventionTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
         
+        WriteLine("/// <summary>Provides EF Core extension methods for working with archivable query filters.</summary>");
         WriteLine("public static class ArchivableEfCoreExtensions");
         WriteLine("{");
         PushIndent();
+        WriteLine("/// <summary>Returns a queryable that ignores the global archivable filter, returning archived records too.</summary>");
         WriteLine($"public static {LinqNamespace}.IQueryable<TEntity> IgnoreArchivableFilter<TEntity>(");
         WriteLine($"    this {LinqNamespace}.IQueryable<TEntity> source)");
         WriteLine("             where TEntity : class");

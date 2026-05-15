@@ -17,6 +17,9 @@ public class AuditableTemplate : BaseTemplate
         WriteLine("");
         WriteLine(Data.Namespace);
         WriteLine("");
+        WriteLine("/// <summary>");
+        WriteLine($"/// Provides auditing timestamps for <see cref=\"{Data.TypeName}\"/>.");
+        WriteLine("/// </summary>");
         WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.IAuditable");
         WriteLine("{");
         PushIndent();

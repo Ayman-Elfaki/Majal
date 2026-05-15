@@ -16,6 +16,9 @@ public class OrdinalTemplate : BaseTemplate
         WriteLine("");
         WriteLine(Data.Namespace);
         WriteLine("");
+        WriteLine("/// <summary>");
+        WriteLine($"/// Provides ordinal ordering support for <see cref=\"{Data.TypeName}\"/>.");
+        WriteLine("/// </summary>");
         WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.IOrdinal");
         WriteLine("{");
         PushIndent();

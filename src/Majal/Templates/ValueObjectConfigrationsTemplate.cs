@@ -14,9 +14,11 @@ public class ValueObjectConfigurationTemplate(ValueObjectGenerator.ValueObjectDa
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
+        WriteLine("/// <summary>Provides EF Core model-configuration extensions for source-generated value objects.</summary>");
         WriteLine("public static class ValueObjectExtensions");
         WriteLine("{");
         PushIndent();
+        WriteLine("/// <summary>Registers EF Core scalar-property conventions (conversion and max-length) for all value objects in this assembly.</summary>");
         WriteLine($"public static void RegisterValueObjectsConventions(this {EfCoreNamespace}.ModelConfigurationBuilder config)");
         WriteLine("{");
         PushIndent();

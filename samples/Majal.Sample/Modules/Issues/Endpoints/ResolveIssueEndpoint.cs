@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Majal.Sample.Modules.Issues.Endpoints;
 
-public static class ResolveIssueEndpoint
+internal static class ResolveIssueEndpoint
 {
     public static void MapResolveIssueEndpoint(this WebApplication app)
     {

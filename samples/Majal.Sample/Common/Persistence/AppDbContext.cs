@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Majal.Sample.Common.Persistence;
 
-public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ILocaleProvider<CultureInfo> localeProvider)
+internal sealed class AppDbContext(DbContextOptions<AppDbContext> options, ILocaleProvider<CultureInfo> localeProvider)
     : DbContext(options), ITranslatableDbContext<CultureInfo>
 {
     public CultureInfo Locale => localeProvider.GetCurrentLocale();

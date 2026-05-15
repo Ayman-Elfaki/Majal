@@ -22,12 +22,18 @@ public class EntityTemplate(EntityGenerator.EntityData data) : BaseTemplate
             $"{SystemNamespace}.IComparable<{data.TypeName}>"
         ];
 
+        WriteLine("/// <summary>");
+        WriteLine($"/// Provides entity infrastructure for <see cref=\"{data.RawTypeName}\"/>.");
+        WriteLine("/// </summary>");
         WriteLine($"public partial class {data.TypeName} : {string.Join(", ", interfaces)}");
         WriteLine("{");
         PushIndent();
 
         if (!data.HasConstructor)
         {
+            WriteLine("/// <summary>");
+            WriteLine($"/// Initializes a new instance of <see cref=\"{data.RawTypeName}\"/>.");
+            WriteLine("/// </summary>");
             WriteLine($"protected {data.RawTypeName}()");
             WriteLine("{");
             WriteLine("}");
@@ -40,6 +46,7 @@ public class EntityTemplate(EntityGenerator.EntityData data) : BaseTemplate
         }
 
         WriteLine("");
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public override {BoolType} Equals({ObjectType}? obj)");
         WriteLine("{");
         PushIndent();
@@ -50,6 +57,7 @@ public class EntityTemplate(EntityGenerator.EntityData data) : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        WriteLine("/// <summary>Determines whether this entity is transient (not yet persisted to the data store).</summary>");
         WriteLine($"private {BoolType} IsTransient()");
         WriteLine("{");
         PushIndent();
@@ -57,6 +65,7 @@ public class EntityTemplate(EntityGenerator.EntityData data) : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public static {BoolType} operator ==({data.TypeName}? a, {data.TypeName}? b)");
         WriteLine("{");
         PushIndent();
@@ -66,6 +75,7 @@ public class EntityTemplate(EntityGenerator.EntityData data) : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public static {BoolType} operator !=({data.TypeName}? a, {data.TypeName}? b)");
         WriteLine("{");
         PushIndent();
@@ -73,6 +83,7 @@ public class EntityTemplate(EntityGenerator.EntityData data) : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public override {IntType} GetHashCode()");
         WriteLine("{");
         PushIndent();
@@ -80,6 +91,7 @@ public class EntityTemplate(EntityGenerator.EntityData data) : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
+        WriteLine("/// <inheritdoc />");
         WriteLine($"public {IntType} CompareTo({data.TypeName}? other)");
         WriteLine("{");
         PushIndent();

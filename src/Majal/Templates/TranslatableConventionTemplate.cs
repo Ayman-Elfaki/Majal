@@ -13,11 +13,13 @@ public class TranslatableConventionTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
+        WriteLine("/// <summary>An EF Core model-finalizing convention that applies a locale-based global query filter to translatable entities.</summary>");
         WriteLine("public class TranslatableFilterConvention<TLocale,TContext>(TContext dbContext)");
         WriteLine($"    : {EfCoreConventions}.IModelFinalizingConvention");
         WriteLine($"    where TContext : {EfCoreNamespace}.DbContext, {MajalNamespace}.ITranslatableDbContext<TLocale>");
         WriteLine("{");
         PushIndent();
+        WriteLine("/// <inheritdoc />");
         WriteLine("public void ProcessModelFinalizing(");
         WriteLine($"    {EfCoreBuilders}.IConventionModelBuilder modelBuilder,");
         WriteLine($"    {EfCoreConventions}.IConventionContext<{EfCoreBuilders}.IConventionModelBuilder> context)");
@@ -58,9 +60,11 @@ public class TranslatableConventionTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
+        WriteLine("/// <summary>Provides EF Core extension methods for working with translatable query filters.</summary>");
         WriteLine("public static class TranslatableEfCoreExtensions");
         WriteLine("{");
         PushIndent();
+        WriteLine("/// <summary>Returns a queryable that ignores the global translatable locale filter, returning all locales.</summary>");
         WriteLine($"public static {LinqNamespace}.IQueryable<TEntity> IgnoreTranslatableFilter<TEntity>(");
         WriteLine($"    this {LinqNamespace}.IQueryable<TEntity> source)");
         WriteLine("             where TEntity : class");

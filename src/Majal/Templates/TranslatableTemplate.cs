@@ -19,6 +19,9 @@ public class TranslatableTemplate : BaseTemplate
 
         var type = Data.Value?.GenericType ?? StringType;
 
+        WriteLine("/// <summary>");
+        WriteLine($"/// Provides locale-based filtering support for <see cref=\"{Data.TypeName}\"/>.");
+        WriteLine("/// </summary>");
         WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.ITranslatable<{type}>");
         WriteLine("{");
         PushIndent();

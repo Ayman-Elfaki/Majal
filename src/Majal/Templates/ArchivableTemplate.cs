@@ -16,6 +16,9 @@ public class ArchivableTemplate : BaseTemplate
         WriteLine("");
         WriteLine(Data.Namespace);
         WriteLine("");
+        WriteLine("/// <summary>");
+        WriteLine($"/// Provides archivable soft-delete support for <see cref=\"{Data.TypeName}\"/>.");
+        WriteLine("/// </summary>");
         WriteLine($"public partial class {Data.TypeName} : {MajalNamespace}.IArchivable");
         WriteLine("{");
         PushIndent();

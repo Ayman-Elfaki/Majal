@@ -1,7 +1,9 @@
 namespace Majal.Sample.Modules.Projects.ValueObjects;
-
+/// <summary>
+/// The project name value object
+/// </summary>
 [ValueObject<string>]
 public readonly partial struct ProjectDescription
 {
-    public const int MaxLength = 2048;
+    internal const int MaxLength = 2048;
 }
