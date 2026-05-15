@@ -30,7 +30,7 @@ public class GetEqualityComponentsCodeFixTests
 
         var (newSource, _) = await ApplyCodeFix(source);
 
-        Assert.Contains("private IEnumerable<object> GetEqualityComponents()", newSource);
+        Assert.Contains("private IEnumerable<object?> GetEqualityComponents()", newSource);
         Assert.Contains("yield return Name;", newSource);
         Assert.Contains("yield return Age;", newSource);
     }
@@ -52,7 +52,7 @@ public class GetEqualityComponentsCodeFixTests
 
         var (newSource, _) = await ApplyCodeFix(source);
 
-        Assert.Contains("private IEnumerable<object> GetEqualityComponents()", newSource);
+        Assert.Contains("private IEnumerable<object?> GetEqualityComponents()", newSource);
         Assert.Contains("yield return X;", newSource);
         Assert.Contains("yield return Y;", newSource);
     }

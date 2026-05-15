@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Majal.Sample.Modules.Projects.Persistence;
 
-public class ProjectTranslationConfiguration : IEntityTypeConfiguration<ProjectTranslation>
+internal class ProjectTranslationConfiguration : IEntityTypeConfiguration<ProjectTranslation>
 {
     public void Configure(EntityTypeBuilder<ProjectTranslation> builder)
     {

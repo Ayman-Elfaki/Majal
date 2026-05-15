@@ -13,15 +13,28 @@ public abstract class BaseTemplate
     protected void Write(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
-        if (_builder.Length == 0 || _builder[_builder.Length - 1] == '\n')
-            _builder.Append(_currentIndent);
-        _builder.Append(text);
+        
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (_builder.Length == 0 || _builder[_builder.Length - 1] == '\n')
+            {
+                _builder.Append(_currentIndent);
+            }
+            
+            _builder.Append(lines[i]);
+            
+            if (i < lines.Length - 1)
+            {
+                _builder.Append('\n');
+            }
+        }
     }
 
     protected void WriteLine(string text)
     {
         Write(text);
-        _builder.AppendLine();
+        _builder.Append('\n');
     }
 
     protected void PushIndent(string indent = "    ")

@@ -9,7 +9,8 @@ namespace Majal.Sample.Modules.Projects.Endpoints;
 [DtoFor<Project>]
 public partial record ProjectDto;
 
-public class ProjectDtoValidator : AbstractValidator<ProjectDto>
+
+internal class ProjectDtoValidator : AbstractValidator<ProjectDto>
 {
     public ProjectDtoValidator()
     {
@@ -37,31 +38,30 @@ public class ProjectDtoValidator : AbstractValidator<ProjectDto>
     }
 }
 
-public static class CreateProjectEndpoint
+internal static class CreateProjectEndpoint
 {
     public static void MapCreateProjectEndpoint(this WebApplication app)
     {
-        app.MapPost("/projects",
-            async (ProjectDto req, AppDbContext context, CancellationToken ct) =>
-            {
-                var translations = req.Translations
-                    .Select(t =>
-                        ProjectTranslation.Create(
-                            ProjectName.Create(t.DisplayName),
-                            ProjectDescription.Create(t.Description),
-                            t.Locale
-                        )
-                    ).ToArray();
+        app.MapPost("/projects", async (ProjectDto req, AppDbContext context, CancellationToken ct) =>
+        {
+            var translations = req.Translations
+                .Select(t =>
+                    ProjectTranslation.Create(
+                        ProjectName.Create(t.DisplayName),
+                        ProjectDescription.Create(t.Description),
+                        t.Locale
+                    )
+                ).ToArray();
 
-                var project = Project.Create(
-                    ProjectName.Create(req.Name),
-                    translations
-                );
+            var project = Project.Create(
+                ProjectName.Create(req.Name),
+                translations
+            );
 
-                context.Projects.Add(project);
-                await context.SaveChangesAsync(ct);
+            context.Projects.Add(project);
+            await context.SaveChangesAsync(ct);
 
-                return Results.Ok();
-            }).AddEndpointFilter<ValidationFilter<ProjectDtoValidator>>();
+            return Results.Ok();
+        }).AddEndpointFilter<ValidationFilter<ProjectDtoValidator>>();
     }
 }

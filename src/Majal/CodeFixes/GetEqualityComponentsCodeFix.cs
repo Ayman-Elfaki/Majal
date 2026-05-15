@@ -61,7 +61,7 @@ public sealed class GetEqualityComponentsCodeFix : CodeFixProvider
             .Select(p => (p.Name, Type: p.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
             .ToList();
 
-        var returnType = SyntaxFactory.ParseTypeName("IEnumerable<object>");
+        var returnType = SyntaxFactory.ParseTypeName("IEnumerable<object?>");
 
         // build statements
         var statements = props.Select(p =>

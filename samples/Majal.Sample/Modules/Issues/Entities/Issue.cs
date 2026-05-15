@@ -3,44 +3,30 @@ using Majal.Sample.Modules.Projects.Entities;
 
 namespace Majal.Sample.Modules.Issues.Entities;
 
+/// <summary>
+/// The issue entity
+/// </summary>
 [Entity, Aggregate]
 [Ordinal, Archivable, Auditable]
 public abstract partial class Issue
 {
+    /// <summary>
+    /// the title of the issue
+    /// </summary>
     public required IssueTitle Title { get; set; }
+
+    /// <summary>
+    /// the priority of the issue
+    /// </summary>
     public required IssuePriority Priority { get; set; }
+
+    /// <summary>
+    /// the story points of the issue
+    /// </summary>
     public required IssueStoryPoints StoryPoints { get; set; }
+
+    /// <summary>
+    /// the project of the issue
+    /// </summary>
     public Project Project { get; set; } = null!;
 }
-
-public class PendingIssue : Issue
-{
-    public static PendingIssue Create(IssueTitle title, IssuePriority priority, IssueStoryPoints storyPoints)
-    {
-        return new PendingIssue
-        {
-            Ordinal = 0,
-            Title = title,
-            Priority = priority,
-            StoryPoints = storyPoints,
-        };
-    }
-}
-
-public class ResolvedIssue : Issue
-{
-    public required DateTimeOffset ResolvedOn { get; set; }
-    public static ResolvedIssue Create(PendingIssue issue, DateTimeOffset resolvedOn)
-    {
-        return new ResolvedIssue
-        {
-            Ordinal = 0,
-            Title = issue.Title,
-            Priority = issue.Priority,
-            StoryPoints = issue.StoryPoints,
-            ResolvedOn = resolvedOn,
-            Project = issue.Project
-        };
-    }
-}
-

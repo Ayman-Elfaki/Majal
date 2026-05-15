@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Majal.Sample.Modules.Issues.Persistence;
 
-public class IssueConfiguration : IEntityTypeConfiguration<Issue>
+internal class IssueConfiguration : IEntityTypeConfiguration<Issue>
 {
     public void Configure(EntityTypeBuilder<Issue> builder)
     {

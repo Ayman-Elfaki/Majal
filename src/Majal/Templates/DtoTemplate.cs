@@ -1,5 +1,4 @@
 using Majal.Generators;
-using System.Linq;
 
 namespace Majal.Templates;
 
@@ -27,6 +26,11 @@ public class DtoTemplate : BaseTemplate
     {
         var typeKeyword = dto.IsRecord ? "record" : (dto.IsStruct ? "struct" : "class");
         
+        if (!string.IsNullOrWhiteSpace(dto.XmlDocs))
+        {
+            WriteLine(dto.XmlDocs!);
+        }
+
         WriteLine($"public partial {typeKeyword} {dto.DtoName}");
         WriteLine("{");
         PushIndent();
@@ -34,7 +38,12 @@ public class DtoTemplate : BaseTemplate
         foreach (var param in dto.Parameters)
         {
             var propertyName = ToPascalCase(param.Name);
-            WriteLine($"public required {param.ResolvedType} {propertyName} {{ get; init; }}");
+            var requiredKeyword = param.IsNullable ? "" : "required ";
+            if (!string.IsNullOrWhiteSpace(param.XmlDocs))
+            {
+                WriteLine(param.XmlDocs!);
+            }
+            WriteLine($"public {requiredKeyword}{param.ResolvedType} {propertyName} {{ get; init; }}");
         }
 
         if (dto.NestedDtos.Count > 0)

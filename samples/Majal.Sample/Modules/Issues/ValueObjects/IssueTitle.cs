@@ -1,7 +1,10 @@
 namespace Majal.Sample.Modules.Issues.ValueObjects;
 
+/// <summary>
+/// The issue title value object
+/// </summary>
 [ValueObject<string>]
 public readonly partial struct IssueTitle
 {
-    public const int MaxLength = 200;
+    internal const int MaxLength = 200;
 }

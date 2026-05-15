@@ -5,7 +5,7 @@ using Majal.Sample.Common.Persistence;
 using Majal.Sample.Common.Services;
 using Majal.Sample.Modules.Issues.Endpoints;
 using Majal.Sample.Modules.Projects.Endpoints;
-using Microsoft.AspNetCore.Identity;
+using MicroElements.AspNetCore.OpenApi.FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
@@ -20,6 +20,8 @@ builder.Services.AddDbContext<AppDbContext>(option =>
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
     option.UseSqlite(connectionString);
 });
+
+builder.Services.AddFluentValidationRulesToOpenApi();
 
 builder.Services.AddValidatorsFromAssemblyContaining<AppDbContext>();
 

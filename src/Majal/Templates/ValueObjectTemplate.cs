@@ -90,7 +90,7 @@ public class ValueObjectTemplate : BaseTemplate
 
             if (!Data.Methods.Any(m => m is { Name: EqualityMethodName, IsStatic: false, Parameters.Count: 0 }))
             {
-                Write($"private {GenericsNamespace}.IEnumerable<{ObjectType}> {EqualityMethodName}()");
+                Write($"private {GenericsNamespace}.IEnumerable<{ObjectType}?> {EqualityMethodName}()");
                 WriteLine(" { yield return Value; }");
                 WriteLine("");
             }
@@ -135,19 +135,19 @@ public class ValueObjectTemplate : BaseTemplate
                 for (var i = 0; i < Data.Properties.Count; i++)
                 {
                     var prop = Data.Properties[i];
-                    WriteLine($$"""sb.Append("{{prop.Name}} = ");""");
-                    WriteLine($$"""if (({{ObjectType}}){{prop.Name}} is {{CollectionNamespace}}.IEnumerable enumerable{{i}} && ({{ObjectType}}){{prop.Name}} is not {{StringType}})""");
+                    WriteLine($"""sb.Append("{prop.Name} = ");""");
+                    WriteLine($"if (({ObjectType}?){prop.Name} is {CollectionNamespace}.IEnumerable enumerable{i} && ({ObjectType}){prop.Name} is not {StringType})");
                     WriteLine("{");
                     PushIndent();
                     WriteLine("""sb.Append("[");""");
-                    WriteLine($$"""sb.Append({{StringType}}.Join(", ", {{LinqNamespace}}.Enumerable.Cast<{{ObjectType}}>(enumerable{{i}})));""");
+                    WriteLine($"""sb.Append({StringType}.Join(", ", {LinqNamespace}.Enumerable.Cast<{ObjectType}>(enumerable{i})));""");
                     WriteLine("""sb.Append("]");""");
                     PopIndent();
                     WriteLine("}");
                     WriteLine("else");
                     WriteLine("{");
                     PushIndent();
-                WriteLine($$"""sb.Append({{prop.Name}});""");
+                    WriteLine($"sb.Append({prop.Name});");
                     PopIndent();
                     WriteLine("}");
 
@@ -166,10 +166,12 @@ public class ValueObjectTemplate : BaseTemplate
                 WriteLine($"public override {StringType} ToString()");
                 WriteLine("{");
                 PushIndent();
-                WriteLine($"if ((({ObjectType})Value) is {CollectionNamespace}.IEnumerable enumerable && (({ObjectType})Value) is not {StringType})");
+                WriteLine(
+                    $"if ((({ObjectType})Value) is {CollectionNamespace}.IEnumerable enumerable && (({ObjectType})Value) is not {StringType})");
                 WriteLine("{");
                 PushIndent();
-                WriteLine($$"""return "[" + {{StringType}}.Join(", ", {{LinqNamespace}}.Enumerable.Cast<{{ObjectType}}>(enumerable)) + "]"; """);
+                WriteLine(
+                    $$"""return "[" + {{StringType}}.Join(", ", {{LinqNamespace}}.Enumerable.Cast<{{ObjectType}}>(enumerable)) + "]"; """);
                 PopIndent();
                 WriteLine("}");
                 WriteLine("");
