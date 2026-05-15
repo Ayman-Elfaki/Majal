@@ -3,6 +3,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# VS Code cache files
+*.lscache
+
 # User-specific files
 *.rsuser
 *.suo
@@ -13,7 +16,6 @@
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
-
 # Mono auto generated files
 mono_crash.*
 
