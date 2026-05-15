@@ -21,9 +21,13 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      # Execute the test project to ensure all tests pass before building the package.
+      # Execute the test project to ensure all unit tests pass before building the package.
       - name: Run unit tests
         run: dotnet test ./tests/Majal.Tests/Majal.Tests.csproj -c Release --no-restore
+
+      # Execute the test project to ensure all functional tests pass before building the package.
+      - name: Run functional tests
+        run: dotnet test ./tests/Majal.FunctionalTests/Majal.FunctionalTests.csproj -c Release --no-restore
 
       # Pack the project into NuGet packages, specifying the output directory for the generated .nupkg files.
       - name: Pack NuGet packages
