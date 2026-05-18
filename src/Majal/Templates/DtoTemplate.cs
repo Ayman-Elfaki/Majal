@@ -1,3 +1,4 @@
+using Majal.Abstractions;
 using Majal.Generators;
 
 namespace Majal.Templates;
@@ -17,21 +18,35 @@ public class DtoTemplate : BaseTemplate
         WriteLine(Data.Namespace);
         WriteLine("");
 
-        GenerateDto(Data);
+        GenerateDto(Data, false);
 
         return ToString();
     }
 
-    private void GenerateDto(DtoGenerator.DtoData dto)
+    private void GenerateDto(DtoGenerator.DtoData dto, bool isNested)
     {
-        var typeKeyword = dto.IsRecord ? "record" : (dto.IsStruct ? "struct" : "class");
-        
+        var typeKeyword = dto.IsRecord ? "record" : "class";
+
         if (!string.IsNullOrWhiteSpace(dto.XmlDocs))
         {
             WriteLine(dto.XmlDocs!);
         }
 
-        WriteLine($"public partial {typeKeyword} {dto.DtoName}");
+        if (dto.DerivedTypes.Count > 0)
+        {
+            WriteLine("[global::System.Text.Json.Serialization.JsonPolymorphic]");
+            foreach (var dt in dto.DerivedTypes)
+            {
+                Write($"[{Constants.JsonSerializationNamespace}.JsonDerivedType(typeof({dt.DtoName})");
+                WriteLine($""", typeDiscriminator: "{ToSnakeCase(dt.Discriminator)}")]""");
+            }
+        }
+
+        var isBase = isNested && dto.DerivedTypes.Count > 0 && string.IsNullOrWhiteSpace(dto.BaseDtoName);
+        var inheritance = string.IsNullOrWhiteSpace(dto.BaseDtoName) ? "" : $" : {dto.BaseDtoName}";
+        var modifer = isBase ? "abstract " : !isNested ? "partial " : "";
+        
+        WriteLine($"public {modifer}{typeKeyword} {dto.DtoName}{inheritance}");
         WriteLine("{");
         PushIndent();
 
@@ -43,6 +58,7 @@ public class DtoTemplate : BaseTemplate
             {
                 WriteLine(param.XmlDocs!);
             }
+
             WriteLine($"public {requiredKeyword}{param.ResolvedType} {propertyName} {{ get; init; }}");
         }
 
@@ -51,7 +67,7 @@ public class DtoTemplate : BaseTemplate
             WriteLine("");
             foreach (var nested in dto.NestedDtos)
             {
-                GenerateDto(nested);
+                GenerateDto(nested, true);
                 WriteLine("");
             }
         }
@@ -64,5 +80,11 @@ public class DtoTemplate : BaseTemplate
     {
         if (string.IsNullOrEmpty(input)) return input;
         return char.ToUpperInvariant(input[0]) + input.Substring(1);
+    }
+
+    private static string ToSnakeCase(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+        return char.ToLowerInvariant(input[0]) + input.Substring(1);
     }
 }

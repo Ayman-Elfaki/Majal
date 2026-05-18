@@ -6,9 +6,8 @@ using Majal.Sample.Modules.Projects.ValueObjects;
 
 namespace Majal.Sample.Modules.Projects.Endpoints;
 
-[DtoFor<Project>]
+[DtoFor<OperationalProject>]
 public partial record ProjectDto;
-
 
 internal class ProjectDtoValidator : AbstractValidator<ProjectDto>
 {
@@ -53,7 +52,7 @@ internal static class CreateProjectEndpoint
                     )
                 ).ToArray();
 
-            var project = Project.Create(
+            var project = OperationalProject.Create(
                 ProjectName.Create(req.Name),
                 translations
             );

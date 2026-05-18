@@ -1,3 +1,4 @@
+using Majal.Abstractions;
 using Majal.Generators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -113,9 +114,209 @@ public class DtoGeneratorUnitTest
 
         Assert.NotNull(orderDto);
         Assert.Contains(
-            "public required global::System.Collections.Generic.IEnumerable<LineItemDto> Items { get; init; }",
+            "public required global::System.Collections.Generic.IEnumerable<OrderDtoLineItemDto> Items { get; init; }",
             orderDto);
-        Assert.Contains("public partial record LineItemDto", orderDto);
+        Assert.Contains("public record OrderDtoLineItemDto", orderDto);
+    }
+
+    [Fact]
+    public void GeneratesDtoForDerivedEntityWithFactoryMethod()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public abstract partial class OrderBase
+            {
+            }
+
+            public class Order : OrderBase
+            {
+                public static Order Create(string orderNumber) => new Order();
+            }
+
+            [DtoFor<Order>]
+            public partial record OrderDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("OrderDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public partial record OrderDto", dto);
+        Assert.Contains("public required global::System.String OrderNumber { get; init; }", dto);
+    }
+
+    [Fact]
+    public void GeneratesNestedDtoForEntityDerivedFromAbstractBase()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public abstract partial class LineItemBase
+            {
+            }
+
+            public class LineItem : LineItemBase
+            {
+                public static LineItem Create(string productName) => new LineItem();
+            }
+
+            [Entity]
+            public partial class Order
+            {
+                public static Order Create(LineItemBase item) => new Order();
+            }
+
+            [DtoFor<Order>]
+            public partial record OrderDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("OrderDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public required OrderDtoLineItemBaseDto Item { get; init; }", dto);
+        Assert.Contains("public abstract record OrderDtoLineItemBaseDto", dto);
+        Assert.Contains("public record OrderDtoLineItemDto : OrderDtoLineItemBaseDto", dto);
+    }
+
+    [Fact]
+    public void GeneratesPolymorphicDtoWithMultipleDerivedTypes()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public abstract partial class ProjectBase
+            {
+            }
+
+            public class StrategicProject : ProjectBase
+            {
+                public static StrategicProject Create(string strategy) => new StrategicProject();
+            }
+
+            public class OperationalProject : ProjectBase
+            {
+                public static OperationalProject Create(string operations) => new OperationalProject();
+            }
+
+            [DtoFor<ProjectBase>]
+            public partial record ProjectBaseDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ProjectBaseDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains($"[{Constants.JsonSerializationNamespace}.JsonPolymorphic]", dto);
+        Assert.Contains(
+            $"""[{Constants.JsonSerializationNamespace}.JsonDerivedType(typeof(ProjectBaseDtoStrategicProjectDto), typeDiscriminator: "strategicProject")]""",
+            dto);
+        Assert.Contains(
+            $"""[{Constants.JsonSerializationNamespace}.JsonDerivedType(typeof(ProjectBaseDtoOperationalProjectDto), typeDiscriminator: "operationalProject")]""",
+            dto);
+        Assert.Contains("public partial record ProjectBaseDto", dto);
+        Assert.Contains("public record ProjectBaseDtoStrategicProjectDto : ProjectBaseDto", dto);
+        Assert.Contains("public record ProjectBaseDtoOperationalProjectDto : ProjectBaseDto", dto);
+        Assert.Contains("public required global::System.String Strategy { get; init; }", dto);
+        Assert.Contains("public required global::System.String Operations { get; init; }", dto);
+    }
+
+    [Fact]
+    public void GeneratesPolymorphicDtoWithMultipleDerivedTypesAndNonParsableTypes()
+    {
+        const string source =
+            """
+            using Majal;
+            using System.Globalization;
+
+            [Entity]
+            public abstract partial class Project
+            {
+            }
+
+            [ValueObject<string>]
+            public readonly partial struct ProjectName : IValueObject<string>
+            {
+            }
+
+            [Entity]
+            public partial class ProjectTranslation
+            {
+                public static ProjectTranslation Create(ProjectName name, string locale) => new ProjectTranslation();
+            }
+
+            public class StrategicProject : Project
+            {
+                public static StrategicProject Create(string strategy, CultureInfo culture, ProjectTranslation[] translations) => new StrategicProject();
+            }
+
+            public class OperationalProject : Project
+            {
+                public static OperationalProject Create(string operations, ProjectTranslation[] translations) => new OperationalProject();
+            }
+
+
+
+            [DtoFor<Project>]
+            public partial record ProjectDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+
+
+        var driver = CSharpGeneratorDriver.Create(new DtoGenerator(), new ValueObjectGenerator(), new EntityGenerator(),
+            new AggregateGenerator());
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ProjectDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains($"[{Constants.JsonSerializationNamespace}.JsonPolymorphic]", dto);
+        Assert.Contains(
+            $"""[{Constants.JsonSerializationNamespace}.JsonDerivedType(typeof(ProjectDtoStrategicProjectDto), typeDiscriminator: "strategicProject")]""",
+            dto);
+        Assert.Contains(
+            $"""[{Constants.JsonSerializationNamespace}.JsonDerivedType(typeof(ProjectDtoOperationalProjectDto), typeDiscriminator: "operationalProject")]""",
+            dto);
+        Assert.Contains("public partial record ProjectDto", dto);
+        Assert.Contains("public record ProjectDtoStrategicProjectDto : ProjectDto", dto);
+        Assert.Contains("public record ProjectDtoOperationalProjectDto : ProjectDto", dto);
+        Assert.Contains("public required global::System.String Strategy { get; init; }", dto);
+        Assert.Contains("public required global::System.String Operations { get; init; }", dto);
     }
 
     [Fact]
@@ -351,7 +552,7 @@ public class DtoGeneratorUnitTest
                 /// <summary>
                 /// the items
                 /// </summary>
-                public required global::System.Collections.Generic.IEnumerable<LineItemDto> Items { get; init; }
+                public required global::System.Collections.Generic.IEnumerable<OrderDtoLineItemDto> Items { get; init; }
             """, dto);
 
         // Check LineItemDto docs (nested)
@@ -360,7 +561,7 @@ public class DtoGeneratorUnitTest
                 /// <summary>
                 /// Create a line item
                 /// </summary>
-                public partial record LineItemDto
+                public record OrderDtoLineItemDto
             """, dto);
 
         // Check LineItemDto.ProductName docs (nested)

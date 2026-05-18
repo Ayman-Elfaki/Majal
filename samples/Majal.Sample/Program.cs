@@ -27,13 +27,19 @@ builder.Services.AddValidatorsFromAssemblyContaining<AppDbContext>();
 
 builder.Services.AddValidation();
 
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddSwaggerGen(options =>
+{
+    options.UseAllOfForInheritance();
+    options.UseOneOfForPolymorphism();
+});
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapSwagger("/openapi/{documentName}.json");
     app.MapScalarApiReference();
 }
 

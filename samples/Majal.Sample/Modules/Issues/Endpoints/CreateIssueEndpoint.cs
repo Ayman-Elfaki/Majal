@@ -7,9 +7,9 @@ using Majal.Sample.Modules.Issues.ValueObjects;
 namespace Majal.Sample.Modules.Issues.Endpoints;
 
 [DtoFor<PendingIssue>]
-public partial record IssueDto;
+public partial class Issue;
 
-internal class IssueDtoValidator : AbstractValidator<IssueDto>
+internal class IssueDtoValidator : AbstractValidator<Issue>
 {
     public IssueDtoValidator()
     {
@@ -27,7 +27,7 @@ internal static class CreateIssueEndpoint
     public static void MapCreateIssueEndpoint(this WebApplication app)
     {
         app.MapPost("/projects/{id:int}/issues",
-            async (int id, IssueDto req, AppDbContext context, CancellationToken ct) =>
+            async (int id, Issue req, AppDbContext context, CancellationToken ct) =>
             {
                 var project = context.Projects.FirstOrDefault(p => p.Id == id);
 
@@ -36,7 +36,8 @@ internal static class CreateIssueEndpoint
                 var issue = PendingIssue.Create(
                     IssueTitle.Create(req.Title),
                     IssuePriority.Create(req.StoryPoints),
-                    IssueStoryPoints.Create(req.StoryPoints)
+                    IssueStoryPoints.Create(req.StoryPoints),
+                    project
                 );
 
                 project.Issues.Add(issue);

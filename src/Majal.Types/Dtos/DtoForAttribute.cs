@@ -6,7 +6,7 @@ namespace Majal;
 /// Marks a class or struct as a DTO for the specified type.
 /// The DTO properties will be generated based on the target type's specified factory method parameters.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+[AttributeUsage(AttributeTargets.Class)]
 public sealed class DtoForAttribute<T> : Attribute
 {
     /// <summary>

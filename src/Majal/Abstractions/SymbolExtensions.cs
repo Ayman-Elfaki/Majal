@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.CodeAnalysis;
 
 namespace Majal.Abstractions;
@@ -43,10 +44,10 @@ public static class SymbolExtensions
                 ad.AttributeClass.ContainingNamespace.ToDisplayString() == attributeNamespace);
         }
 
-        public bool HasMajalAttribute(string attributeName)
+        public bool HasAnyMajaAttribute(string attributeName)
         {
             return symbol.GetAttributes().Any(ad =>
-                ad.AttributeClass?.Name == attributeName &&
+                (ad.AttributeClass?.Name == attributeName || ad.AttributeClass?.Name == $"{attributeName}`1") &&
                 ad.AttributeClass.ContainingNamespace.ToDisplayString() == nameof(Majal));
         }
 
@@ -63,6 +64,13 @@ public static class SymbolExtensions
                 ad.AttributeClass?.Name == attributeName &&
                 ad.AttributeClass.ContainingNamespace.ToDisplayString() == nameof(Majal));
         }
+
+        public AttributeData? GetAnyMajalAttribute(string attributeName)
+        {
+            return symbol.GetAttributes().FirstOrDefault(ad =>
+                (ad.AttributeClass?.Name == attributeName || ad.AttributeClass?.Name == $"{attributeName}`1") &&
+                ad.AttributeClass.ContainingNamespace.ToDisplayString() == nameof(Majal));
+        }
     }
 
     extension(IPropertySymbol propertySymbol)
@@ -75,6 +83,15 @@ public static class SymbolExtensions
 
     extension(ITypeSymbol type)
     {
+        public bool IsSymbolDerivedFrom(ITypeSymbol baseSymbol)
+        {
+            for (var current = type.BaseType; current != null; current = current.BaseType)
+            {
+                if (SymbolEqualityComparer.Default.Equals(current, baseSymbol)) return true;
+            }
+            return false;
+        }
+
         public (ITypeSymbol ElementType, bool IsCollection) GetCollectionInfo()
         {
             switch (type)
@@ -93,6 +110,7 @@ public static class SymbolExtensions
 
                     if (enumerable != null && !isDictionary)
                         return (enumerable.TypeArguments[0], true);
+                    
                     break;
                 }
             }
@@ -106,6 +124,35 @@ public static class SymbolExtensions
                 return (namedType.TypeArguments[0], true);
 
             return type.NullableAnnotation == NullableAnnotation.Annotated ? (type, true) : (type, false);
+        }
+    }
+
+    extension(AttributeData? attribute)
+    {
+        public T? GetNamedArgumentValue<T>(string key)
+        {
+            return (T?)attribute?.NamedArguments.FirstOrDefault(a => a.Key == key).Value.Value;
+        }
+    }
+
+    extension(Compilation compilation)
+    {
+        public IEnumerable<INamedTypeSymbol> GetAllTypesInCompilation()
+        {
+            return compilation.GlobalNamespace.GetAllSymbolsInNamespace();
+        }
+    }
+
+    extension(INamespaceSymbol ns)
+    {
+        private IEnumerable<INamedTypeSymbol> GetAllSymbolsInNamespace()
+        {
+            foreach (var member in ns.GetMembers())
+            {
+                if (member is INamedTypeSymbol namedType) yield return namedType;
+                if (member is not INamespaceSymbol childNamespace) continue;
+                foreach (var childMember in childNamespace.GetAllSymbolsInNamespace()) yield return childMember;
+            }
         }
     }
 }
