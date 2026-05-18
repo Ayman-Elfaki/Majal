@@ -367,7 +367,7 @@ public class DtoGeneratorUnitTest
             using Majal;
 
             [Entity]
-            public partial class User<TId>
+            public partial class User<TId> where TId : IParsable<TId>
             {
                 public static User<TId> Create(TId id, string name) => new User<TId>();
             }

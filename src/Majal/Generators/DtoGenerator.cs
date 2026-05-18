@@ -55,7 +55,7 @@ public sealed class DtoGenerator : BaseGenerator<DtoGenerator.DtoData>
             NestedDtos = new EquatableList<DtoData>(nestedDtos);
         }
     }
-    
+
     private const string OptionsAttributeName = $"Majal.{nameof(EntityOptionsAttribute)}";
 
     private const string DtoAttribute = "Majal.DtoForAttribute`1";
@@ -115,7 +115,7 @@ public sealed class DtoGenerator : BaseGenerator<DtoGenerator.DtoData>
 
         return dtoData;
     }
-    
+
     private DtoData? GetDtoData(string @namespace, string dtoName, string rawDtoName, string parentDtoName,
         bool isRecord, INamedTypeSymbol sourceSymbol, string factoryMethodName, string defaultMethodName,
         Dictionary<string, DtoData> collected, bool isRoot, Compilation? compilation = null)
@@ -172,19 +172,20 @@ public sealed class DtoGenerator : BaseGenerator<DtoGenerator.DtoData>
 
         foreach (var p in createMethod.Parameters)
         {
-            var (elementType, isCollection) = p.Type.GetCollectionInfo();
+            var (elementType, isCollection, isDictionary) = p.Type.GetCollectionInfo();
             var (unwrappedType, isNullable) = elementType.UnwrapNullable();
 
             var isParsable = unwrappedType.Interfaces.Any(i => i is { Name: "IParsable" });
-
             var isEntity = unwrappedType.HasAnyMajaAttribute(nameof(EntityAttribute));
             var isAggregate = unwrappedType.HasAnyMajaAttribute(nameof(AggregateAttribute));
             var isValueObject = unwrappedType.HasAnyMajaAttribute(nameof(ValueObjectAttribute));
-            var canHandle = (isEntity && !isAggregate) || isValueObject || isParsable;
 
-            var eNamedType = unwrappedType as INamedTypeSymbol;
+            var canHandle = (isEntity && !isAggregate) || isValueObject || isParsable ||
+                            unwrappedType.TypeKind is TypeKind.TypeParameter || isDictionary;
 
             if (!canHandle) continue;
+
+            var eNamedType = unwrappedType as INamedTypeSymbol;
 
             var resolvedElementType = elementType.ToDisplayString(FullPropertyTypeFormat);
 

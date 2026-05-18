@@ -89,15 +89,16 @@ public static class SymbolExtensions
             {
                 if (SymbolEqualityComparer.Default.Equals(current, baseSymbol)) return true;
             }
+
             return false;
         }
 
-        public (ITypeSymbol ElementType, bool IsCollection) GetCollectionInfo()
+        public (ITypeSymbol ElementType, bool IsCollection, bool IsDictionary) GetCollectionInfo()
         {
             switch (type)
             {
                 case IArrayTypeSymbol arrayType:
-                    return (arrayType.ElementType, true);
+                    return (arrayType.ElementType, true, false);
                 case INamedTypeSymbol { SpecialType: SpecialType.System_String }:
                     break;
                 case INamedTypeSymbol namedType:
@@ -109,13 +110,16 @@ public static class SymbolExtensions
                                        namedType.MetadataName == "IDictionary`2";
 
                     if (enumerable != null && !isDictionary)
-                        return (enumerable.TypeArguments[0], true);
-                    
+                        return (enumerable.TypeArguments[0], true, false);
+
+                    if (enumerable != null && isDictionary)
+                        return (type, false, true);
+
                     break;
                 }
             }
 
-            return (type, false);
+            return (type, false, false);
         }
 
         public (ITypeSymbol UnwrappedType, bool IsNullable) UnwrapNullable()
