@@ -53,8 +53,7 @@ public class ArchivableInterceptorTemplate : BaseTemplate
         PopIndent();
         WriteLine("}");
         WriteLine("");
-        WriteLine("/// <summary>Converts deleted <see cref=\"global::Majal.IArchivable\"/> ");
-        Write("entities into soft-deletes by setting <c>IsArchived</c> and <c>ArchivedOn</c>.</summary>");
+        WriteLine("/// <summary>Converts deleted <see cref=\"global::Majal.IArchivable\"/>entities into soft-deletes by setting <c>IsArchived</c> and <c>ArchivedOn</c>.</summary>");
         WriteLine($"private static void UpdateArchivableEntities({EfCoreNamespace}.DbContext context)");
         WriteLine("{");
         PushIndent();
