@@ -1,11 +1,11 @@
-using Majal.Analyzers;
-using Majal.CodeFixes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 using System.Collections.Immutable;
+using Majal.Common.Analyzers;
+using Majal.Common.CodeFixes;
 using Microsoft.CodeAnalysis.Text;
 using Xunit;
 

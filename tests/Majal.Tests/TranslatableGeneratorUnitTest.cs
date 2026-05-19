@@ -1,5 +1,6 @@
 using System.Globalization;
-using Majal.Generators;
+using Majal.Generators.Entities;
+using Majal.Generators.Translatables;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 

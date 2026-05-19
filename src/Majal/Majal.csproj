@@ -58,4 +58,9 @@
         <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" Visible="false" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Common\" />
+      <Folder Include="Generators\" />
+    </ItemGroup>
+
 </Project>

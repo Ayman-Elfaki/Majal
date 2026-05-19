@@ -29,17 +29,13 @@ builder.Services.AddValidation();
 
 builder.Services.AddEndpointsApiExplorer();
 
-builder.Services.AddSwaggerGen(options =>
-{
-    options.UseAllOfForInheritance();
-    options.UseOneOfForPolymorphism();
-});
+builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapSwagger("/openapi/{documentName}.json");
+    app.MapOpenApi();
     app.MapScalarApiReference();
 }
 

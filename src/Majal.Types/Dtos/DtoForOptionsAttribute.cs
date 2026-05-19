@@ -13,4 +13,10 @@ public sealed class DtoForOptionsAttribute : Attribute
     /// Defaults to "Create".
     /// </summary>
     public string FactoryMethodName { get; set; } = "Create";
+
+    /// <summary>
+    /// The generated Dto suffix
+    /// </summary>
+    public string DtoSuffix { get; set; } = "Dto";
+
 }

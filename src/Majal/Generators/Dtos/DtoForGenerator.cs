@@ -1,0 +1,533 @@
+using System.Text;
+using System.Text.RegularExpressions;
+using Majal.Common.Abstractions;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
+
+namespace Majal.Generators.Dtos;
+
+[Generator]
+public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
+{
+    private static readonly SymbolDisplayFormat FullPropertyTypeFormat = new(
+        genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
+        globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
+        typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces
+    );
+
+    public readonly record struct ParameterData(
+        string Name,
+        string ResolvedType,
+        bool IsNullable,
+        string? XmlDocs = null
+    );
+
+    public readonly record struct DerivedTypeInfo(
+        string DtoName,
+        string Discriminator
+    );
+
+    public readonly record struct DtoData
+    {
+        public string Namespace { get; }
+        public string DtoName { get; }
+        public string ParentDtoName { get; }
+        public string RawDtoName { get; }
+        public string? BaseDtoName { get; init; }
+        public string? XmlDocs { get; }
+        public bool IsRecord { get; }
+        public Accessibility Accessibility { get; }
+        public EquatableList<DtoData> NestedDtos { get; }
+        public EquatableList<ParameterData> Parameters { get; }
+        public EquatableList<DerivedTypeInfo> DerivedTypes { get; }
+
+        public DtoData(string @namespace, string dtoName, string rawDtoName, string parentDtoName,
+            Accessibility accessibility, string? xmlDocs, string? baseDtoName, bool isRecord,
+            DerivedTypeInfo[] derivedTypes, ParameterData[] parameters, DtoData[] nestedDtos)
+        {
+            DtoName = dtoName;
+            Namespace = @namespace;
+            XmlDocs = xmlDocs;
+            IsRecord = isRecord;
+            Accessibility = accessibility;
+            RawDtoName = rawDtoName;
+            BaseDtoName = baseDtoName;
+            ParentDtoName = parentDtoName;
+            NestedDtos = new EquatableList<DtoData>(nestedDtos);
+            Parameters = new EquatableList<ParameterData>(parameters);
+            DerivedTypes = new EquatableList<DerivedTypeInfo>(derivedTypes);
+        }
+    }
+
+    private readonly record struct TypeResolveContext(
+        ITypeSymbol? Type,
+        bool IsNullable,
+        bool IsDictionary,
+        string DtoNamePrefix,
+        string DtoNameSuffix,
+        Accessibility Accessibility,
+        bool IsRecord,
+        string Namespace,
+        string DefaultMethodName,
+        Dictionary<string, DtoData> Collected,
+        Compilation? Compilation = null
+    );
+
+    private readonly record struct DtoContext(
+        string Namespace,
+        string DtoName,
+        string RawDtoName,
+        string DtoNamePrefix,
+        string DtoNameSuffix,
+        Accessibility Accessibility,
+        INamedTypeSymbol SourceSymbol,
+        bool IsRoot,
+        bool IsRecord,
+        string FactoryMethodName,
+        string DefaultMethodName,
+        Dictionary<string, DtoData> Collected,
+        Compilation? Compilation = null
+    );
+
+    private interface IParameterTypeResolver
+    {
+        bool CanHandle(TypeResolveContext context);
+
+        string Resolve(TypeResolveContext context);
+    }
+
+    private sealed class ValueObjectTypeResolver : IParameterTypeResolver
+    {
+        public bool CanHandle(TypeResolveContext context) =>
+            context.Type is not null && IsValueObjectType(context.Type);
+
+        public string Resolve(TypeResolveContext context) =>
+            ResolveValueObjectElementType(context);
+    }
+
+    private sealed class EntityTypeResolver : IParameterTypeResolver
+    {
+        public bool CanHandle(TypeResolveContext context) =>
+            context.Type is not null && IsEntityType(context.Type) && !IsAggregateType(context.Type);
+
+        public string Resolve(TypeResolveContext context) =>
+            ResolveNestedDtoElementType(context);
+    }
+
+    private sealed class DefaultTypeResolver : IParameterTypeResolver
+    {
+        public bool CanHandle(TypeResolveContext context) =>
+            context.Type is not null &&
+            (context.Type.TypeKind is TypeKind.Enum or TypeKind.TypeParameter ||
+             context.Type.AllInterfaces.Any(i => i.Name == "IParsable") ||
+             context.IsDictionary);
+
+        public string Resolve(TypeResolveContext context)
+        {
+            var type = context.Type!;
+            var resolvedType = type.ToDisplayString(FullPropertyTypeFormat);
+            if (context.IsNullable) resolvedType += "?";
+            return resolvedType;
+        }
+    }
+
+    private static readonly IParameterTypeResolver[] ParameterTypeResolvers =
+    {
+        new ValueObjectTypeResolver(),
+        new EntityTypeResolver(),
+        new DefaultTypeResolver()
+    };
+
+    private const string DtoAttribute = $"Majal.{nameof(DtoForAttribute<>)}`1";
+    private const string OptionsAttributeName = $"Majal.{nameof(DtoForOptionsAttribute)}";
+
+    private const string DefaultDtoSuffix = "Dto";
+    private const string DefaultFactoryMethodName = "Create";
+
+    protected override string AttributeFullName => DtoAttribute;
+    protected override string GenericAttributeFullName => $"{nameof(DtoForAttribute<>)}`1";
+
+    protected override void Generate(SourceProductionContext context, DtoData data)
+    {
+        var template = new DtoForTemplate { Data = data };
+        var code = template.TransformText();
+        context.AddSource($"{data.RawDtoName}.g.cs", SourceText.From(code, Encoding.UTF8));
+    }
+
+    protected override bool Filter(SyntaxNode node, CancellationToken token) =>
+        node is ClassDeclarationSyntax or RecordDeclarationSyntax;
+
+    protected override DtoData? Transform(GeneratorAttributeSyntaxContext context, CancellationToken ct)
+    {
+        if (context.TargetSymbol is not INamedTypeSymbol dtoSymbol) return null;
+
+        var attribute = context.Attributes
+            .FirstOrDefault(a => a.AttributeClass?.MetadataName == GenericAttributeFullName);
+
+        if (attribute?.AttributeClass?.TypeArguments.Length == 0) return null;
+
+        if (attribute?.AttributeClass?.TypeArguments[0] is not INamedTypeSymbol sourceSymbol) return null;
+
+        var assemblyAttr = context.SemanticModel.Compilation.Assembly.GetAttributes()
+            .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == OptionsAttributeName);
+
+        var assemblyDefaultName =
+            assemblyAttr.GetNamedArgumentValue<string>(nameof(DtoForOptionsAttribute.FactoryMethodName));
+
+        var finalDefaultName = assemblyDefaultName ?? DefaultFactoryMethodName;
+
+        var factoryMethodName =
+            attribute.GetNamedArgumentValue<string>(nameof(DtoForAttribute<>.FactoryMethodName)) ??
+            finalDefaultName;
+
+        var assemblyDefaultSuffix =
+            assemblyAttr.GetNamedArgumentValue<string>(nameof(DtoForOptionsAttribute.DtoSuffix));
+
+        var finalDefaultSuffix = assemblyDefaultSuffix ?? DefaultDtoSuffix;
+
+        var factoryDtoSuffix =
+            attribute.GetNamedArgumentValue<string>(nameof(DtoForAttribute<>.DtoSuffix)) ??
+            finalDefaultSuffix;
+
+        var nestedDtos = new Dictionary<string, DtoData>();
+
+        var dtoContext = new DtoContext(
+            IsRoot: true,
+            Namespace: dtoSymbol.GetNamespace(),
+            DtoName: dtoSymbol.GetTypeNameWithGenerics(),
+            RawDtoName: dtoSymbol.Name,
+            DtoNamePrefix: "",
+            DtoNameSuffix: factoryDtoSuffix,
+            Accessibility: dtoSymbol.DeclaredAccessibility,
+            IsRecord: dtoSymbol.IsRecord,
+            SourceSymbol: sourceSymbol,
+            FactoryMethodName: factoryMethodName,
+            DefaultMethodName: finalDefaultName,
+            Collected: nestedDtos,
+            Compilation: context.SemanticModel.Compilation
+        );
+
+        return GetDtoData(dtoContext);
+    }
+
+    private static DtoData? GetDtoData(DtoContext context)
+    {
+        var isRoot = context.IsRoot;
+        var isRecord = context.IsRecord;
+        var dtoName = context.DtoName;
+        var @namespace = context.Namespace;
+        var rawDtoName = context.RawDtoName;
+        var dtoNamePrefix = context.DtoNamePrefix;
+        var dtoNameSuffix = context.DtoNameSuffix;
+        var accessibility = context.Accessibility;
+        var sourceSymbol = context.SourceSymbol;
+        var factoryMethodName = context.FactoryMethodName;
+        var defaultMethodName = context.DefaultMethodName;
+        var collected = context.Collected;
+        var compilation = context.Compilation;
+
+        var createMethod = FindFactoryMethod(sourceSymbol, factoryMethodName);
+
+        if (createMethod is null && compilation is not null && sourceSymbol is { IsAbstract: true })
+        {
+            var derivedMethods = FindFactoryMethodsInDerivedTypes(sourceSymbol, factoryMethodName, compilation);
+
+            if (derivedMethods.Count > 0)
+            {
+                var derivedDtos = new List<DtoData>();
+                var derivedTypes = new List<DerivedTypeInfo>();
+
+                foreach (var method in derivedMethods)
+                {
+                    var derivedSymbol = method.ContainingType;
+                    var derivedDtoName = $"{dtoNamePrefix}{derivedSymbol.Name}{dtoNameSuffix}";
+
+                    if (!collected.ContainsKey(derivedDtoName))
+                    {
+                        collected[derivedDtoName] = default;
+
+                        var derivedContext = context with
+                        {
+                            DtoName = derivedDtoName,
+                            RawDtoName = derivedDtoName,
+                            DtoNamePrefix = dtoNamePrefix,
+                            DtoNameSuffix = dtoNameSuffix,
+                            SourceSymbol = derivedSymbol,
+                            IsRoot = false
+                        };
+
+                        var derivedData = GetDtoData(derivedContext);
+
+                        if (derivedData != null)
+                        {
+                            var updatedData = derivedData.Value with { BaseDtoName = dtoName };
+                            collected[derivedDtoName] = updatedData;
+                            derivedDtos.Add(updatedData);
+                        }
+                    }
+
+                    derivedTypes.Add(new DerivedTypeInfo(derivedDtoName, derivedSymbol.Name));
+                }
+
+                var commonParameters = GetCommonParameters(derivedDtos);
+
+                if (commonParameters.Length > 0)
+                {
+                    for (var i = 0; i < derivedDtos.Count; i++)
+                    {
+                        var derivedDto = derivedDtos[i];
+                        var uniqueParameters = derivedDto.Parameters
+                            .Where(p =>
+                                commonParameters.All(cp => cp.Name != p.Name || cp.ResolvedType != p.ResolvedType))
+                            .ToArray();
+
+                        var updatedData = new DtoData(derivedDto.Namespace, derivedDto.DtoName, derivedDto.RawDtoName,
+                            derivedDto.ParentDtoName, accessibility, derivedDto.XmlDocs, derivedDto.BaseDtoName,
+                            derivedDto.IsRecord, derivedDto.DerivedTypes.ToArray(), uniqueParameters,
+                            derivedDto.NestedDtos.ToArray());
+
+                        derivedDtos[i] = updatedData;
+                        collected[derivedDto.DtoName] = updatedData;
+                    }
+                }
+
+                var xmlDocs = FormatXmlDocs(sourceSymbol.GetDocumentationCommentXml());
+
+                DtoData[] nestedDtos = isRoot
+                    ? [.. collected.Values.Where(v => !string.IsNullOrEmpty(v.DtoName) && v.DtoName != dtoName)]
+                    : [];
+
+                return new DtoData(@namespace, dtoName, rawDtoName, dtoName, accessibility, xmlDocs, null, isRecord,
+                    [.. derivedTypes], commonParameters, nestedDtos);
+            }
+        }
+
+        if (createMethod is null) return null;
+
+        var methodXml = createMethod.GetDocumentationCommentXml();
+        var parameters = new List<ParameterData>();
+
+        foreach (var p in createMethod.Parameters)
+        {
+            var (elementType, isCollection, isDictionary) = p.Type.GetCollectionInfo();
+            var (unwrappedType, isNullable) = elementType.UnwrapNullable();
+
+            var resolveContext = new TypeResolveContext(unwrappedType, isNullable, isDictionary, dtoNamePrefix,
+                dtoNameSuffix, accessibility, isRecord, @namespace, defaultMethodName, collected, compilation);
+
+            var resolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(resolveContext));
+            if (resolver is null) continue;
+
+            var resolvedElementType = resolver.Resolve(resolveContext);
+            var resolvedType = isCollection ? $"{resolvedElementType}[]" : resolvedElementType;
+
+            var paramXml = ExtractParamDoc(methodXml, p.Name);
+            parameters.Add(new ParameterData(p.Name, resolvedType, isNullable, paramXml));
+        }
+
+        var nestedDtosResult = isRoot ? collected.Values.Where(v => !string.IsNullOrEmpty(v.DtoName)).ToArray() : [];
+        var xmlDocsResult = ExtractSummary(methodXml) ?? FormatXmlDocs(sourceSymbol.GetDocumentationCommentXml());
+
+        return new DtoData(@namespace, dtoName, rawDtoName, dtoNamePrefix, accessibility, xmlDocsResult, null, isRecord,
+            [], [.. parameters], nestedDtosResult);
+    }
+
+    private static ParameterData[] GetCommonParameters(IEnumerable<DtoData> dtos)
+    {
+        var dtoArray = dtos as DtoData[] ?? [.. dtos];
+        if (dtoArray.Length == 0) return [];
+
+        return
+        [
+            .. dtoArray[0].Parameters.Where(p =>
+                dtoArray.Skip(1).All(d => d.Parameters.Any(o => o.Name == p.Name && o.ResolvedType == p.ResolvedType))
+            )
+        ];
+    }
+
+    private static string ResolveValueObjectElementType(TypeResolveContext context)
+    {
+        var namedType = (INamedTypeSymbol)context.Type!;
+        var valueObjectAttr = namedType.GetAnyMajalAttribute(nameof(ValueObjectAttribute));
+
+        if (valueObjectAttr?.AttributeClass is { TypeArguments.Length: > 0 })
+        {
+            var resolvedType = valueObjectAttr.AttributeClass.TypeArguments[0].ToDisplayString(FullPropertyTypeFormat);
+            if (context.IsNullable) resolvedType += "?";
+            return resolvedType;
+        }
+
+        var underlyingValueType = GetValueObjectUnderlyingType(namedType);
+        if (underlyingValueType is not null)
+        {
+            var resolvedType = underlyingValueType.ToDisplayString(FullPropertyTypeFormat);
+            if (context.IsNullable) resolvedType += "?";
+            return resolvedType;
+        }
+
+        var valueObjectFactoryMethod = FindFactoryMethod(namedType, context.DefaultMethodName);
+
+        if (valueObjectFactoryMethod is { Parameters.Length: 1 })
+        {
+            var resolvedType = valueObjectFactoryMethod.Parameters[0].Type.ToDisplayString(FullPropertyTypeFormat);
+            if (context.IsNullable) resolvedType += "?";
+            return resolvedType;
+        }
+
+        return ResolveNestedDtoElementType(context);
+    }
+
+    private static string ResolveNestedDtoElementType(TypeResolveContext context)
+    {
+        var eNamedType = (INamedTypeSymbol)context.Type!;
+        var nestedDtoName = $"{context.DtoNamePrefix}{eNamedType.Name}{context.DtoNameSuffix}";
+        var resolvedElementType = nestedDtoName;
+        if (context.IsNullable) resolvedElementType += "?";
+
+        if (context.Collected.ContainsKey(nestedDtoName)) return resolvedElementType;
+
+        context.Collected[nestedDtoName] = default;
+
+        var nestedContext = new DtoContext(
+            IsRoot: false,
+            DtoName: nestedDtoName,
+            RawDtoName: nestedDtoName,
+            SourceSymbol: eNamedType,
+            IsRecord: context.IsRecord,
+            Namespace: context.Namespace,
+            DtoNamePrefix: context.DtoNamePrefix,
+            DtoNameSuffix: context.DtoNameSuffix,
+            Accessibility: context.Accessibility,
+            FactoryMethodName: context.DefaultMethodName,
+            DefaultMethodName: context.DefaultMethodName,
+            Collected: context.Collected,
+            Compilation: context.Compilation
+        );
+
+        var nestedData = GetDtoData(nestedContext);
+
+        if (nestedData == null) return resolvedElementType;
+        context.Collected[nestedDtoName] = nestedData.Value;
+
+        if (nestedData.Value.DtoName == nestedDtoName) return resolvedElementType;
+
+        var actualDtoName = nestedData.Value.DtoName;
+        resolvedElementType = actualDtoName;
+        if (context.IsNullable) resolvedElementType += "?";
+
+        if (!context.Collected.ContainsKey(actualDtoName))
+            context.Collected[actualDtoName] = nestedData.Value;
+
+        return resolvedElementType;
+    }
+
+    private static List<IMethodSymbol> FindFactoryMethodsInDerivedTypes(INamedTypeSymbol symbol, string methodName,
+        Compilation compilation)
+    {
+        var methods = new List<IMethodSymbol>();
+        var allTypes = compilation.GetAllTypesInCompilation().ToArray();
+
+        foreach (var derivedType in allTypes)
+        {
+            if (!derivedType.IsSymbolDerivedFrom(symbol)) continue;
+            if (FindFactoryMethod(derivedType, methodName) is { } method) methods.Add(method);
+        }
+
+        return methods;
+    }
+
+    private static IMethodSymbol? FindFactoryMethod(INamedTypeSymbol symbol, string factoryMethodName)
+    {
+        for (var current = symbol; current != null; current = current.BaseType)
+        {
+            var createMethod = current.GetMembers()
+                .OfType<IMethodSymbol>()
+                .Where(m => SymbolEqualityComparer.Default.Equals(m.ReturnType, symbol))
+                .FirstOrDefault(m => m.IsStatic && m.Name == factoryMethodName);
+
+            if (createMethod != null) return createMethod;
+        }
+
+        return null;
+    }
+
+    private static bool IsValueObjectType(ITypeSymbol? typeSymbol)
+    {
+        if (typeSymbol is null) return false;
+
+        var implementsValueObject = typeSymbol.AllInterfaces.Any(i =>
+            i.MetadataName == "IValueObject" ||
+            i.MetadataName.StartsWith("IValueObject`", StringComparison.Ordinal));
+
+        return implementsValueObject || typeSymbol.HasAnyMajaAttribute(nameof(ValueObjectAttribute));
+    }
+
+    private static bool IsEntityType(ITypeSymbol? typeSymbol)
+    {
+        if (typeSymbol is null) return false;
+
+        var implementsEntity = typeSymbol.AllInterfaces.Any(i =>
+            i.MetadataName.StartsWith("IEntity`", StringComparison.Ordinal));
+
+        var hasEntityAttribute = typeSymbol.HasAnyMajaAttribute(nameof(EntityAttribute));
+        return implementsEntity || hasEntityAttribute;
+    }
+
+    private static bool IsAggregateType(ITypeSymbol? typeSymbol)
+    {
+        if (typeSymbol is null) return false;
+
+        var implementsAggregate = typeSymbol.AllInterfaces.Any(i =>
+            i.MetadataName.StartsWith("IAggregate`", StringComparison.Ordinal));
+
+        return implementsAggregate || typeSymbol.HasAnyMajaAttribute(nameof(AggregateAttribute));
+    }
+
+    private static ITypeSymbol? GetValueObjectUnderlyingType(INamedTypeSymbol namedType)
+    {
+        var genericValueObject = namedType.AllInterfaces
+            .FirstOrDefault(i => i.MetadataName.StartsWith("IValueObject`", StringComparison.Ordinal));
+
+        return genericValueObject?.TypeArguments.FirstOrDefault();
+    }
+
+    private static string? FormatXmlDocs(string? xml)
+    {
+        if (string.IsNullOrWhiteSpace(xml)) return null;
+
+        var lines = xml!.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        var docLines = lines.Where(l => !l.TrimStart().StartsWith("<member") && !l.TrimStart().StartsWith("</member"));
+        var formatted = string.Join("\n", docLines.Select(l => "/// " + l.TrimStart()));
+
+        return string.IsNullOrWhiteSpace(formatted) ? null : formatted;
+    }
+
+    private static string? ExtractSummary(string? xml)
+    {
+        if (string.IsNullOrWhiteSpace(xml)) return null;
+
+        var match = Regex.Match(xml!, "<summary>(.*?)</summary>", RegexOptions.Singleline);
+        if (!match.Success) return null;
+
+        var content = match.Groups[1].Value.Trim();
+        if (string.IsNullOrWhiteSpace(content)) return null;
+
+        var lines = content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        return $"/// <summary>\n{string.Join("\n", lines.Select(l => "/// " + l.Trim()))}\n/// </summary>";
+    }
+
+    private static string? ExtractParamDoc(string? xml, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(xml)) return null;
+
+        var match = Regex.Match(xml!, $"""<param name="{paramName}">(.*?)</param>""", RegexOptions.Singleline);
+        if (!match.Success) return null;
+
+        var content = match.Groups[1].Value.Trim();
+        if (string.IsNullOrWhiteSpace(content)) return null;
+
+        var lines = content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        return $"/// <summary>\n{string.Join("\n", lines.Select(l => "/// " + l.Trim()))}\n/// </summary>";
+    }
+}

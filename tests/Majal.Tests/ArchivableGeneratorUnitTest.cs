@@ -1,4 +1,5 @@
-using Majal.Generators;
+using Majal.Generators.Archivables;
+using Majal.Generators.Entities;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 

@@ -1,8 +1,7 @@
-using Majal.Generators;
-using Majal.Templates;
+using Majal.Generators.ValueObjects;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using static Majal.Templates.ValueObjectTemplate;
+using static Majal.Generators.ValueObjects.ValueObjectTemplate;
 
 namespace Majal.Tests;
 

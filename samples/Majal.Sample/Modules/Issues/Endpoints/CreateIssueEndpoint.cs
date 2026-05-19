@@ -7,16 +7,13 @@ using Majal.Sample.Modules.Issues.ValueObjects;
 namespace Majal.Sample.Modules.Issues.Endpoints;
 
 [DtoFor<PendingIssue>]
-public partial class Issue;
+internal partial class IssueDto;
 
-internal class IssueDtoValidator : AbstractValidator<Issue>
+internal class IssueDtoValidator : AbstractValidator<IssueDto>
 {
     public IssueDtoValidator()
     {
-        RuleFor(dto => dto.Title)
-            .NotEmpty()
-            .MaximumLength(IssueTitle.MaxLength);
-        
+        RuleFor(dto => dto.Title).NotEmpty().MaximumLength(IssueTitle.MaxLength);
         RuleFor(dto => dto.StoryPoints).InclusiveBetween(0, 10);
         RuleFor(dto => dto.Priority).InclusiveBetween(0, 5);
     }
@@ -27,16 +24,16 @@ internal static class CreateIssueEndpoint
     public static void MapCreateIssueEndpoint(this WebApplication app)
     {
         app.MapPost("/projects/{id:int}/issues",
-            async (int id, Issue req, AppDbContext context, CancellationToken ct) =>
+            async (int id, IssueDto dto, AppDbContext context, CancellationToken ct) =>
             {
                 var project = context.Projects.FirstOrDefault(p => p.Id == id);
 
                 if (project is null) return Results.NotFound();
 
                 var issue = PendingIssue.Create(
-                    IssueTitle.Create(req.Title),
-                    IssuePriority.Create(req.StoryPoints),
-                    IssueStoryPoints.Create(req.StoryPoints),
+                    IssueTitle.Create(dto.Title),
+                    IssuePriority.Create(dto.StoryPoints),
+                    IssueStoryPoints.Create(dto.StoryPoints),
                     project
                 );
 

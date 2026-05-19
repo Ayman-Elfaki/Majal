@@ -15,18 +15,16 @@ internal static class ListProjectsEndpoint
     public class IssueDto
     {
         public required IssueTitle Title { get; set; }
-
         public required IssuePriority Priority { get; set; }
-
         public required int StoryPoints { get; set; }
     }
 
     public class ProjectDto
     {
+        public required string Locale { get; init; }
         public required ProjectName Name { get; set; }
         public required ProjectName DisplayName { get; init; }
         public required ProjectDescription Description { get; init; }
-        public required string Locale { get; init; }
         public IEnumerable<IssueDto> Issues { get; set; } = [];
     }
 

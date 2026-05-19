@@ -6,8 +6,8 @@ using Majal.Sample.Modules.Projects.ValueObjects;
 
 namespace Majal.Sample.Modules.Projects.Endpoints;
 
-[DtoFor<OperationalProject>]
-public partial record ProjectDto;
+[DtoFor<Project>]
+public partial class ProjectDto;
 
 internal class ProjectDtoValidator : AbstractValidator<ProjectDto>
 {
