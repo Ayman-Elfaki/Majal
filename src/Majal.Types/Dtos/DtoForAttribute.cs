@@ -19,4 +19,5 @@ public sealed class DtoForAttribute<T> : Attribute
     /// The generated Dto suffix
     /// </summary>
     public string DtoSuffix { get; set; } = "Dto";
+
 }

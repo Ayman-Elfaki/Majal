@@ -14,9 +14,10 @@ public class StrategicProject : Project
     /// <param name="name">The name of the project</param>
     /// <param name="translations">The translations for the project</param>
     /// <param name="isImportant">The importance of the project</param>
+    /// <param name="capacity">The project capacity</param>
     /// <returns>The created project</returns>
     /// <exception cref="ArgumentException">The translation must include all required locales.</exception>
-    public static StrategicProject Create(ProjectName name, bool isImportant, ProjectTranslation[] translations)
+    public static StrategicProject Create(ProjectName name,Capacity capacity, bool isImportant, ProjectTranslation[] translations)
     {
         if (!translations.HasRequiredLocales())
             throw new ArgumentException("translation must include all required locales.");

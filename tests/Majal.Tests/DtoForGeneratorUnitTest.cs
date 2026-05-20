@@ -241,9 +241,15 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.Contains($"[{JsonSerializationNamespace}.JsonPolymorphic(UnknownDerivedTypeHandling = {JsonSerializationNamespace}.JsonUnknownDerivedTypeHandling.FailSerialization)]",dto);
-        Assert.Contains($"""[{JsonSerializationNamespace}.JsonDerivedType(typeof(StrategicProjectDto), typeDiscriminator: "strategicProject")]""",dto);
-        Assert.Contains($"""[{JsonSerializationNamespace}.JsonDerivedType(typeof(OperationalProjectDto), typeDiscriminator: "operationalProject")]""",dto);
+        Assert.Contains(
+            $"[{JsonSerializationNamespace}.JsonPolymorphic(UnknownDerivedTypeHandling = {JsonSerializationNamespace}.JsonUnknownDerivedTypeHandling.FailSerialization)]",
+            dto);
+        Assert.Contains(
+            $"""[{JsonSerializationNamespace}.JsonDerivedType(typeof(StrategicProjectDto), typeDiscriminator: "strategicProject")]""",
+            dto);
+        Assert.Contains(
+            $"""[{JsonSerializationNamespace}.JsonDerivedType(typeof(OperationalProjectDto), typeDiscriminator: "operationalProject")]""",
+            dto);
         Assert.Contains("public abstract partial record ProjectBaseDto", dto);
         Assert.Contains("public record StrategicProjectDto : ProjectBaseDto", dto);
         Assert.Contains("public record OperationalProjectDto : ProjectBaseDto", dto);
@@ -341,6 +347,47 @@ public class DtoForGeneratorUnitTest
         Assert.NotNull(userDto);
         Assert.Contains("public required global::System.String Email { get; init; }", userDto);
         Assert.DoesNotContain("EmailDto", userDto);
+    }
+
+    [Fact]
+    public void FlattensNonGenericValueObjectWithMultipleProperties()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [ValueObject]
+            public partial class Money
+            {
+                public static Money Create(decimal amount, string currency) => new Money();
+            }
+
+            [Entity]
+            public partial class User
+            {
+                public static User Create(string name, Money money) => new User();
+            }
+
+            [DtoFor<User>]
+            [FlattenDtoFor<Money>]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+        var driver =
+            CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var userDto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(userDto);
+        Assert.Contains("public required global::System.Decimal MoneyAmount { get; init; }", userDto);
+        Assert.Contains("public required global::System.String MoneyCurrency { get; init; }", userDto);
+        Assert.DoesNotContain("MoneyDto", userDto);
     }
 
 
@@ -458,13 +505,15 @@ public class DtoForGeneratorUnitTest
 
         Assert.NotNull(dto);
 
+        dto = dto!.Replace("\r\n", "\n");
+
         Assert.Contains(
             """
             /// <summary>
             /// Create a user
             /// </summary>
             public partial record UserDto
-            """, dto);
+            """.Replace("\r\n", "\n"), dto);
 
         Assert.Contains(
             """
@@ -472,7 +521,7 @@ public class DtoForGeneratorUnitTest
                 /// the user email
                 /// </summary>
                 public required global::System.String Email { get; init; }
-            """, dto);
+            """.Replace("\r\n", "\n"), dto);
     }
 
 
@@ -519,6 +568,7 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
+        dto = dto!.Replace("\r\n", "\n");
 
         // Check OrderDto docs
         Assert.Contains(
@@ -527,7 +577,7 @@ public class DtoForGeneratorUnitTest
             /// Create an order
             /// </summary>
             public partial record OrderDto
-            """, dto);
+            """.Replace("\r\n", "\n"), dto);
 
         // Check OrderDto.Items docs
         Assert.Contains(
@@ -536,7 +586,7 @@ public class DtoForGeneratorUnitTest
                 /// the items
                 /// </summary>
                 public required LineItemDto[] Items { get; init; }
-            """, dto);
+            """.Replace("\r\n", "\n"), dto);
 
         // Check LineItemDto docs (nested)
         Assert.Contains(
@@ -545,7 +595,7 @@ public class DtoForGeneratorUnitTest
                 /// Create a line item
                 /// </summary>
                 public record LineItemDto
-            """, dto);
+            """.Replace("\r\n", "\n"), dto);
 
         // Check LineItemDto.ProductName docs (nested)
         Assert.Contains(
@@ -554,7 +604,7 @@ public class DtoForGeneratorUnitTest
                     /// the product
                     /// </summary>
                     public required global::System.String ProductName { get; init; }
-            """, dto);
+            """.Replace("\r\n", "\n"), dto);
     }
 
 

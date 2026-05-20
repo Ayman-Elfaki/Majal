@@ -3,10 +3,12 @@ using Majal.Sample.Common.Filters;
 using Majal.Sample.Common.Persistence;
 using Majal.Sample.Modules.Issues.Entities;
 using Majal.Sample.Modules.Issues.ValueObjects;
+using Majal.Sample.Modules.Projects.ValueObjects;
 
 namespace Majal.Sample.Modules.Issues.Endpoints;
 
 [DtoFor<PendingIssue>]
+[FlattenDtoFor<Capacity>(IsReversed = true)]
 internal partial class IssueDto;
 
 internal class IssueDtoValidator : AbstractValidator<IssueDto>

@@ -16,7 +16,7 @@ public abstract class BaseGenerator<TData> : IIncrementalGenerator where TData :
             Register(context, GenericAttributeFullName);
     }
 
-    private void Register(IncrementalGeneratorInitializationContext context, string attributeName)
+    protected void Register(IncrementalGeneratorInitializationContext context, string attributeName)
     {
         var provider = context.SyntaxProvider
             .ForAttributeWithMetadataName(attributeName, Filter, Transform)

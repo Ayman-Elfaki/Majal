@@ -7,6 +7,7 @@ using Majal.Sample.Modules.Projects.ValueObjects;
 namespace Majal.Sample.Modules.Projects.Endpoints;
 
 [DtoFor<Project>]
+[FlattenDtoFor<Capacity>(IsReversed = true)]
 public partial class ProjectDto;
 
 internal class ProjectDtoValidator : AbstractValidator<ProjectDto>
