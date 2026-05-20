@@ -117,8 +117,8 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(orderDto);
-        Assert.Contains("public required LineItemDto[] Items { get; init; }", orderDto);
-        Assert.Contains("public record LineItemDto", orderDto);
+        Assert.Contains("public required OrderDtoLineItemDto[] Items { get; init; }", orderDto);
+        Assert.Contains("public record OrderDtoLineItemDto", orderDto);
     }
 
     [Fact]
@@ -197,9 +197,9 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.Contains("public required LineItemBaseDto Item { get; init; }", dto);
-        Assert.Contains("public abstract record LineItemBaseDto", dto);
-        Assert.Contains("public record LineItemDto : LineItemBaseDto", dto);
+        Assert.Contains("public required OrderDtoLineItemBaseDto Item { get; init; }", dto);
+        Assert.Contains("public abstract record OrderDtoLineItemBaseDto", dto);
+        Assert.Contains("public record OrderDtoLineItemDto : OrderDtoLineItemBaseDto", dto);
     }
 
     [Fact]
@@ -245,14 +245,14 @@ public class DtoForGeneratorUnitTest
             $"[{JsonSerializationNamespace}.JsonPolymorphic(UnknownDerivedTypeHandling = {JsonSerializationNamespace}.JsonUnknownDerivedTypeHandling.FailSerialization)]",
             dto);
         Assert.Contains(
-            $"""[{JsonSerializationNamespace}.JsonDerivedType(typeof(StrategicProjectDto), typeDiscriminator: "strategicProject")]""",
+            $"""[{JsonSerializationNamespace}.JsonDerivedType(typeof(ProjectBaseDtoStrategicProjectDto), typeDiscriminator: "strategicProject")]""",
             dto);
         Assert.Contains(
-            $"""[{JsonSerializationNamespace}.JsonDerivedType(typeof(OperationalProjectDto), typeDiscriminator: "operationalProject")]""",
+            $"""[{JsonSerializationNamespace}.JsonDerivedType(typeof(ProjectBaseDtoOperationalProjectDto), typeDiscriminator: "operationalProject")]""",
             dto);
         Assert.Contains("public abstract partial record ProjectBaseDto", dto);
-        Assert.Contains("public record StrategicProjectDto : ProjectBaseDto", dto);
-        Assert.Contains("public record OperationalProjectDto : ProjectBaseDto", dto);
+        Assert.Contains("public record ProjectBaseDtoStrategicProjectDto : ProjectBaseDto", dto);
+        Assert.Contains("public record ProjectBaseDtoOperationalProjectDto : ProjectBaseDto", dto);
         Assert.Contains("public required global::System.String Name { get; init; }", dto);
         Assert.Equal(1, dto.Split("public required global::System.String Name { get; init; }").Length - 1);
         Assert.Contains("public required global::System.String Strategy { get; init; }", dto);
@@ -505,7 +505,7 @@ public class DtoForGeneratorUnitTest
 
         Assert.NotNull(dto);
 
-        dto = dto!.Replace("\r\n", "\n");
+        dto = dto.Replace("\r\n", "\n");
 
         Assert.Contains(
             """
@@ -568,7 +568,7 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        dto = dto!.Replace("\r\n", "\n");
+        dto = dto.Replace("\r\n", "\n");
 
         // Check OrderDto docs
         Assert.Contains(
@@ -585,7 +585,7 @@ public class DtoForGeneratorUnitTest
                 /// <summary>
                 /// the items
                 /// </summary>
-                public required LineItemDto[] Items { get; init; }
+                public required OrderDtoLineItemDto[] Items { get; init; }
             """.Replace("\r\n", "\n"), dto);
 
         // Check LineItemDto docs (nested)
@@ -594,7 +594,7 @@ public class DtoForGeneratorUnitTest
                 /// <summary>
                 /// Create a line item
                 /// </summary>
-                public record LineItemDto
+                public record OrderDtoLineItemDto
             """.Replace("\r\n", "\n"), dto);
 
         // Check LineItemDto.ProductName docs (nested)

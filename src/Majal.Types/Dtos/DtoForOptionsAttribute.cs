@@ -17,6 +17,10 @@ public sealed class DtoForOptionsAttribute : Attribute
     /// <summary>
     /// The generated Dto suffix
     /// </summary>
-    public string DtoSuffix { get; set; } = "Dto";
+    public string Suffix { get; set; } = "Dto";
 
+    /// <summary>
+    /// The generated Dto prefix
+    /// </summary>
+    public string? Prefix { get; set; }
 }

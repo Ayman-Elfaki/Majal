@@ -184,13 +184,22 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             finalDefaultName;
 
         var assemblyDefaultSuffix =
-            assemblyAttr.GetNamedArgumentValue<string>(nameof(DtoForOptionsAttribute.DtoSuffix));
+            assemblyAttr.GetNamedArgumentValue<string>(nameof(DtoForOptionsAttribute.Suffix));
 
         var finalDefaultSuffix = assemblyDefaultSuffix ?? DefaultDtoSuffix;
 
         var factoryDtoSuffix =
-            attribute.GetNamedArgumentValue<string>(nameof(DtoForAttribute<>.DtoSuffix)) ??
+            attribute.GetNamedArgumentValue<string>(nameof(DtoForAttribute<>.Suffix)) ??
             finalDefaultSuffix;
+
+        var assemblyDefaultPrefix =
+            assemblyAttr.GetNamedArgumentValue<string>(nameof(DtoForOptionsAttribute.Prefix));
+
+        var finalDefaultPrefix = assemblyDefaultPrefix ?? dtoSymbol.Name;
+
+        var factoryDtoPrefix =
+            attribute.GetNamedArgumentValue<string>(nameof(DtoForAttribute<>.Prefix)) ??
+            finalDefaultPrefix;
 
         var nestedDtos = new Dictionary<string, DtoData>();
 
@@ -199,14 +208,14 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         foreach (var flattenAttr in dtoSymbol.GetAttributes()
                      .Where(a => a.AttributeClass?.MetadataName == FlattenGenericAttributeName))
         {
-            if (flattenAttr.AttributeClass?.TypeArguments.Length > 0)
-            {
-                flattenConfigs ??= new Dictionary<string, bool>();
-                var targetType = flattenAttr.AttributeClass.TypeArguments[0];
-                var isReversed = flattenAttr.GetNamedArgumentValue<bool?>(nameof(FlattenDtoForAttribute<>.IsReversed))
-                                 ?? false;
-                flattenConfigs[targetType.ToDisplayString()] = isReversed;
-            }
+            if (!(flattenAttr.AttributeClass?.TypeArguments.Length > 0)) continue;
+
+            flattenConfigs ??= new Dictionary<string, bool>();
+            var targetType = flattenAttr.AttributeClass.TypeArguments[0];
+            var isReversed = flattenAttr.GetNamedArgumentValue<bool?>(nameof(FlattenDtoForAttribute<>.IsReversed))
+                             ?? false;
+            
+            flattenConfigs[targetType.ToDisplayString()] = isReversed;
         }
 
         var dtoContext = new DtoContext(
@@ -214,7 +223,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             Namespace: dtoSymbol.GetNamespace(),
             DtoName: dtoSymbol.GetTypeNameWithGenerics(),
             RawDtoName: dtoSymbol.Name,
-            DtoNamePrefix: "",
+            DtoNamePrefix: factoryDtoPrefix,
             DtoNameSuffix: factoryDtoSuffix,
             Accessibility: dtoSymbol.DeclaredAccessibility,
             IsRecord: dtoSymbol.IsRecord,
@@ -391,9 +400,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         DtoData[] nestedDtosResult = isRoot ? [.. collected.Values.Where(v => !string.IsNullOrEmpty(v.DtoName))] : [];
         var xmlDocsResult = ExtractSummary(methodXml) ?? FormatXmlDocs(sourceSymbol.GetDocumentationCommentXml());
 
-        return new DtoData(
-            @namespace, dtoName, rawDtoName, dtoNamePrefix, accessibility,
-            xmlDocsResult, null, isRecord, [], [.. parameters], nestedDtosResult
+        return new DtoData(@namespace, dtoName, rawDtoName, dtoNamePrefix, accessibility, xmlDocsResult, null, isRecord,
+            [], [.. parameters], nestedDtosResult
         );
     }
 
