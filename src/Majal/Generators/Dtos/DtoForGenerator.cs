@@ -214,7 +214,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             var targetType = flattenAttr.AttributeClass.TypeArguments[0];
             var isReversed = flattenAttr.GetNamedArgumentValue<bool?>(nameof(FlattenDtoForAttribute<>.IsReversed))
                              ?? false;
-            
+
             flattenConfigs[targetType.ToDisplayString()] = isReversed;
         }
 

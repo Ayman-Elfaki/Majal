@@ -47,7 +47,8 @@ public class DtoForTemplate : BaseTemplate
 
         var isBase = dto.DerivedTypes.Count > 0 && string.IsNullOrWhiteSpace(dto.BaseDtoName);
         var inheritance = string.IsNullOrWhiteSpace(dto.BaseDtoName) ? "" : $" : {dto.BaseDtoName}";
-        var modifier = !isNested ? "partial " : "";
+        var modifier = "partial ";
+
         if (isBase) modifier = "abstract " + modifier;
 
         var accessModifier = dto.Accessibility switch
