@@ -117,6 +117,39 @@ public class DtoForGeneratorUnitTest
         Assert.DoesNotContain("public required global::System.Guid? Id { get; init; }", productDto);
     }
 
+    [Fact]
+    public void GeneratesDtoForAggregateIncludesIdProperty()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity<global::System.Guid>]
+            [Aggregate<object>]
+            public partial class User
+            {
+                public static User Create(string name) => new User();
+            }
+
+            [DtoFor<User>]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var userDto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(userDto);
+        Assert.Contains("public required global::System.Guid Id { get; init; }", userDto);
+        Assert.Contains("public required global::System.String Name { get; init; }", userDto);
+    }
 
     [Fact]
     public void GeneratesRecursiveNestedDtoWithCollections()

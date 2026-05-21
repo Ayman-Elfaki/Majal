@@ -149,6 +149,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     private const string OptionsAttributeName = $"Majal.{nameof(DtoForOptionsAttribute)}";
     private const string FlattenGenericAttributeName = $"{nameof(FlattenDtoForAttribute<>)}`1";
     private const string ExcludeGenericAttributeName = $"{nameof(ExcludeDtoForAttribute<>)}`1";
+    private const string EntityAttributeName = nameof(EntityAttribute);
+    private const string EntityOptionsAttributeName = nameof(EntityOptionsAttribute);
 
     private const string DefaultDtoSuffix = "Dto";
     private const string DefaultFactoryMethodName = "Create";
@@ -269,8 +271,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
         var nestedDtos = new Dictionary<string, DtoData>();
 
-        Dictionary<string, bool>? flattenConfigs = null;
         List<ITypeSymbol>? excludedTypes = null;
+        Dictionary<string, bool>? flattenConfigs = null;
 
         var attributes = dtoSymbol.GetAttributes().ToArray();
 
@@ -279,7 +281,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         {
             if (!(flattenAttr.AttributeClass?.TypeArguments.Length > 0)) continue;
 
-            flattenConfigs ??= new Dictionary<string, bool>();
+            flattenConfigs ??= [];
             var targetType = flattenAttr.AttributeClass.TypeArguments[0];
             var isReversed = flattenAttr.GetNamedArgumentValue<bool?>(nameof(FlattenDtoForAttribute<>.IsReversed))
                              ?? false;
@@ -336,6 +338,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         var defaultMethodName = context.DefaultMethodName;
 
         var createMethod = FindFactoryMethod(sourceSymbol, factoryMethodName);
+        var aggregateIdParameter = GetAggregateIdParameter(sourceSymbol, createMethod, compilation);
 
         var excludedPropertyNames =
             new HashSet<string>(context.ExcludedProperties ?? [], StringComparer.OrdinalIgnoreCase);
@@ -423,6 +426,11 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
         var methodXml = createMethod.GetDocumentationCommentXml();
         var parameters = new List<ParameterData>();
+
+        if (aggregateIdParameter is not null)
+        {
+            parameters.Add(aggregateIdParameter.Value);
+        }
 
         foreach (var p in createMethod.Parameters)
         {
@@ -664,21 +672,112 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     {
         if (typeSymbol is null) return false;
 
-        var implementsEntity = typeSymbol.AllInterfaces.Any(i =>
-            i.MetadataName.StartsWith("IEntity`", StringComparison.Ordinal));
+        for (var current = typeSymbol; current != null; current = current.BaseType)
+        {
+            var implementsEntity = current.AllInterfaces.Any(i =>
+                i.MetadataName.StartsWith("IEntity`", StringComparison.Ordinal));
 
-        var hasEntityAttribute = typeSymbol.HasAnyMajaAttribute(nameof(EntityAttribute));
-        return implementsEntity || hasEntityAttribute;
+            if (implementsEntity || current.HasAnyMajaAttribute(nameof(EntityAttribute)))
+                return true;
+        }
+
+        return false;
     }
 
     private static bool IsAggregateType(ITypeSymbol? typeSymbol)
     {
         if (typeSymbol is null) return false;
 
-        var implementsAggregate = typeSymbol.AllInterfaces.Any(i =>
-            i.MetadataName.StartsWith("IAggregate`", StringComparison.Ordinal));
+        for (var current = typeSymbol; current != null; current = current.BaseType)
+        {
+            var implementsAggregate = current.AllInterfaces.Any(i =>
+                i.MetadataName.StartsWith("IAggregate`", StringComparison.Ordinal));
 
-        return implementsAggregate || typeSymbol.HasAnyMajaAttribute(nameof(AggregateAttribute));
+            if (implementsAggregate || current.HasAnyMajaAttribute(nameof(AggregateAttribute)))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static ITypeSymbol? GetAggregateIdType(INamedTypeSymbol sourceSymbol, Compilation? compilation)
+    {
+        var idType = GetEntityIdType(sourceSymbol, compilation);
+        if (idType is not null) return idType;
+
+        for (var current = sourceSymbol; current != null; current = current.BaseType)
+        {
+            var idProperty = current.GetMembers().OfType<IPropertySymbol>().FirstOrDefault(p => p.Name == "Id");
+            if (idProperty is not null)
+                return idProperty.Type;
+        }
+
+        return null;
+    }
+
+    private static ITypeSymbol? GetEntityIdType(INamedTypeSymbol symbol, Compilation? compilation)
+    {
+        for (var current = symbol; current != null; current = current.BaseType)
+        {
+            var entityAttribute = current.GetAnyMajalAttribute(EntityAttributeName);
+            if (entityAttribute?.AttributeClass is { TypeArguments.Length: > 0 })
+                return entityAttribute.AttributeClass.TypeArguments[0];
+
+            if (entityAttribute is not null)
+            {
+                var defaultType = GetDefaultEntityIdType(compilation);
+                if (defaultType is not null)
+                    return defaultType;
+
+                return compilation?.GetSpecialType(SpecialType.System_Int32);
+            }
+
+            var entityInterface = current.AllInterfaces.FirstOrDefault(i =>
+                i.MetadataName.StartsWith("IEntity`", StringComparison.Ordinal));
+
+            if (entityInterface is not null && entityInterface.TypeArguments.Length > 0)
+                return entityInterface.TypeArguments[0];
+        }
+
+        return null;
+    }
+
+    private static ITypeSymbol? GetDefaultEntityIdType(Compilation? compilation)
+    {
+        if (compilation is null) return null;
+
+        foreach (var attribute in compilation.Assembly.GetAttributes())
+        {
+            if (attribute.AttributeClass?.Name != EntityOptionsAttributeName ||
+                attribute.AttributeClass.ContainingNamespace.ToDisplayString() != "Majal")
+            {
+                continue;
+            }
+
+            if (attribute.NamedArguments.FirstOrDefault(a => a.Key == nameof(EntityOptionsAttribute.DefaultIdType))
+                    .Value.Value is ITypeSymbol type)
+                return type;
+        }
+
+        return null;
+    }
+
+    private static ParameterData? GetAggregateIdParameter(INamedTypeSymbol sourceSymbol, IMethodSymbol? createMethod,
+        Compilation? compilation)
+    {
+        if (createMethod is null) return null;
+        if (!IsAggregateType(sourceSymbol)) return null;
+        if (createMethod.Parameters.Any(p => string.Equals(p.Name, "id", StringComparison.OrdinalIgnoreCase)))
+            return null;
+
+        var idType = GetAggregateIdType(sourceSymbol, compilation);
+        if (idType is null) return null;
+
+        var (unwrappedType, isNullable) = idType.UnwrapNullable();
+        var resolvedType = unwrappedType.ToDisplayString(FullPropertyTypeFormat);
+        if (isNullable) resolvedType += "?";
+
+        return new ParameterData("id", resolvedType, isNullable);
     }
 
     private static ITypeSymbol? GetValueObjectUnderlyingType(INamedTypeSymbol namedType)
