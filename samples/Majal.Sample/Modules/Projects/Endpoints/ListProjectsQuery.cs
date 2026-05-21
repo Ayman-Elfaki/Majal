@@ -1,6 +1,4 @@
 using Majal.Sample.Common.Persistence;
-using Majal.Sample.Modules.Issues.ValueObjects;
-using Majal.Sample.Modules.Projects.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Wolverine.Http;
@@ -13,10 +11,13 @@ namespace Majal.Sample.Modules.Projects.Endpoints;
 public class ListProjectsQuery
 {
     /// <summary>
-    /// the response
+    /// The Query Response
     /// </summary>
     public class ListProjectsResponse
     {
+        /// <summary>
+        /// The projects
+        /// </summary>
         public IEnumerable<ProjectDto> Projects { get; set; } = [];
     }
 
@@ -25,8 +26,17 @@ public class ListProjectsQuery
     /// </summary>
     public class IssueDto
     {
+        /// <summary>
+        /// The issue title
+        /// </summary>
         public required string Title { get; set; }
+        /// <summary>
+        /// The issue priority
+        /// </summary>
         public required int Priority { get; set; }
+        /// <summary>
+        /// The issue story points
+        /// </summary>
         public required int StoryPoints { get; set; }
     }
 
@@ -35,13 +45,35 @@ public class ListProjectsQuery
     /// </summary>
     public class ProjectDto
     {
+        /// <summary>
+        /// The locale
+        /// </summary>
         public required string Locale { get; init; }
+        /// <summary>
+        /// The project name
+        /// </summary>
         public required string Name { get; set; }
+        /// <summary>
+        /// The project description
+        /// </summary>
         public required string DisplayName { get; init; }
+        /// <summary>
+        /// The project description
+        /// </summary>
         public required string Description { get; init; }
+        /// <summary>
+        /// The issues
+        /// </summary>
         public IEnumerable<IssueDto> Issues { get; set; } = [];
     }
-
+    
+    /// <summary>
+    /// List all projects
+    /// </summary>
+    /// <param name="context"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
+    [Tags("Projects")]
     [WolverineGet("/projects")]
     [ProducesResponseType<ListProjectsResponse>(200)]
     public static async Task<IResult> List([FromServices] AppDbContext context, CancellationToken ct)

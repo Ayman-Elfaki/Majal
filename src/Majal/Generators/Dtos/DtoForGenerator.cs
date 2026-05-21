@@ -73,6 +73,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         Dictionary<string, DtoData> Collected,
         string[] ParentTypeDeclarations,
         Dictionary<string, bool>? FlattenConfigs = null,
+        ITypeSymbol[]? ExcludedTypes = null,
         Compilation? Compilation = null
     );
 
@@ -91,6 +92,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         string DefaultMethodName,
         Dictionary<string, DtoData> Collected,
         Dictionary<string, bool>? FlattenConfigs = null,
+        ITypeSymbol[]? ExcludedTypes = null,
+        string[]? ExcludedProperties = null!,
         Compilation? Compilation = null
     );
 
@@ -145,6 +148,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     private const string DtoAttribute = $"Majal.{nameof(DtoForAttribute<>)}`1";
     private const string OptionsAttributeName = $"Majal.{nameof(DtoForOptionsAttribute)}";
     private const string FlattenGenericAttributeName = $"{nameof(FlattenDtoForAttribute<>)}`1";
+    private const string ExcludeGenericAttributeName = $"{nameof(ExcludeDtoForAttribute<>)}`1";
 
     private const string DefaultDtoSuffix = "Dto";
     private const string DefaultFactoryMethodName = "Create";
@@ -166,7 +170,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             return $"{data.RawDtoName}.g.cs";
         }
 
-        var parentNames = string.Join("_", data.ParentTypeDeclarations.Select(SanitizeParentTypeDeclarationForFileName));
+        var parentNames =
+            string.Join("_", data.ParentTypeDeclarations.Select(SanitizeParentTypeDeclarationForFileName));
         return $"{parentNames}_{data.RawDtoName}.g.cs";
     }
 
@@ -256,12 +261,21 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             attribute.GetNamedArgumentValue<string>(nameof(DtoForAttribute<>.Prefix)) ??
             finalDefaultPrefix;
 
+        var assemblyExcludedPropertyNames =
+            assemblyAttr.GetNamedArgumentValue<string[]>(nameof(DtoForOptionsAttribute.Exclude)) ?? [];
+
+        var factoryExcludedPropertyNames =
+            attribute.GetNamedArgumentValue<string[]>(nameof(DtoForAttribute<>.Exclude)) ?? [];
+
         var nestedDtos = new Dictionary<string, DtoData>();
 
         Dictionary<string, bool>? flattenConfigs = null;
+        List<ITypeSymbol>? excludedTypes = null;
 
-        foreach (var flattenAttr in dtoSymbol.GetAttributes()
-                     .Where(a => a.AttributeClass?.MetadataName == FlattenGenericAttributeName))
+        var attributes = dtoSymbol.GetAttributes().ToArray();
+
+        foreach (var flattenAttr in
+                 attributes.Where(a => a.AttributeClass?.MetadataName == FlattenGenericAttributeName))
         {
             if (!(flattenAttr.AttributeClass?.TypeArguments.Length > 0)) continue;
 
@@ -271,6 +285,15 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                              ?? false;
 
             flattenConfigs[targetType.ToDisplayString()] = isReversed;
+        }
+
+        foreach (var excludeAttr in
+                 attributes.Where(a => a.AttributeClass?.MetadataName == ExcludeGenericAttributeName))
+        {
+            if (!(excludeAttr.AttributeClass?.TypeArguments.Length > 0)) continue;
+
+            excludedTypes ??= [];
+            excludedTypes.Add(excludeAttr.AttributeClass.TypeArguments[0]);
         }
 
         var dtoContext = new DtoContext(
@@ -288,6 +311,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             FactoryMethodName: factoryMethodName,
             Collected: nestedDtos,
             FlattenConfigs: flattenConfigs,
+            ExcludedTypes: excludedTypes?.ToArray(),
+            ExcludedProperties: [.. assemblyExcludedPropertyNames, .. factoryExcludedPropertyNames],
             Compilation: context.SemanticModel.Compilation
         );
 
@@ -311,6 +336,9 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         var defaultMethodName = context.DefaultMethodName;
 
         var createMethod = FindFactoryMethod(sourceSymbol, factoryMethodName);
+
+        var excludedPropertyNames =
+            new HashSet<string>(context.ExcludedProperties ?? [], StringComparer.OrdinalIgnoreCase);
 
         if (createMethod is null && compilation is not null && sourceSymbol is { IsAbstract: true })
         {
@@ -337,7 +365,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                             DtoNamePrefix = dtoNamePrefix,
                             DtoNameSuffix = dtoNameSuffix,
                             SourceSymbol = derivedSymbol,
-                            IsRoot = false
+                            IsRoot = false,
+                            ExcludedTypes = context.ExcludedTypes
                         };
 
                         var derivedData = GetDtoData(derivedContext);
@@ -368,8 +397,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                         ];
 
                         var updatedData = new DtoData(derivedDto.Namespace, derivedDto.DtoName, derivedDto.RawDtoName,
-                            [..derivedDto.ParentTypeDeclarations], accessibility, derivedDto.XmlDocs, derivedDto.BaseDtoName,
-                            derivedDto.IsRecord, [..derivedDto.DerivedTypes], uniqueParameters,
+                            [..derivedDto.ParentTypeDeclarations], accessibility, derivedDto.XmlDocs,
+                            derivedDto.BaseDtoName, derivedDto.IsRecord, [..derivedDto.DerivedTypes], uniqueParameters,
                             [..derivedDto.NestedDtos]
                         );
 
@@ -384,7 +413,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                     ? [.. collected.Values.Where(v => !string.IsNullOrEmpty(v.DtoName) && v.DtoName != dtoName)]
                     : [];
 
-                return new DtoData(@namespace, dtoName, rawDtoName, context.ParentTypeDeclarations, accessibility, xmlDocs, null, isRecord,
+                return new DtoData(@namespace, dtoName, rawDtoName, context.ParentTypeDeclarations, accessibility,
+                    xmlDocs, null, isRecord,
                     [.. derivedTypes], commonParameters, nestedDtos);
             }
         }
@@ -396,8 +426,14 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
         foreach (var p in createMethod.Parameters)
         {
+            if (excludedPropertyNames.Contains(p.Name))
+                continue;
+
             var (elementType, isCollection, isDictionary) = p.Type.GetCollectionInfo();
             var (unwrappedType, isNullable) = elementType.UnwrapNullable();
+
+            if (ShouldExcludeParameter(p.Type, elementType, isCollection, isDictionary, context.ExcludedTypes))
+                continue;
 
             if (!isCollection && unwrappedType is INamedTypeSymbol type && IsValueObjectType(type) &&
                 context.FlattenConfigs is not null &&
@@ -414,7 +450,9 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
                         var spResolveContext = new TypeResolveContext(spUnwrappedType, spIsNullable || isNullable,
                             spIsDictionary, dtoNamePrefix, dtoNameSuffix, accessibility, isRecord, @namespace,
-                            defaultMethodName, collected, context.ParentTypeDeclarations, context.FlattenConfigs, compilation
+                            defaultMethodName, collected, context.ParentTypeDeclarations, context.FlattenConfigs,
+                            context.ExcludedTypes,
+                            compilation
                         );
 
                         var spResolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(spResolveContext));
@@ -426,6 +464,9 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                         var combinedName = isReversed
                             ? char.ToLowerInvariant(sp.Name[0]) + sp.Name.Substring(1) + ToPascalCase(p.Name)
                             : char.ToLowerInvariant(p.Name[0]) + p.Name.Substring(1) + ToPascalCase(sp.Name);
+
+                        if (excludedPropertyNames.Contains(combinedName))
+                            continue;
 
                         var spXml = ExtractParamDoc(valObjMethodXml, sp.Name) ?? ExtractParamDoc(methodXml, p.Name);
 
@@ -440,7 +481,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
             var resolveContext = new TypeResolveContext(unwrappedType, isNullable, isDictionary, dtoNamePrefix,
                 dtoNameSuffix, accessibility, isRecord, @namespace, defaultMethodName, collected,
-                context.ParentTypeDeclarations, context.FlattenConfigs, compilation
+                context.ParentTypeDeclarations, context.FlattenConfigs, context.ExcludedTypes, compilation
             );
 
             var resolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(resolveContext));
@@ -456,7 +497,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         DtoData[] nestedDtosResult = isRoot ? [.. collected.Values.Where(v => !string.IsNullOrEmpty(v.DtoName))] : [];
         var xmlDocsResult = ExtractSummary(methodXml) ?? FormatXmlDocs(sourceSymbol.GetDocumentationCommentXml());
 
-        return new DtoData(@namespace, dtoName, rawDtoName, context.ParentTypeDeclarations, accessibility, xmlDocsResult, null, isRecord,
+        return new DtoData(@namespace, dtoName, rawDtoName, context.ParentTypeDeclarations, accessibility,
+            xmlDocsResult, null, isRecord,
             [], [.. parameters], nestedDtosResult
         );
     }
@@ -472,6 +514,31 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                 dtoArray.Skip(1).All(d => d.Parameters.Any(o => o.Name == p.Name && o.ResolvedType == p.ResolvedType))
             )
         ];
+    }
+
+    private static bool ShouldExcludeParameter(ITypeSymbol originalType, ITypeSymbol elementType, bool isCollection,
+        bool isDictionary, ITypeSymbol[]? excludedTypes)
+    {
+        if (excludedTypes is null || excludedTypes.Length == 0) return false;
+
+        if (isDictionary && originalType is INamedTypeSymbol dictionaryType)
+        {
+            foreach (var typeArg in dictionaryType.TypeArguments)
+            {
+                var (unwrappedTypeArg, _) = typeArg.UnwrapNullable();
+                if (IsExcludedType(unwrappedTypeArg, excludedTypes)) return true;
+            }
+
+            return false;
+        }
+
+        var (typeToCheck, _) = elementType.UnwrapNullable();
+        return IsExcludedType(typeToCheck, excludedTypes);
+    }
+
+    private static bool IsExcludedType(ITypeSymbol type, ITypeSymbol[] excludedTypes)
+    {
+        return excludedTypes.Any(excludedType => SymbolEqualityComparer.Default.Equals(type, excludedType));
     }
 
     private static string ResolveValueObjectElementType(TypeResolveContext context)
@@ -531,6 +598,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             DefaultMethodName: context.DefaultMethodName,
             Collected: context.Collected,
             FlattenConfigs: context.FlattenConfigs,
+            ExcludedTypes: context.ExcludedTypes,
             Compilation: context.Compilation
         );
 

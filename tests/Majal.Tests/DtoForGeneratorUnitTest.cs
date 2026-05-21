@@ -307,21 +307,21 @@ public class DtoForGeneratorUnitTest
             using System.Globalization;
 
             [ValueObject<string>]
-            public readonly partial struct ProjectName
-            {
-            }
+            public readonly partial struct ProjectName;
 
             [Entity]
             public partial class Project
             {
-                public static Project Create(ProjectName name, ProjectTranslation[] translations) => new Project();
+                public static Project Create(ProjectName name, ProjectTranslation[] translations) => 
+                    new Project();
             }
 
 
             [Entity]
             public partial class ProjectTranslation
             {
-                public static ProjectTranslation Create(ProjectName displayName, CultureInfo culture) => new ProjectTranslation();
+                public static ProjectTranslation Create(ProjectName displayName, CultureInfo culture) => 
+                    new ProjectTranslation();
             }
 
             [DtoFor<Project>]
@@ -332,8 +332,8 @@ public class DtoForGeneratorUnitTest
 
 
         var driver = CSharpGeneratorDriver.Create(new DtoForGenerator(), new ValueObjectGenerator(),
-            new EntityGenerator(),
-            new AggregateGenerator());
+            new EntityGenerator(),new AggregateGenerator());
+        
         var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
 
         var runResult = result.GetRunResult();
@@ -384,6 +384,77 @@ public class DtoForGeneratorUnitTest
         Assert.NotNull(userDto);
         Assert.Contains("public required global::System.String Email { get; init; }", userDto);
         Assert.DoesNotContain("EmailDto", userDto);
+    }
+
+    [Fact]
+    public void ExcludesSpecifiedTypeFromGeneratedDto()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public partial class Address
+            {
+                public static Address Create(string street, string city) => new Address();
+            }
+
+            [Entity]
+            public partial class User
+            {
+                public static User Create(string name, Address address) => new User();
+            }
+
+            [DtoFor<User>]
+            [ExcludeDtoFor<Address>]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public required global::System.String Name { get; init; }", dto);
+        Assert.DoesNotContain("Address", dto);
+    }
+
+    [Fact]
+    public void ExcludesPropertiesByNameFromGeneratedDto()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public partial class User
+            {
+                public static User Create(string name, string password) => new User();
+            }
+
+            [DtoFor<User>(Exclude = ["Password"])]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public required global::System.String Name { get; init; }", dto);
+        Assert.DoesNotContain("Password", dto);
     }
 
     [Fact]

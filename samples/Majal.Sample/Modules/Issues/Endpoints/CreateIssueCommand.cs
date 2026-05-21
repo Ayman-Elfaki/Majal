@@ -16,7 +16,7 @@ public partial record CreateIssueCommand
     [DtoFor<PendingIssue>(Prefix = "")]
     [FlattenDtoFor<Capacity>(IsReversed = true)]
     public partial record WqIssueDto;
-    
+
     /// <summary>
     /// request validator
     /// </summary>

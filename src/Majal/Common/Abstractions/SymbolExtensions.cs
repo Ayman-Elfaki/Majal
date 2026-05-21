@@ -135,7 +135,24 @@ public static class SymbolExtensions
     {
         public T? GetNamedArgumentValue<T>(string key)
         {
-            return (T?)attribute?.NamedArguments.FirstOrDefault(a => a.Key == key).Value.Value;
+            var typedConstant = attribute?.NamedArguments.FirstOrDefault(a => a.Key == key).Value ?? default;
+            if (typedConstant.Kind == TypedConstantKind.Array && typeof(T).IsArray)
+            {
+                var elementType = typeof(T).GetElementType();
+                if (elementType is null)
+                    return default;
+
+                var values = typedConstant.Values;
+                var array = Array.CreateInstance(elementType, values.Length);
+                for (var i = 0; i < values.Length; i++)
+                {
+                    array.SetValue(values[i].Value, i);
+                }
+
+                return (T?)(object?)array;
+            }
+
+            return typedConstant.Value is null ? default : (T?)typedConstant.Value;
         }
     }
 

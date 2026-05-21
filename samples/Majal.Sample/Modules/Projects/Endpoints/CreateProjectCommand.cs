@@ -8,25 +8,22 @@ using Wolverine.Http;
 
 namespace Majal.Sample.Modules.Projects.Endpoints;
 
-
-/// <summary>
-/// The Project Dto
-/// </summary>
-[DtoFor<Project>]
-[FlattenDtoFor<Capacity>(IsReversed = true)]
-public partial class ProjectDto;
-
 /// <summary>
 /// create a new project
 /// </summary>
 public partial class CreateProjectCommand
 {
-    
-    
+    /// <summary>
+    /// The Project Dto
+    /// </summary>
+    [DtoFor<StrategicProject>]
+    [FlattenDtoFor<Capacity>(IsReversed = true)]
+    public partial class StrategicProjectDtos;
+
     /// <summary>
     /// The Dto Validator
     /// </summary>
-    public class Validator : AbstractValidator<ProjectDto>
+    public class Validator : AbstractValidator<StrategicProjectDtos>
     {
         /// <summary>
         /// the validator constructor
@@ -57,9 +54,16 @@ public partial class CreateProjectCommand
         }
     }
 
+    /// <summary>
+    /// Create New Project
+    /// </summary>
+    /// <param name="req"></param>
+    /// <param name="context"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
     [Tags("Projects")]
     [WolverinePost("/projects")]
-    public static async Task<IResult> Create(ProjectDto req, [FromServices] AppDbContext context, CancellationToken ct)
+    public static async Task<IResult> Create(StrategicProjectDtos req, [FromServices] AppDbContext context, CancellationToken ct)
     {
         var translations = req.Translations
             .Select(t =>

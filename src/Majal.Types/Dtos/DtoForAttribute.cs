@@ -24,4 +24,9 @@ public sealed class DtoForAttribute<T> : Attribute
     /// The generated Dto prefix
     /// </summary>
     public string? Prefix { get; set; }
+
+    /// <summary>
+    /// Gets or sets DTO property names to exclude from generated DTOs.
+    /// </summary>
+    public string[] Exclude { get; set; } = [];
 }
