@@ -45,6 +45,43 @@ public class DtoForGeneratorUnitTest
     }
 
     [Fact]
+    public void GeneratesNestedDtoInsideParentClass()
+    {
+        const string source =
+            """
+            using Majal;
+
+            public partial class Outer
+            {
+                [Entity]
+                public partial class User
+                {
+                    public static User Create(string name) => new User();
+                }
+
+                [DtoFor<User>]
+                public partial record UserDto;
+            }
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("Outer_UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public partial class Outer", generated);
+        Assert.Contains("public partial record UserDto", generated);
+        Assert.Contains("public required global::System.String Name { get; init; }", generated);
+    }
+
+    [Fact]
     public void GeneratesDtoWithNullableValueObject()
     {
         const string source =

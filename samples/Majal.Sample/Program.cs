@@ -1,13 +1,16 @@
 using System.Globalization;
+using System.Text.Json.Serialization;
 using FluentValidation;
+using JasperFx;
 using Majal;
 using Majal.Sample.Common.Persistence;
 using Majal.Sample.Common.Services;
-using Majal.Sample.Modules.Issues.Endpoints;
-using Majal.Sample.Modules.Projects.Endpoints;
 using MicroElements.AspNetCore.OpenApi.FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using Wolverine;
+using Wolverine.Http;
+using Wolverine.Http.FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +24,15 @@ builder.Services.AddDbContext<AppDbContext>(option =>
     option.UseSqlite(connectionString);
 });
 
+builder.Host.UseWolverine(options =>
+{
+    options.Policies.AutoApplyTransactions();
+    options.Policies.UseDurableLocalQueues();
+    options.Discovery.IncludeAssembly(typeof(AppDbContext).Assembly);
+});
+
+builder.Services.AddWolverineHttp();
+
 builder.Services.AddFluentValidationRulesToOpenApi();
 
 builder.Services.AddValidatorsFromAssemblyContaining<AppDbContext>();
@@ -31,6 +43,11 @@ builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddOpenApi();
 
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -39,10 +56,9 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-app.MapCreateIssueEndpoint();
-app.MapResolveIssueEndpoint();
-app.MapListProjectsEndpoint();
-app.MapCreateProjectEndpoint();
+app.MapWolverineEndpoints(opt =>
+{
+    opt.UseFluentValidationProblemDetailMiddleware();
+});
 
-
-app.Run();
+return await app.RunJasperFxCommands(args);

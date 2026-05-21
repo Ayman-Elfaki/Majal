@@ -32,7 +32,6 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     {
         public string Namespace { get; }
         public string DtoName { get; }
-        public string ParentDtoName { get; }
         public string RawDtoName { get; }
         public string? BaseDtoName { get; init; }
         public string? XmlDocs { get; }
@@ -41,8 +40,9 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         public EquatableList<DtoData> NestedDtos { get; }
         public EquatableList<ParameterData> Parameters { get; }
         public EquatableList<DerivedTypeInfo> DerivedTypes { get; }
+        public EquatableList<string> ParentTypeDeclarations { get; }
 
-        public DtoData(string @namespace, string dtoName, string rawDtoName, string parentDtoName,
+        public DtoData(string @namespace, string dtoName, string rawDtoName, string[] parentTypeDeclarations,
             Accessibility accessibility, string? xmlDocs, string? baseDtoName, bool isRecord,
             DerivedTypeInfo[] derivedTypes, ParameterData[] parameters, DtoData[] nestedDtos)
         {
@@ -52,8 +52,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             IsRecord = isRecord;
             Accessibility = accessibility;
             RawDtoName = rawDtoName;
+            ParentTypeDeclarations = new EquatableList<string>(parentTypeDeclarations);
             BaseDtoName = baseDtoName;
-            ParentDtoName = parentDtoName;
             NestedDtos = new EquatableList<DtoData>(nestedDtos);
             Parameters = new EquatableList<ParameterData>(parameters);
             DerivedTypes = new EquatableList<DerivedTypeInfo>(derivedTypes);
@@ -71,6 +71,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         string Namespace,
         string DefaultMethodName,
         Dictionary<string, DtoData> Collected,
+        string[] ParentTypeDeclarations,
         Dictionary<string, bool>? FlattenConfigs = null,
         Compilation? Compilation = null
     );
@@ -79,6 +80,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         string Namespace,
         string DtoName,
         string RawDtoName,
+        string[] ParentTypeDeclarations,
         string DtoNamePrefix,
         string DtoNameSuffix,
         Accessibility Accessibility,
@@ -154,7 +156,60 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     {
         var template = new DtoForTemplate { Data = data };
         var code = template.TransformText();
-        context.AddSource($"{data.RawDtoName}.g.cs", SourceText.From(code, Encoding.UTF8));
+        context.AddSource(GetSourceFileName(data), SourceText.From(code, Encoding.UTF8));
+    }
+
+    private static string GetSourceFileName(DtoData data)
+    {
+        if (data.ParentTypeDeclarations.Count == 0)
+        {
+            return $"{data.RawDtoName}.g.cs";
+        }
+
+        var parentNames = string.Join("_", data.ParentTypeDeclarations.Select(SanitizeParentTypeDeclarationForFileName));
+        return $"{parentNames}_{data.RawDtoName}.g.cs";
+    }
+
+    private static string SanitizeParentTypeDeclarationForFileName(string declaration)
+    {
+        var typeName = declaration.Split([' '], StringSplitOptions.RemoveEmptyEntries).Last();
+        return typeName
+            .Replace('<', '_')
+            .Replace('>', '_')
+            .Replace(',', '_')
+            .Replace(" ", "_")
+            .Replace(".", "_");
+    }
+
+    private static string[] GetParentTypeDeclarations(INamedTypeSymbol dtoSymbol)
+    {
+        var parentTypes = new List<string>();
+        for (var current = dtoSymbol.ContainingType; current != null; current = current.ContainingType)
+        {
+            var typeKeyword = current.TypeKind switch
+            {
+                TypeKind.Struct when current.IsRecord => "record struct",
+                TypeKind.Struct => "struct",
+                TypeKind.Class when current.IsRecord => "record",
+                _ => "class"
+            };
+
+            var modifier = current.IsStatic ? "static partial" : "partial";
+            var accessModifier = current.DeclaredAccessibility switch
+            {
+                Accessibility.Private => "private",
+                Accessibility.Internal => "internal",
+                Accessibility.Protected => "protected",
+                Accessibility.ProtectedOrInternal => "protected internal",
+                Accessibility.ProtectedAndInternal => "private protected",
+                _ => "public"
+            };
+
+            parentTypes.Add($"{accessModifier} {modifier} {typeKeyword} {current.GetTypeNameWithGenerics()}");
+        }
+
+        parentTypes.Reverse();
+        return parentTypes.ToArray();
     }
 
     protected override bool Filter(SyntaxNode node, CancellationToken token) =>
@@ -223,6 +278,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             Namespace: dtoSymbol.GetNamespace(),
             DtoName: dtoSymbol.GetTypeNameWithGenerics(),
             RawDtoName: dtoSymbol.Name,
+            ParentTypeDeclarations: GetParentTypeDeclarations(dtoSymbol),
             DtoNamePrefix: factoryDtoPrefix,
             DtoNameSuffix: factoryDtoSuffix,
             Accessibility: dtoSymbol.DeclaredAccessibility,
@@ -312,7 +368,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                         ];
 
                         var updatedData = new DtoData(derivedDto.Namespace, derivedDto.DtoName, derivedDto.RawDtoName,
-                            derivedDto.ParentDtoName, accessibility, derivedDto.XmlDocs, derivedDto.BaseDtoName,
+                            [..derivedDto.ParentTypeDeclarations], accessibility, derivedDto.XmlDocs, derivedDto.BaseDtoName,
                             derivedDto.IsRecord, [..derivedDto.DerivedTypes], uniqueParameters,
                             [..derivedDto.NestedDtos]
                         );
@@ -328,7 +384,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                     ? [.. collected.Values.Where(v => !string.IsNullOrEmpty(v.DtoName) && v.DtoName != dtoName)]
                     : [];
 
-                return new DtoData(@namespace, dtoName, rawDtoName, dtoName, accessibility, xmlDocs, null, isRecord,
+                return new DtoData(@namespace, dtoName, rawDtoName, context.ParentTypeDeclarations, accessibility, xmlDocs, null, isRecord,
                     [.. derivedTypes], commonParameters, nestedDtos);
             }
         }
@@ -358,7 +414,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
                         var spResolveContext = new TypeResolveContext(spUnwrappedType, spIsNullable || isNullable,
                             spIsDictionary, dtoNamePrefix, dtoNameSuffix, accessibility, isRecord, @namespace,
-                            defaultMethodName, collected, context.FlattenConfigs, compilation
+                            defaultMethodName, collected, context.ParentTypeDeclarations, context.FlattenConfigs, compilation
                         );
 
                         var spResolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(spResolveContext));
@@ -384,7 +440,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
             var resolveContext = new TypeResolveContext(unwrappedType, isNullable, isDictionary, dtoNamePrefix,
                 dtoNameSuffix, accessibility, isRecord, @namespace, defaultMethodName, collected,
-                context.FlattenConfigs, compilation
+                context.ParentTypeDeclarations, context.FlattenConfigs, compilation
             );
 
             var resolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(resolveContext));
@@ -400,7 +456,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         DtoData[] nestedDtosResult = isRoot ? [.. collected.Values.Where(v => !string.IsNullOrEmpty(v.DtoName))] : [];
         var xmlDocsResult = ExtractSummary(methodXml) ?? FormatXmlDocs(sourceSymbol.GetDocumentationCommentXml());
 
-        return new DtoData(@namespace, dtoName, rawDtoName, dtoNamePrefix, accessibility, xmlDocsResult, null, isRecord,
+        return new DtoData(@namespace, dtoName, rawDtoName, context.ParentTypeDeclarations, accessibility, xmlDocsResult, null, isRecord,
             [], [.. parameters], nestedDtosResult
         );
     }
@@ -464,6 +520,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             IsRoot: false,
             DtoName: nestedDtoName,
             RawDtoName: nestedDtoName,
+            ParentTypeDeclarations: context.ParentTypeDeclarations,
             SourceSymbol: eNamedType,
             IsRecord: context.IsRecord,
             Namespace: context.Namespace,

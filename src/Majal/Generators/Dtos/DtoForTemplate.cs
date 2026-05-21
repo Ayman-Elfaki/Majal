@@ -19,7 +19,27 @@ public class DtoForTemplate : BaseTemplate
         WriteLine(Data.Namespace);
         WriteLine("");
 
-        GenerateDto(Data, false);
+        if (Data.ParentTypeDeclarations.Count > 0)
+        {
+            foreach (var declaration in Data.ParentTypeDeclarations)
+            {
+                WriteLine(declaration);
+                WriteLine("{");
+                PushIndent();
+            }
+
+            GenerateDto(Data, false);
+
+            for (var i = 0; i < Data.ParentTypeDeclarations.Count; i++)
+            {
+                PopIndent();
+                WriteLine("}");
+            }
+        }
+        else
+        {
+            GenerateDto(Data, false);
+        }
 
         return ToString();
     }
