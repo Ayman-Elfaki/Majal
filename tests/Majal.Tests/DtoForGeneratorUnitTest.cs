@@ -45,6 +45,43 @@ public class DtoForGeneratorUnitTest
     }
 
     [Fact]
+    public void GeneratesNestedDtoInsideParentClass()
+    {
+        const string source =
+            """
+            using Majal;
+
+            public partial class Outer
+            {
+                [Entity]
+                public partial class User
+                {
+                    public static User Create(string name) => new User();
+                }
+
+                [DtoFor<User>]
+                public partial record UserDto;
+            }
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("Outer_UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public partial class Outer", generated);
+        Assert.Contains("public partial record UserDto", generated);
+        Assert.Contains("public required global::System.String Name { get; init; }", generated);
+    }
+
+    [Fact]
     public void GeneratesDtoWithNullableValueObject()
     {
         const string source =
@@ -118,7 +155,7 @@ public class DtoForGeneratorUnitTest
 
         Assert.NotNull(orderDto);
         Assert.Contains("public required OrderDtoLineItemDto[] Items { get; init; }", orderDto);
-        Assert.Contains("public record OrderDtoLineItemDto", orderDto);
+        Assert.Contains("public partial record OrderDtoLineItemDto", orderDto);
     }
 
     [Fact]
@@ -198,8 +235,8 @@ public class DtoForGeneratorUnitTest
 
         Assert.NotNull(dto);
         Assert.Contains("public required OrderDtoLineItemBaseDto Item { get; init; }", dto);
-        Assert.Contains("public abstract record OrderDtoLineItemBaseDto", dto);
-        Assert.Contains("public record OrderDtoLineItemDto : OrderDtoLineItemBaseDto", dto);
+        Assert.Contains("public abstract partial record OrderDtoLineItemBaseDto", dto);
+        Assert.Contains("public partial record OrderDtoLineItemDto : OrderDtoLineItemBaseDto", dto);
     }
 
     [Fact]
@@ -251,8 +288,8 @@ public class DtoForGeneratorUnitTest
             $"""[{JsonSerializationNamespace}.JsonDerivedType(typeof(ProjectBaseDtoOperationalProjectDto), typeDiscriminator: "operationalProject")]""",
             dto);
         Assert.Contains("public abstract partial record ProjectBaseDto", dto);
-        Assert.Contains("public record ProjectBaseDtoStrategicProjectDto : ProjectBaseDto", dto);
-        Assert.Contains("public record ProjectBaseDtoOperationalProjectDto : ProjectBaseDto", dto);
+        Assert.Contains("public partial record ProjectBaseDtoStrategicProjectDto : ProjectBaseDto", dto);
+        Assert.Contains("public partial record ProjectBaseDtoOperationalProjectDto : ProjectBaseDto", dto);
         Assert.Contains("public required global::System.String Name { get; init; }", dto);
         Assert.Equal(1, dto.Split("public required global::System.String Name { get; init; }").Length - 1);
         Assert.Contains("public required global::System.String Strategy { get; init; }", dto);
@@ -594,7 +631,7 @@ public class DtoForGeneratorUnitTest
                 /// <summary>
                 /// Create a line item
                 /// </summary>
-                public record OrderDtoLineItemDto
+                public partial record OrderDtoLineItemDto
             """.Replace("\r\n", "\n"), dto);
 
         // Check LineItemDto.ProductName docs (nested)

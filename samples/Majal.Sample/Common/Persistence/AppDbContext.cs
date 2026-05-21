@@ -3,10 +3,11 @@ using Majal.Sample.Modules.Issues.Entities;
 using Majal.Sample.Modules.Projects.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 
 namespace Majal.Sample.Common.Persistence;
 
-internal sealed class AppDbContext(DbContextOptions<AppDbContext> options, ILocaleProvider<CultureInfo> localeProvider)
+public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ILocaleProvider<CultureInfo> localeProvider)
     : DbContext(options), ITranslatableDbContext<CultureInfo>
 {
     public CultureInfo Locale => localeProvider.GetCurrentLocale();

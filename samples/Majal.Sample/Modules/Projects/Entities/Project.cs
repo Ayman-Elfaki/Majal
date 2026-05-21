@@ -6,7 +6,7 @@ namespace Majal.Sample.Modules.Projects.Entities;
 /// <summary>
 /// Project entity
 /// </summary>
-[Entity]
+[Entity, Aggregate]
 [Archivable, Auditable, Ordinal]
 public abstract partial class Project
 {

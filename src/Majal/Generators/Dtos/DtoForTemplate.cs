@@ -19,7 +19,27 @@ public class DtoForTemplate : BaseTemplate
         WriteLine(Data.Namespace);
         WriteLine("");
 
-        GenerateDto(Data, false);
+        if (Data.ParentTypeDeclarations.Count > 0)
+        {
+            foreach (var declaration in Data.ParentTypeDeclarations)
+            {
+                WriteLine(declaration);
+                WriteLine("{");
+                PushIndent();
+            }
+
+            GenerateDto(Data, false);
+
+            for (var i = 0; i < Data.ParentTypeDeclarations.Count; i++)
+            {
+                PopIndent();
+                WriteLine("}");
+            }
+        }
+        else
+        {
+            GenerateDto(Data, false);
+        }
 
         return ToString();
     }
@@ -47,7 +67,8 @@ public class DtoForTemplate : BaseTemplate
 
         var isBase = dto.DerivedTypes.Count > 0 && string.IsNullOrWhiteSpace(dto.BaseDtoName);
         var inheritance = string.IsNullOrWhiteSpace(dto.BaseDtoName) ? "" : $" : {dto.BaseDtoName}";
-        var modifier = !isNested ? "partial " : "";
+        var modifier = "partial ";
+
         if (isBase) modifier = "abstract " + modifier;
 
         var accessModifier = dto.Accessibility switch
