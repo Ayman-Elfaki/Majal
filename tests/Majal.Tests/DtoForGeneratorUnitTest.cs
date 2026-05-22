@@ -1,3 +1,4 @@
+using Majal.Common.Abstractions;
 using Majal.Generators.Aggregates;
 using Majal.Generators.Dtos;
 using Majal.Generators.Entities;
@@ -42,6 +43,45 @@ public class DtoForGeneratorUnitTest
         Assert.Contains("public partial record UserDto", generated);
         Assert.Contains("public required global::System.String Name { get; init; }", generated);
         Assert.Contains("public required global::System.Int32 Age { get; init; }", generated);
+    }
+
+    [Fact]
+    public void GeneratesDtoWithAggregateParameterId()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity<int>, Aggregate]
+            public partial class User
+            {
+                public static User Create(int id, string name) => new User();
+            }
+
+            [Entity, Aggregate]
+            public partial class Order
+            {
+                public static Order Create(User user) => new Order();
+            }
+
+            [DtoFor<Order>]
+            public partial record OrderDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("OrderDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public required global::System.Int32 UserId { get; init; }", dto);
+        Assert.DoesNotContain("public partial record UserDto", dto);
     }
 
     [Fact]
@@ -154,7 +194,8 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(orderDto);
-        Assert.Contains("public required OrderDtoLineItemDto[] Items { get; init; }", orderDto);
+        Assert.Contains($"public required {GenericsNamespace}.IEnumerable<OrderDtoLineItemDto> Items {{ get; init; }}",
+            orderDto);
         Assert.Contains("public partial record OrderDtoLineItemDto", orderDto);
     }
 
@@ -293,7 +334,8 @@ public class DtoForGeneratorUnitTest
         Assert.Contains("public required global::System.String Name { get; init; }", dto);
         Assert.Equal(1, dto.Split("public required global::System.String Name { get; init; }").Length - 1);
         Assert.Contains("public required global::System.String Strategy { get; init; }", dto);
-        Assert.Contains("public required global::System.DayOfWeek[] OffDays { get; init; }", dto);
+        Assert.Contains(
+            $"public required {GenericsNamespace}.IEnumerable<global::System.DayOfWeek> OffDays {{ get; init; }}", dto);
         Assert.Contains("public required global::System.String Operations { get; init; }", dto);
     }
 
@@ -332,8 +374,8 @@ public class DtoForGeneratorUnitTest
 
 
         var driver = CSharpGeneratorDriver.Create(new DtoForGenerator(), new ValueObjectGenerator(),
-            new EntityGenerator(),new AggregateGenerator());
-        
+            new EntityGenerator(), new AggregateGenerator());
+
         var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
 
         var runResult = result.GetRunResult();
@@ -561,7 +603,8 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.Contains("public required global::System.String[] Tags { get; init; }", dto);
+        Assert.Contains($"public required {GenericsNamespace}.IEnumerable<global::System.String> Tags {{ get; init; }}",
+            dto);
         Assert.Contains("global::System.Collections.Generic.Dictionary<global::System.String, global::System.Int32>",
             dto);
     }
@@ -617,19 +660,19 @@ public class DtoForGeneratorUnitTest
 
         Assert.Contains(
             """
-            /// <summary>
-            /// Create a user
-            /// </summary>
-            public partial record UserDto
-            """.Replace("\r\n", "\n"), dto);
+                /// <summary>
+                /// Create a user
+                /// </summary>
+                public partial record UserDto
+                """.Replace("\r\n", "\n"), dto);
 
         Assert.Contains(
             """
-                /// <summary>
-                /// the user email
-                /// </summary>
-                public required global::System.String Email { get; init; }
-            """.Replace("\r\n", "\n"), dto);
+                    /// <summary>
+                    /// the user email
+                    /// </summary>
+                    public required global::System.String Email { get; init; }
+                """.Replace("\r\n", "\n"), dto);
     }
 
 
@@ -677,42 +720,49 @@ public class DtoForGeneratorUnitTest
 
         Assert.NotNull(dto);
         dto = dto.Replace("\r\n", "\n");
-
+        
         // Check OrderDto docs
-        Assert.Contains(
+        const string orderComment =
             """
             /// <summary>
             /// Create an order
             /// </summary>
             public partial record OrderDto
-            """.Replace("\r\n", "\n"), dto);
+            """;
+        
+        Assert.Contains(orderComment.Replace("\r\n", "\n"), dto);
 
         // Check OrderDto.Items docs
-        Assert.Contains(
-            """
-                /// <summary>
-                /// the items
-                /// </summary>
-                public required OrderDtoLineItemDto[] Items { get; init; }
-            """.Replace("\r\n", "\n"), dto);
+        const string itemsComment =
+            $$"""
+                  /// <summary>
+                  /// the items
+                  /// </summary>
+                  public required {{GenericsNamespace}}.IEnumerable<OrderDtoLineItemDto> Items { get; init; }
+              """;
+
+        Assert.Contains(itemsComment.Replace("\r\n", "\n"), dto);
 
         // Check LineItemDto docs (nested)
-        Assert.Contains(
+        const string orderLineComment =
             """
                 /// <summary>
                 /// Create a line item
                 /// </summary>
                 public partial record OrderDtoLineItemDto
-            """.Replace("\r\n", "\n"), dto);
+            """;
+
+        Assert.Contains(orderLineComment.Replace("\r\n", "\n"), dto);
 
         // Check LineItemDto.ProductName docs (nested)
-        Assert.Contains(
+        const string productNameComment =
             """
                     /// <summary>
                     /// the product
                     /// </summary>
                     public required global::System.String ProductName { get; init; }
-            """.Replace("\r\n", "\n"), dto);
+            """;
+        Assert.Contains(productNameComment.Replace("\r\n", "\n"), dto);
     }
 
 

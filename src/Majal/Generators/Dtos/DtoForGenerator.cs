@@ -4,6 +4,7 @@ using Majal.Common.Abstractions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using static Majal.Common.Abstractions.Constants;
 
 namespace Majal.Generators.Dtos;
 
@@ -102,6 +103,15 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             ResolveValueObjectElementType(parameterType);
     }
 
+    private sealed class AggregateTypeResolver : IParameterTypeResolver
+    {
+        public bool CanHandle(ParameterType parameterType) =>
+            parameterType.Type is not null && IsAggregateType(parameterType.Type);
+
+        public string Resolve(ParameterType parameterType) =>
+            ResolveAggregateIdType(parameterType);
+    }
+
     private sealed class EntityTypeResolver : IParameterTypeResolver
     {
         public bool CanHandle(ParameterType parameterType) =>
@@ -113,10 +123,13 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
     private sealed class DefaultTypeResolver : IParameterTypeResolver
     {
-        public bool CanHandle(ParameterType parameterType) =>
-            parameterType.Type is not null && (parameterType.Type.TypeKind is TypeKind.Enum or TypeKind.TypeParameter ||
-                                               parameterType.Type.AllInterfaces.Any(i => i.Name == "IParsable") ||
-                                               parameterType.IsDictionary);
+        public bool CanHandle(ParameterType parameterType)
+        {
+            return parameterType.Type is not null &&
+                   (parameterType.Type.TypeKind is TypeKind.Enum or TypeKind.TypeParameter ||
+                    parameterType.Type.Interfaces.Any(i => i.Name == "IParsable") ||
+                    parameterType.IsDictionary);
+        }
 
         public string Resolve(ParameterType parameterType)
         {
@@ -130,6 +143,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     private static readonly IParameterTypeResolver[] ParameterTypeResolvers =
     [
         new ValueObjectTypeResolver(),
+        new AggregateTypeResolver(),
         new EntityTypeResolver(),
         new DefaultTypeResolver()
     ];
@@ -253,16 +267,14 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
                 flattenConfigs[targetType.ToDisplayString()] = isReversed;
             }
-            
+
             if (attr.AttributeClass?.MetadataName == ExcludeGenericAttributeName)
             {
                 if (!(attr.AttributeClass?.TypeArguments.Length > 0)) continue;
                 excludedTypes ??= [];
                 excludedTypes.Add(attr.AttributeClass.TypeArguments[0]);
             }
-            
         }
-
 
         var dtoContext = new DtoContext(
             IsRoot: true,
@@ -402,7 +414,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                 if (valObjFactory is { Parameters.Length: > 1 })
                 {
                     var valObjMethodXml = valObjFactory.GetDocumentationCommentXml();
-                    
+
                     foreach (var sp in valObjFactory.Parameters)
                     {
                         var (spElementType, spIsCollection, spIsDictionary) = sp.Type.GetCollectionInfo();
@@ -415,7 +427,9 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                         if (spResolver is null) continue;
 
                         var spResolvedElementType = spResolver.Resolve(spResolveContext);
-                        var spResolvedType = spIsCollection ? $"{spResolvedElementType}[]" : spResolvedElementType;
+                        var spResolvedType = spIsCollection
+                            ? $"{GenericsNamespace}.IEnumerable{spResolvedElementType}>"
+                            : spResolvedElementType;
 
                         var combinedName = isReversed
                             ? char.ToLowerInvariant(sp.Name[0]) + sp.Name.Substring(1) + ToPascalCase(p.Name)
@@ -424,26 +438,34 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                         if (excludedProperties.Contains(combinedName)) continue;
 
                         var spXml = ExtractParamDoc(valObjMethodXml, sp.Name) ?? ExtractParamDoc(methodXml, p.Name);
+                        var parameter =
+                            new ParameterData((combinedName, spResolvedType), spIsNullable || isNullable, spXml);
 
-                        parameters.Add(
-                            new ParameterData((combinedName, spResolvedType), spIsNullable || isNullable, spXml)
-                        );
+                        parameters.Add(parameter);
                     }
 
                     continue;
                 }
             }
 
+            var isAggregate = IsAggregateType(unwrappedType);
             var resolveContext = new ParameterType(unwrappedType, isNullable, isDictionary, context);
 
             var resolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(resolveContext));
             if (resolver is null) continue;
 
             var resolvedElementType = resolver.Resolve(resolveContext);
-            var resolvedType = isCollection ? $"{resolvedElementType}[]" : resolvedElementType;
+
+            var resolvedType = isCollection
+                ? $"{GenericsNamespace}.IEnumerable<{resolvedElementType}>"
+                : resolvedElementType;
+
+            var propertyName = isAggregate
+                ? $"{unwrappedType.Name}{(isCollection ? "Ids" : "Id")}"
+                : p.Name;
 
             var paramXml = ExtractParamDoc(methodXml, p.Name);
-            parameters.Add(new ParameterData((p.Name, resolvedType), isNullable, paramXml));
+            parameters.Add(new ParameterData((propertyName, resolvedType), isNullable, paramXml));
         }
 
         DtoData[] nestedDtosResult =
@@ -500,10 +522,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         return IsExcludedType(typeToCheck, excludedTypes);
     }
 
-    private static bool IsExcludedType(ITypeSymbol type, ITypeSymbol[] excludedTypes)
-    {
-        return excludedTypes.Any(excludedType => SymbolEqualityComparer.Default.Equals(type, excludedType));
-    }
+    private static bool IsExcludedType(ITypeSymbol type, ITypeSymbol[] excludedTypes) =>
+        excludedTypes.Any(excludedType => SymbolEqualityComparer.Default.Equals(type, excludedType));
 
     private static string ResolveValueObjectElementType(ParameterType context)
     {
@@ -534,6 +554,32 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         }
 
         return ResolveNestedDtoElementType(context);
+    }
+
+    private static string ResolveAggregateIdType(ParameterType context)
+    {
+        var namedType = (INamedTypeSymbol)context.Type!;
+        var idType = GetEntityIdType(namedType);
+
+        if (string.IsNullOrWhiteSpace(idType))
+            return ResolveNestedDtoElementType(context);
+
+        if (context.IsNullable) idType += "?";
+        return idType;
+    }
+
+    private static string GetEntityIdType(INamedTypeSymbol type)
+    {
+        var entityAttribute = type.GetAnyMajalAttribute(nameof(EntityAttribute));
+        if (entityAttribute?.AttributeClass is { TypeArguments.Length: > 0 })
+            return entityAttribute.AttributeClass.TypeArguments[0].ToDisplayString(FullPropertyTypeFormat);
+
+        var entityInterface = type.AllInterfaces.FirstOrDefault(i => i.MetadataName == "IEntity`1");
+        if (entityInterface is not null)
+            return entityInterface.TypeArguments[0].ToDisplayString(FullPropertyTypeFormat);
+
+        var idProperty = type.GetMembers("Id").OfType<IPropertySymbol>().FirstOrDefault();
+        return idProperty?.Type is not null ? idProperty.Type.ToDisplayString(FullPropertyTypeFormat) : string.Empty;
     }
 
     private static string ResolveNestedDtoElementType(ParameterType context)
@@ -606,7 +652,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     {
         if (typeSymbol is null) return false;
 
-        var implementsValueObject = typeSymbol.AllInterfaces.Any(i =>
+        var implementsValueObject = typeSymbol.Interfaces.Any(i =>
             i.MetadataName == "IValueObject" ||
             i.MetadataName.StartsWith("IValueObject`", StringComparison.Ordinal));
 
@@ -617,7 +663,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     {
         if (typeSymbol is null) return false;
 
-        var implementsEntity = typeSymbol.AllInterfaces.Any(i =>
+        var implementsEntity = typeSymbol.Interfaces.Any(i =>
             i.MetadataName.StartsWith("IEntity`", StringComparison.Ordinal));
 
         var hasEntityAttribute = typeSymbol.HasAnyMajaAttribute(nameof(EntityAttribute));
@@ -628,7 +674,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     {
         if (typeSymbol is null) return false;
 
-        var implementsAggregate = typeSymbol.AllInterfaces.Any(i =>
+        var implementsAggregate = typeSymbol.Interfaces.Any(i =>
             i.MetadataName.StartsWith("IAggregate`", StringComparison.Ordinal));
 
         return implementsAggregate || typeSymbol.HasAnyMajaAttribute(nameof(AggregateAttribute));
@@ -636,7 +682,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
     private static ITypeSymbol? GetValueObjectUnderlyingType(INamedTypeSymbol namedType)
     {
-        var genericValueObject = namedType.AllInterfaces
+        var genericValueObject = namedType.Interfaces
             .FirstOrDefault(i => i.MetadataName.StartsWith("IValueObject`", StringComparison.Ordinal));
 
         return genericValueObject?.TypeArguments.FirstOrDefault();
