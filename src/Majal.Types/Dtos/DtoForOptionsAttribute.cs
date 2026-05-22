@@ -12,7 +12,7 @@ public sealed class DtoForOptionsAttribute : Attribute
     /// Gets or sets the default name of the static factory method used to derive DTO properties.
     /// Defaults to "Create".
     /// </summary>
-    public string FactoryMethodName { get; set; } = "Create";
+    public string FactoryMethod { get; set; } = "Create";
 
     /// <summary>
     /// The generated Dto suffix

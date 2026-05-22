@@ -12,11 +12,12 @@ public abstract class BaseGenerator<TData> : IIncrementalGenerator where TData :
     public virtual void Initialize(IncrementalGeneratorInitializationContext context)
     {
         Register(context, AttributeFullName);
+        
         if (GenericAttributeFullName != null)
             Register(context, GenericAttributeFullName);
     }
 
-    protected void Register(IncrementalGeneratorInitializationContext context, string attributeName)
+    private void Register(IncrementalGeneratorInitializationContext context, string attributeName)
     {
         var provider = context.SyntaxProvider
             .ForAttributeWithMetadataName(attributeName, Filter, Transform)
@@ -33,5 +34,6 @@ public abstract class BaseGenerator<TData> : IIncrementalGenerator where TData :
     }
 
     protected virtual bool Filter(SyntaxNode node, CancellationToken token) => node is ClassDeclarationSyntax;
+    
     protected abstract TData? Transform(GeneratorAttributeSyntaxContext context, CancellationToken ct);
 }

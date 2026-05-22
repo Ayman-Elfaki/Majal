@@ -6,7 +6,7 @@ namespace Majal.Sample.Modules.Issues.Entities;
 /// <summary>
 /// The issue entity
 /// </summary>
-[Entity, Aggregate]
+[Entity<int>, Aggregate]
 [Ordinal, Archivable, Auditable]
 public abstract partial class Issue
 {

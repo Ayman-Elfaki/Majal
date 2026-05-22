@@ -28,7 +28,7 @@ public class DtoForTemplate : BaseTemplate
                 PushIndent();
             }
 
-            GenerateDto(Data, false);
+            GenerateDto(Data);
 
             for (var i = 0; i < Data.ParentTypeDeclarations.Count; i++)
             {
@@ -38,13 +38,13 @@ public class DtoForTemplate : BaseTemplate
         }
         else
         {
-            GenerateDto(Data, false);
+            GenerateDto(Data);
         }
 
         return ToString();
     }
 
-    private void GenerateDto(DtoForGenerator.DtoData dto, bool isNested)
+    private void GenerateDto(DtoForGenerator.DtoData dto)
     {
         var typeKeyword = dto.IsRecord ? "record" : "class";
 
@@ -85,14 +85,14 @@ public class DtoForTemplate : BaseTemplate
 
         foreach (var param in dto.Parameters)
         {
-            var propertyName = ToPascalCase(param.Name);
+            var propertyName = ToPascalCase(param.Declaration.Name);
             var requiredKeyword = param.IsNullable ? "" : "required ";
             if (!string.IsNullOrWhiteSpace(param.XmlDocs))
             {
                 WriteLine(param.XmlDocs!);
             }
 
-            WriteLine($"public {requiredKeyword}{param.ResolvedType} {propertyName} {{ get; init; }}");
+            WriteLine($"public {requiredKeyword}{param.Declaration.Type} {propertyName} {{ get; init; }}");
         }
 
         if (dto.NestedDtos.Count > 0)
@@ -100,7 +100,7 @@ public class DtoForTemplate : BaseTemplate
             WriteLine("");
             foreach (var nested in dto.NestedDtos)
             {
-                GenerateDto(nested, true);
+                GenerateDto(nested);
                 WriteLine("");
             }
         }

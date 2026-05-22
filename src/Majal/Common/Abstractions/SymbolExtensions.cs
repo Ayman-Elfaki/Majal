@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.CodeAnalysis;
 
 namespace Majal.Common.Abstractions;
@@ -18,9 +17,7 @@ public static class SymbolExtensions
         {
             var typeName = symbol.Name;
             if (symbol.TypeParameters.Length > 0)
-            {
                 typeName += $"<{string.Join(", ", symbol.TypeParameters.Select(t => t.Name))}>";
-            }
 
             return typeName;
         }
@@ -42,6 +39,13 @@ public static class SymbolExtensions
             return symbol.GetAttributes().Any(ad =>
                 ad.AttributeClass?.Name == attributeName &&
                 ad.AttributeClass.ContainingNamespace.ToDisplayString() == attributeNamespace);
+        }
+
+        public bool HasMajalAttribute(string attributeName)
+        {
+            return symbol.GetAttributes().Any(ad =>
+                ad.AttributeClass?.Name == attributeName &&
+                ad.AttributeClass.ContainingNamespace.ToDisplayString() == nameof(Majal));
         }
 
         public bool HasAnyMajaAttribute(string attributeName)
@@ -136,23 +140,21 @@ public static class SymbolExtensions
         public T? GetNamedArgumentValue<T>(string key)
         {
             var typedConstant = attribute?.NamedArguments.FirstOrDefault(a => a.Key == key).Value ?? default;
-            if (typedConstant.Kind == TypedConstantKind.Array && typeof(T).IsArray)
+
+            if (typedConstant.Kind != TypedConstantKind.Array || !typeof(T).IsArray)
+                return typedConstant.Value is null ? default : (T?)typedConstant.Value;
+
+            var elementType = typeof(T).GetElementType();
+            if (elementType is null) return default;
+
+            var values = typedConstant.Values;
+            var array = Array.CreateInstance(elementType, values.Length);
+            for (var i = 0; i < values.Length; i++)
             {
-                var elementType = typeof(T).GetElementType();
-                if (elementType is null)
-                    return default;
-
-                var values = typedConstant.Values;
-                var array = Array.CreateInstance(elementType, values.Length);
-                for (var i = 0; i < values.Length; i++)
-                {
-                    array.SetValue(values[i].Value, i);
-                }
-
-                return (T?)(object?)array;
+                array.SetValue(values[i].Value, i);
             }
 
-            return typedConstant.Value is null ? default : (T?)typedConstant.Value;
+            return (T?)(object?)array;
         }
     }
 
@@ -161,6 +163,13 @@ public static class SymbolExtensions
         public IEnumerable<INamedTypeSymbol> GetAllTypesInCompilation()
         {
             return compilation.GlobalNamespace.GetAllSymbolsInNamespace();
+        }
+
+        public T? GetAssemblyDefaultValue<T>(string attributeName, string propertyName)
+        {
+            return compilation.Assembly.GetMajalAttribute(attributeName) is { } attribute
+                ? attribute.GetNamedArgumentValue<T>(propertyName)
+                : default;
         }
     }
 

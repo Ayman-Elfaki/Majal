@@ -9,12 +9,16 @@ namespace Majal.Generators.Entities;
 [Generator]
 public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 {
+    private readonly record struct EntityOptionData(
+        string DefaultIdType
+    );
+
     public readonly record struct EntityData
     {
         public string TypeName { get; }
         public string RawTypeName { get; }
         public string Namespace { get; }
-        public string IdType { get; }
+        public string IdType { get; init; }
         public bool HasConstructor { get; }
         public EquatableList<string> Properties { get; }
 
@@ -32,8 +36,8 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 
     public const string AttributeNamespace = "Majal";
     public const string EntityAttributeName = nameof(EntityAttribute);
-    private const string OptionsAttributeName = nameof(EntityOptionsAttribute);
-    private const string FilenameSuffix = ".Entity.g.cs";
+    private const string EntityOptionsAttribute = nameof(Majal.EntityOptionsAttribute);
+    private const string FileSuffix = ".Entity.g.cs";
 
     protected override string AttributeFullName => $"{AttributeNamespace}.{EntityAttributeName}";
     protected override string GenericAttributeFullName => $"{AttributeNamespace}.{EntityAttributeName}`1";
@@ -41,7 +45,14 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
     public override void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var optionsProvider = context.CompilationProvider
-            .Select(static (compilation, _) => GetDefaultIdType(compilation));
+            .Select(static (compilation, _) =>
+            {
+                var defaultIdType = compilation
+                    .GetAssemblyDefaultValue<INamedTypeSymbol>(EntityOptionsAttribute,
+                        nameof(Majal.EntityOptionsAttribute.DefaultIdType))?.ToDisplayString();
+
+                return new EntityOptionData(defaultIdType ?? "int");
+            });
 
         var genericProvider = context.SyntaxProvider
             .ForAttributeWithMetadataName(GenericAttributeFullName, Filter, Transform)
@@ -63,26 +74,22 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 
         context.RegisterImplementationSourceOutput(provider, (productionContext, source) =>
         {
-            var ((generics, nonGenerics), defaultIdType) = source;
+            var ((generics, nonGenerics), optionData) = source;
 
-            var resolvedNonGenerics = nonGenerics.Select(e =>
-                string.Equals(e.IdType, "int", StringComparison.Ordinal) && defaultIdType is not null
-                    ? new EntityData(e.TypeName, e.RawTypeName, e.Namespace, [..e.Properties], defaultIdType,
-                        e.HasConstructor)
-                    : e);
-
-            EntityData[] entities = [..generics, ..resolvedNonGenerics];
+            EntityData[] entities =
+            [
+                ..generics,
+                ..nonGenerics.Select(e => e with { IdType = optionData.DefaultIdType })
+            ];
 
             foreach (var data in entities)
             {
                 var template = new EntityTemplate(data);
                 var code = template.TransformText();
-                productionContext.AddSource($"{data.RawTypeName}{FilenameSuffix}",
-                    SourceText.From(code, Encoding.UTF8));
+                productionContext.AddSource($"{data.RawTypeName}{FileSuffix}", SourceText.From(code, Encoding.UTF8));
             }
         });
     }
-
 
     protected override EntityData? Transform(GeneratorAttributeSyntaxContext context, CancellationToken ct)
     {
@@ -104,22 +111,5 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
             idType,
             hasConstructor
         );
-    }
-
-    private static string? GetDefaultIdType(Compilation compilation)
-    {
-        foreach (var attribute in compilation.Assembly.GetAttributes())
-        {
-            if (attribute.AttributeClass?.Name != OptionsAttributeName ||
-                attribute.AttributeClass.ContainingNamespace.ToDisplayString() != AttributeNamespace) continue;
-
-            foreach (var arg in attribute.NamedArguments)
-            {
-                if (arg is { Key: nameof(EntityOptionsAttribute.DefaultIdType), Value.Value: INamedTypeSymbol type })
-                    return type.ToDisplayString();
-            }
-        }
-
-        return null;
     }
 }
