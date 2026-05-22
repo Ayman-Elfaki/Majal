@@ -85,6 +85,46 @@ public class DtoForGeneratorUnitTest
     }
 
     [Fact]
+    public void GeneratesDtoWithAggregateParameterWithDefaultId()
+    {
+        const string source =
+            """
+            using Majal;
+            
+            [assembly:EntityOptions(DefaultIdType = typeof(System.Guid))]
+            
+            [Entity, Aggregate]
+            public partial class User
+            {
+                public static User Create(int id, string name) => new User();
+            }
+
+            [Entity, Aggregate]
+            public partial class Order
+            {
+                public static Order Create(User user) => new Order();
+            }
+
+            [DtoFor<Order>]
+            public partial record OrderDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+
+        var driver = CSharpGeneratorDriver.Create(new DtoForGenerator(), new EntityGenerator());
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("OrderDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public required global::System.Guid UserId { get; init; }", dto);
+        Assert.DoesNotContain("public partial record UserDto", dto);
+    }
+
+    [Fact]
     public void GeneratesNestedDtoInsideParentClass()
     {
         const string source =
@@ -720,7 +760,7 @@ public class DtoForGeneratorUnitTest
 
         Assert.NotNull(dto);
         dto = dto.Replace("\r\n", "\n");
-        
+
         // Check OrderDto docs
         const string orderComment =
             """
@@ -729,7 +769,7 @@ public class DtoForGeneratorUnitTest
             /// </summary>
             public partial record OrderDto
             """;
-        
+
         Assert.Contains(orderComment.Replace("\r\n", "\n"), dto);
 
         // Check OrderDto.Items docs

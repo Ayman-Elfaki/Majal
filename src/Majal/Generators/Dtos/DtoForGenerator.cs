@@ -179,7 +179,6 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                 .Replace(" ", "_").Replace(".", "_");
     }
 
-
     private static string[] GetParentTypeDeclarations(INamedTypeSymbol dtoSymbol)
     {
         var parentTypes = new List<string>();
@@ -208,7 +207,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         }
 
         parentTypes.Reverse();
-        return parentTypes.ToArray();
+        return [.. parentTypes];
     }
 
     protected override bool Filter(SyntaxNode node, CancellationToken token) =>
@@ -260,7 +259,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             {
                 if (!(attr.AttributeClass?.TypeArguments.Length > 0)) continue;
 
-                flattenConfigs ??= new Dictionary<string, bool>();
+                flattenConfigs ??= [];
                 var targetType = attr.AttributeClass.TypeArguments[0];
                 var isReversed = attr.GetNamedArgumentValue<bool?>(nameof(FlattenDtoForAttribute<>.IsReversed))
                                  ?? false;
@@ -556,19 +555,19 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         return ResolveNestedDtoElementType(context);
     }
 
-    private static string ResolveAggregateIdType(ParameterType context)
+    private static string ResolveAggregateIdType(ParameterType parameterType)
     {
-        var namedType = (INamedTypeSymbol)context.Type!;
-        var idType = GetEntityIdType(namedType);
+        var namedType = (INamedTypeSymbol)parameterType.Type!;
+        var idType = GetEntityIdType(namedType, parameterType.Context.Compilation);
 
         if (string.IsNullOrWhiteSpace(idType))
-            return ResolveNestedDtoElementType(context);
+            return ResolveNestedDtoElementType(parameterType);
 
-        if (context.IsNullable) idType += "?";
+        if (parameterType.IsNullable) idType += "?";
         return idType;
     }
 
-    private static string GetEntityIdType(INamedTypeSymbol type)
+    private static string GetEntityIdType(INamedTypeSymbol type, Compilation? compilation)
     {
         var entityAttribute = type.GetAnyMajalAttribute(nameof(EntityAttribute));
         if (entityAttribute?.AttributeClass is { TypeArguments.Length: > 0 })
@@ -578,8 +577,10 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         if (entityInterface is not null)
             return entityInterface.TypeArguments[0].ToDisplayString(FullPropertyTypeFormat);
 
-        var idProperty = type.GetMembers("Id").OfType<IPropertySymbol>().FirstOrDefault();
-        return idProperty?.Type is not null ? idProperty.Type.ToDisplayString(FullPropertyTypeFormat) : string.Empty;
+        var idProperty = compilation?.GetAssemblyDefaultValue<INamedTypeSymbol>(nameof(EntityOptionsAttribute),
+            nameof(EntityOptionsAttribute.DefaultIdType));
+
+        return idProperty?.ToDisplayString(FullPropertyTypeFormat) ?? IntType;
     }
 
     private static string ResolveNestedDtoElementType(ParameterType context)
@@ -652,7 +653,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     {
         if (typeSymbol is null) return false;
 
-        var implementsValueObject = typeSymbol.Interfaces.Any(i =>
+        var implementsValueObject = typeSymbol.AllInterfaces.Any(i =>
             i.MetadataName == "IValueObject" ||
             i.MetadataName.StartsWith("IValueObject`", StringComparison.Ordinal));
 
@@ -663,7 +664,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     {
         if (typeSymbol is null) return false;
 
-        var implementsEntity = typeSymbol.Interfaces.Any(i =>
+        var implementsEntity = typeSymbol.AllInterfaces.Any(i =>
             i.MetadataName.StartsWith("IEntity`", StringComparison.Ordinal));
 
         var hasEntityAttribute = typeSymbol.HasAnyMajaAttribute(nameof(EntityAttribute));
@@ -674,7 +675,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     {
         if (typeSymbol is null) return false;
 
-        var implementsAggregate = typeSymbol.Interfaces.Any(i =>
+        var implementsAggregate = typeSymbol.AllInterfaces.Any(i =>
             i.MetadataName.StartsWith("IAggregate`", StringComparison.Ordinal));
 
         return implementsAggregate || typeSymbol.HasAnyMajaAttribute(nameof(AggregateAttribute));
@@ -682,7 +683,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
     private static ITypeSymbol? GetValueObjectUnderlyingType(INamedTypeSymbol namedType)
     {
-        var genericValueObject = namedType.Interfaces
+        var genericValueObject = namedType.AllInterfaces
             .FirstOrDefault(i => i.MetadataName.StartsWith("IValueObject`", StringComparison.Ordinal));
 
         return genericValueObject?.TypeArguments.FirstOrDefault();
