@@ -15,12 +15,14 @@ public partial record CreateIssueCommand
 {
     [DtoFor<PendingIssue>(Prefix = "")]
     [FlattenDtoFor<Capacity>(IsReversed = true)]
-    public partial record WqIssueDto;
+    public partial record PendingIssuesDto;
+    
+    
 
     /// <summary>
     /// request validator
     /// </summary>
-    public class Validator : AbstractValidator<WqIssueDto>
+    public class Validator : AbstractValidator<PendingIssuesDto>
     {
         /// <summary>
         /// Constructor
@@ -33,30 +35,29 @@ public partial record CreateIssueCommand
         }
     }
 
+
     /// <summary>
-    /// Assign an issue to a project
+    /// Create a new Issue
     /// </summary>
-    /// <param name="id"></param>
     /// <param name="dto"></param>
     /// <param name="context"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    [Tags("Projects")]
-    [WolverinePost("/projects/{id:int}/issues")]
-    public static async Task<IResult> Create(int id, WqIssueDto dto, [FromServices] AppDbContext context,
-        CancellationToken ct)
+    [Tags("Issues")]
+    [WolverinePost("/issues")]
+    public static async Task<IResult> Create(PendingIssuesDto dto, [FromServices] AppDbContext context, CancellationToken ct)
     {
-        var project = context.Projects.FirstOrDefault(p => p.Id == id);
-
+        var project = context.Projects.FirstOrDefault(p => p.Id == dto.ProjectId);
+        
         if (project is null) return Results.NotFound();
-
+        
         var issue = PendingIssue.Create(
             IssueTitle.Create(dto.Title),
             IssuePriority.Create(dto.StoryPoints),
             IssueStoryPoints.Create(dto.StoryPoints),
             project
         );
-
+        
         project.Issues.Add(issue);
         await context.SaveChangesAsync(ct);
         return Results.Ok();

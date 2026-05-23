@@ -30,6 +30,37 @@ public static class SymbolExtensions
                 .Select(p => p.Name)
                 .ToArray();
         }
+
+        public string[] GetParentTypeDeclarations()
+        {
+            var parentTypes = new List<string>();
+            for (var current = symbol.ContainingType; current != null; current = current.ContainingType)
+            {
+                var typeKeyword = current.TypeKind switch
+                {
+                    TypeKind.Struct when current.IsRecord => "record struct",
+                    TypeKind.Struct => "struct",
+                    TypeKind.Class when current.IsRecord => "record",
+                    _ => "class"
+                };
+
+                var modifier = current.IsStatic ? "static partial" : "partial";
+                var accessModifier = current.DeclaredAccessibility switch
+                {
+                    Accessibility.Private => "private",
+                    Accessibility.Internal => "internal",
+                    Accessibility.Protected => "protected",
+                    Accessibility.ProtectedOrInternal => "protected internal",
+                    Accessibility.ProtectedAndInternal => "private protected",
+                    _ => "public"
+                };
+
+                parentTypes.Add($"{accessModifier} {modifier} {typeKeyword} {current.GetTypeNameWithGenerics()}");
+            }
+
+            parentTypes.Reverse();
+            return [.. parentTypes];
+        }
     }
 
     extension(ISymbol symbol)
@@ -97,12 +128,12 @@ public static class SymbolExtensions
             return false;
         }
 
-        public (ITypeSymbol ElementType, bool IsCollection, bool IsDictionary) GetCollectionInfo()
+        public (ITypeSymbol ElementType, bool IsCollection) GetCollectionInfo()
         {
             switch (type)
             {
                 case IArrayTypeSymbol arrayType:
-                    return (arrayType.ElementType, true, false);
+                    return (arrayType.ElementType, true);
                 case INamedTypeSymbol { SpecialType: SpecialType.System_String }:
                     break;
                 case INamedTypeSymbol namedType:
@@ -114,16 +145,13 @@ public static class SymbolExtensions
                                        namedType.MetadataName == "IDictionary`2";
 
                     if (enumerable != null && !isDictionary)
-                        return (enumerable.TypeArguments[0], true, false);
-
-                    if (enumerable != null && isDictionary)
-                        return (type, false, true);
+                        return (enumerable.TypeArguments[0], true);
 
                     break;
                 }
             }
 
-            return (type, false, false);
+            return (type, false);
         }
 
         public (ITypeSymbol UnwrappedType, bool IsNullable) UnwrapNullable()

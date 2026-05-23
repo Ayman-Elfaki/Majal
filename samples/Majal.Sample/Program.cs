@@ -41,6 +41,11 @@ builder.Services.AddValidation();
 
 builder.Services.AddEndpointsApiExplorer();
 
+// builder.Services.AddSwaggerGen(o =>
+// {
+//     o.UseOneOfForPolymorphism();
+// });
+
 builder.Services.AddOpenApi();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -52,13 +57,11 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
+    // app.MapSwagger("/openapi/{documentName}.json");
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
 
-app.MapWolverineEndpoints(opt =>
-{
-    opt.UseFluentValidationProblemDetailMiddleware();
-});
+app.MapWolverineEndpoints(opt => { opt.UseFluentValidationProblemDetailMiddleware(); });
 
 return await app.RunJasperFxCommands(args);
