@@ -29,4 +29,9 @@ public sealed class DtoForAttribute<T> : Attribute
     /// Gets or sets DTO property names to exclude from generated DTOs.
     /// </summary>
     public string[] Exclude { get; set; } = [];
+    
+    /// <summary>
+    /// Gets or sets DTO property names to make nullable in generated DTOs.
+    /// </summary>
+    public string[] Nullable { get; set; } = [];
 }

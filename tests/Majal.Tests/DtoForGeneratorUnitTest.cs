@@ -1,4 +1,3 @@
-using Majal.Common.Abstractions;
 using Majal.Generators.Aggregates;
 using Majal.Generators.Dtos;
 using Majal.Generators.Entities;
@@ -197,6 +196,40 @@ public class DtoForGeneratorUnitTest
         Assert.DoesNotContain("public required global::System.Guid? Id { get; init; }", productDto);
     }
 
+    [Fact]
+    public void GeneratesDtoWithNullablePropertyAttribute()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public partial class User
+            {
+                public static User Create(string name, int age) => new User();
+            }
+
+            [DtoFor<User>(Nullable = ["Name"])]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public global::System.String? Name { get; init; }", dto);
+        Assert.DoesNotContain("public required global::System.String Name { get; init; }", dto);
+        Assert.Contains("public required global::System.Int32 Age { get; init; }", dto);
+    }
+
 
     [Fact]
     public void GeneratesRecursiveNestedDtoWithCollections()
@@ -275,13 +308,15 @@ public class DtoForGeneratorUnitTest
         Assert.Contains("public partial record OrderDto", dto);
         Assert.Contains("public required global::System.String OrderNumber { get; init; }", dto);
     }
-
+    
     [Fact]
-    public void GeneratesNestedDtoForEntityDerivedFromAbstractBase()
+    public void GeneratesPrefixedNestedDto()
     {
         const string source =
             """
             using Majal;
+
+            [assembly: DtoForOptions(Prefix = "")]
 
             [Entity]
             public abstract partial class LineItemBase
@@ -315,9 +350,55 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.Contains("public required OrderDtoLineItemBaseDto Item { get; init; }", dto);
-        Assert.Contains("public abstract partial record OrderDtoLineItemBaseDto", dto);
-        Assert.Contains("public partial record OrderDtoLineItemDto : OrderDtoLineItemBaseDto", dto);
+        Assert.Contains("public required LineItemBaseDto Item { get; init; }", dto);
+        Assert.Contains("public abstract partial record LineItemBaseDto", dto);
+        Assert.Contains("public partial record LineItemDto : LineItemBaseDto", dto);
+    }
+
+    [Fact]
+    public void GeneratesNestedDtoForEntityDerivedFromAbstractBase()
+    {
+        const string source =
+            """
+            using Majal;
+            
+            [assembly:DtoForOptions(Prefix="")]
+
+            [Entity]
+            public abstract partial class LineItemBase
+            {
+            }
+
+            public class LineItem : LineItemBase
+            {
+                public static LineItem Create(string productName) => new LineItem();
+            }
+
+            [Entity]
+            public partial class Order
+            {
+                public static Order Create(LineItemBase item) => new Order();
+            }
+
+            [DtoFor<Order>]
+            public partial record OrderDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("OrderDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public required LineItemBaseDto Item { get; init; }", dto);
+        Assert.Contains("public abstract partial record LineItemBaseDto", dto);
+        Assert.Contains("public partial record LineItemDto : LineItemBaseDto", dto);
     }
 
     [Fact]
@@ -559,6 +640,47 @@ public class DtoForGeneratorUnitTest
         Assert.NotNull(dto);
         Assert.Contains("public required global::System.String Name { get; init; }", dto);
         Assert.DoesNotContain("Address", dto);
+    }
+
+    [Fact]
+    public void ExcludesSpecificPropertiesFromNestedDtoType()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public partial class Address
+            {
+                public static Address Create(string street, string city) => new Address();
+            }
+
+            [Entity]
+            public partial class User
+            {
+                public static User Create(string name, Address address) => new User();
+            }
+
+            [DtoFor<User>]
+            [ExcludeDtoFor<Address>(Properties = ["City"])]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public required UserDtoAddressDto Address { get; init; }", dto);
+        Assert.Contains("public partial record UserDtoAddressDto", dto);
+        Assert.Contains("public required global::System.String Street { get; init; }", dto);
+        Assert.DoesNotContain("City { get; init; }", dto);
     }
 
     [Fact]

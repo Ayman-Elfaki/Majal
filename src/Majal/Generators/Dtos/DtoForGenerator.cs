@@ -31,8 +31,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     public readonly record struct DtoData
     {
         public string Namespace { get; }
-        public string DtoName { get;  }
-        public string RawDtoName { get;  }
+        public string DtoName { get; }
+        public string RawDtoName { get; }
         public string? BaseDtoName { get; init; }
         public string? XmlDocs { get; }
         public bool IsRecord { get; }
@@ -76,17 +76,19 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         Dictionary<string, bool>? FlattenConfigs = null,
         ITypeSymbol[]? ExcludedTypes = null,
         string[]? ExcludedProperties = null!,
+        Dictionary<string, string[]>? ExcludedTypeProperties = null,
+        string[]? NullableProperties = null!,
         Compilation? Compilation = null
     );
 
     private readonly record struct ParameterType(
         ITypeSymbol? Type,
         bool IsNullable,
-        ParameterProcessingContext Context
+        ParameterContext Context
     );
 
-    private readonly record struct ParameterProcessingContext(
-        IParameterSymbol ParameterSymbol,
+    private readonly record struct ParameterContext(
+        IParameterSymbol Parameter,
         DtoContext DtoContext,
         HashSet<string> ExcludedProperties,
         string? MethodXml
@@ -94,18 +96,17 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
     private interface IParameterProcessorHandler
     {
-        ParameterData? ProcessParameter(ParameterProcessingContext ctx,
-            Func<ParameterProcessingContext, ParameterData?> next);
+        ParameterData? ProcessParameter(ParameterContext ctx, Func<ParameterContext, ParameterData?> next);
     }
 
     private sealed class ParameterProcessorChain
     {
-        private readonly Func<ParameterProcessingContext, ParameterData?> _chain;
+        private readonly Func<ParameterContext, ParameterData?> _chain;
 
         public ParameterProcessorChain(IEnumerable<IParameterProcessorHandler> handlers)
         {
             var handlerArray = handlers as IParameterProcessorHandler[] ?? [.. handlers];
-            Func<ParameterProcessingContext, ParameterData?> next = _ => null;
+            Func<ParameterContext, ParameterData?> next = _ => null;
 
             for (var i = handlerArray.Length - 1; i >= 0; i--)
             {
@@ -117,34 +118,34 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             _chain = next;
         }
 
-        public ParameterData? ProcessParameter(ParameterProcessingContext ctx) => _chain(ctx);
+        public ParameterData? ProcessParameter(ParameterContext ctx) => _chain(ctx);
     }
 
     private sealed class ExcludedParameterHandler : IParameterProcessorHandler
     {
-        public ParameterData? ProcessParameter(ParameterProcessingContext ctx,
-            Func<ParameterProcessingContext, ParameterData?> next)
+        public ParameterData? ProcessParameter(ParameterContext ctx,
+            Func<ParameterContext, ParameterData?> next)
         {
-            return ctx.ExcludedProperties.Contains(ctx.ParameterSymbol.Name) ? null : next(ctx);
+            return ctx.ExcludedProperties.Contains(ctx.Parameter.Name) ? null : next(ctx);
         }
     }
 
     private sealed class ExcludedTypeHandler : IParameterProcessorHandler
     {
-        public ParameterData? ProcessParameter(ParameterProcessingContext ctx,
-            Func<ParameterProcessingContext, ParameterData?> next)
+        public ParameterData? ProcessParameter(ParameterContext ctx,
+            Func<ParameterContext, ParameterData?> next)
         {
-            var (elementType, _) = ctx.ParameterSymbol.Type.GetCollectionInfo();
+            var (elementType, _) = ctx.Parameter.Type.GetCollectionInfo();
             return IsParameterExcluded(elementType, ctx.DtoContext.ExcludedTypes) ? null : next(ctx);
         }
     }
 
     private sealed class FlattenedValueObjectHandler : IParameterProcessorHandler
     {
-        public ParameterData? ProcessParameter(ParameterProcessingContext ctx,
-            Func<ParameterProcessingContext, ParameterData?> next)
+        public ParameterData? ProcessParameter(ParameterContext ctx,
+            Func<ParameterContext, ParameterData?> next)
         {
-            var (elementType, isCollection) = ctx.ParameterSymbol.Type.GetCollectionInfo();
+            var (elementType, isCollection) = ctx.Parameter.Type.GetCollectionInfo();
             var (unwrappedType, isNullable) = elementType.UnwrapNullable();
 
             if (isCollection || unwrappedType is not INamedTypeSymbol type || !IsValueObjectType(type) ||
@@ -154,7 +155,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
             var valObjFactory = FindFactoryMethod(type, ctx.DtoContext.FactoryMethodName);
             if (valObjFactory is not { Parameters.Length: > 1 }) return next(ctx);
-            
+
             var addedAny = false;
 
             foreach (var sp in valObjFactory.Parameters)
@@ -162,16 +163,19 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                 var (spElementType, _) = sp.Type.GetCollectionInfo();
                 var (spUnwrappedType, spIsNullable) = spElementType.UnwrapNullable();
 
-                var spResolveContext =
-                    new ParameterType(spUnwrappedType, spIsNullable || isNullable, ctx);
+                var spResolveContext = new ParameterType(
+                    spUnwrappedType,
+                    spIsNullable || isNullable,
+                    ctx
+                );
 
                 var spResolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(spResolveContext));
                 if (spResolver is null) continue;
 
                 var combinedName = isReversed
                     ? char.ToLowerInvariant(sp.Name[0]) + sp.Name.Substring(1) +
-                      ToPascalCase(ctx.ParameterSymbol.Name)
-                    : char.ToLowerInvariant(ctx.ParameterSymbol.Name[0]) + ctx.ParameterSymbol.Name.Substring(1) +
+                      ToPascalCase(ctx.Parameter.Name)
+                    : char.ToLowerInvariant(ctx.Parameter.Name[0]) + ctx.Parameter.Name.Substring(1) +
                       ToPascalCase(sp.Name);
 
                 if (ctx.ExcludedProperties.Contains(combinedName)) continue;
@@ -180,7 +184,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                 addedAny = true;
             }
 
-            if (addedAny) return new ParameterData((ctx.ParameterSymbol.Name, string.Empty), false);
+            if (addedAny) return new ParameterData((ctx.Parameter.Name, string.Empty), false);
 
             return next(ctx);
         }
@@ -188,10 +192,10 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
     private sealed class ValueObjectParameterHandler : IParameterProcessorHandler
     {
-        public ParameterData? ProcessParameter(ParameterProcessingContext ctx,
-            Func<ParameterProcessingContext, ParameterData?> next)
+        public ParameterData? ProcessParameter(ParameterContext ctx,
+            Func<ParameterContext, ParameterData?> next)
         {
-            var (elementType, isCollection) = ctx.ParameterSymbol.Type.GetCollectionInfo();
+            var (elementType, isCollection) = ctx.Parameter.Type.GetCollectionInfo();
             var (unwrappedType, isNullable) = elementType.UnwrapNullable();
 
             if (unwrappedType is INamedTypeSymbol type && IsValueObjectType(type))
@@ -205,8 +209,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                     ? $"{GenericsNamespace}.IEnumerable<{resolvedElementType}>"
                     : resolvedElementType;
 
-                var propertyName = ctx.ParameterSymbol.Name;
-                var paramXml = ExtractParamDoc(ctx.MethodXml, ctx.ParameterSymbol.Name);
+                var propertyName = ctx.Parameter.Name;
+                var paramXml = ExtractParamDoc(ctx.MethodXml, ctx.Parameter.Name);
                 return new ParameterData((propertyName, resolvedType), isNullable, paramXml);
             }
 
@@ -216,10 +220,10 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
     private sealed class AggregateParameterHandler : IParameterProcessorHandler
     {
-        public ParameterData? ProcessParameter(ParameterProcessingContext ctx,
-            Func<ParameterProcessingContext, ParameterData?> next)
+        public ParameterData? ProcessParameter(ParameterContext ctx,
+            Func<ParameterContext, ParameterData?> next)
         {
-            var (elementType, isCollection) = ctx.ParameterSymbol.Type.GetCollectionInfo();
+            var (elementType, isCollection) = ctx.Parameter.Type.GetCollectionInfo();
             var (unwrappedType, isNullable) = elementType.UnwrapNullable();
 
             if (!IsAggregateType(unwrappedType)) return next(ctx);
@@ -231,17 +235,17 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                 : resolvedElementType;
 
             var propertyName = isCollection ? $"{unwrappedType.Name}Ids" : $"{unwrappedType.Name}Id";
-            var paramXml = ExtractParamDoc(ctx.MethodXml, ctx.ParameterSymbol.Name);
+            var paramXml = ExtractParamDoc(ctx.MethodXml, ctx.Parameter.Name);
             return new ParameterData((propertyName, resolvedType), isNullable, paramXml);
         }
     }
 
     private sealed class EntityParameterHandler : IParameterProcessorHandler
     {
-        public ParameterData? ProcessParameter(ParameterProcessingContext ctx,
-            Func<ParameterProcessingContext, ParameterData?> next)
+        public ParameterData? ProcessParameter(ParameterContext ctx,
+            Func<ParameterContext, ParameterData?> next)
         {
-            var (elementType, isCollection) = ctx.ParameterSymbol.Type.GetCollectionInfo();
+            var (elementType, isCollection) = ctx.Parameter.Type.GetCollectionInfo();
             var (unwrappedType, isNullable) = elementType.UnwrapNullable();
 
             if (!IsEntityType(unwrappedType) || IsAggregateType(unwrappedType)) return next(ctx);
@@ -252,18 +256,18 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
                 ? $"{GenericsNamespace}.IEnumerable<{resolvedElementType}>"
                 : resolvedElementType;
 
-            var propertyName = ctx.ParameterSymbol.Name;
-            var paramXml = ExtractParamDoc(ctx.MethodXml, ctx.ParameterSymbol.Name);
+            var propertyName = ctx.Parameter.Name;
+            var paramXml = ExtractParamDoc(ctx.MethodXml, ctx.Parameter.Name);
             return new ParameterData((propertyName, resolvedType), isNullable, paramXml);
         }
     }
 
     private sealed class DefaultParameterHandler : IParameterProcessorHandler
     {
-        public ParameterData? ProcessParameter(ParameterProcessingContext ctx,
-            Func<ParameterProcessingContext, ParameterData?> next)
+        public ParameterData? ProcessParameter(ParameterContext ctx,
+            Func<ParameterContext, ParameterData?> next)
         {
-            var (elementType, isCollection) = ctx.ParameterSymbol.Type.GetCollectionInfo();
+            var (elementType, isCollection) = ctx.Parameter.Type.GetCollectionInfo();
             var (unwrappedType, isNullable) = elementType.UnwrapNullable();
 
             var resolveContext = new ParameterType(unwrappedType, isNullable, ctx);
@@ -278,8 +282,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             var isAggregate = IsAggregateType(unwrappedType);
             var propertyName = isAggregate
                 ? $"{unwrappedType.Name}{(isCollection ? "Ids" : "Id")}"
-                : ctx.ParameterSymbol.Name;
-            var paramXml = ExtractParamDoc(ctx.MethodXml, ctx.ParameterSymbol.Name);
+                : ctx.Parameter.Name;
+            var paramXml = ExtractParamDoc(ctx.MethodXml, ctx.Parameter.Name);
             return new ParameterData((propertyName, resolvedType), isNullable, paramXml);
         }
     }
@@ -355,12 +359,13 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
     ];
 
     private const string DtoAttribute = $"Majal.{nameof(DtoForAttribute<>)}`1";
-    private const string OptionsAttributeName = $"Majal.{nameof(DtoForOptionsAttribute)}";
+    private const string OptionsAttributeName = nameof(DtoForOptionsAttribute);
     private const string FlattenGenericAttributeName = $"{nameof(FlattenDtoForAttribute<>)}`1";
     private const string ExcludeGenericAttributeName = $"{nameof(ExcludeDtoForAttribute<>)}`1";
 
     private const string DefaultDtoSuffix = "Dto";
     private const string DefaultFactoryMethodName = "Create";
+    private const string NullablePropertyName = nameof(DtoForAttribute<>.Nullable);
 
     protected override string AttributeFullName => DtoAttribute;
     protected override string GenericAttributeFullName => $"{nameof(DtoForAttribute<>)}`1";
@@ -398,9 +403,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         if (attribute?.AttributeClass?.TypeArguments.Length == 0) return null;
 
         if (attribute?.AttributeClass?.TypeArguments[0] is not INamedTypeSymbol sourceSymbol) return null;
-        
+
         if (sourceSymbol.IsAbstract) return null;
-        
 
         var compilation = context.SemanticModel.Compilation;
 
@@ -426,7 +430,15 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         var excludedPropertyNames =
             attribute.GetNamedArgumentValue<string[]>(nameof(DtoForAttribute<>.Exclude)) ?? [];
 
+        var assemblyNullablePropertyNames =
+            compilation.GetAssemblyDefaultValue<string[]>(OptionsAttributeName, nameof(DtoForOptionsAttribute.Nullable))
+            ?? [];
+
+        var nullablePropertyNames =
+            attribute.GetNamedArgumentValue<string[]>(NullablePropertyName) ?? [];
+
         var nestedDtos = new Dictionary<string, DtoData>();
+        var excludedTypeProperties = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
         List<ITypeSymbol>? excludedTypes = null;
         Dictionary<string, bool>? flattenConfigs = null;
@@ -448,8 +460,18 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             if (attr.AttributeClass?.MetadataName == ExcludeGenericAttributeName)
             {
                 if (!(attr.AttributeClass?.TypeArguments.Length > 0)) continue;
-                excludedTypes ??= [];
-                excludedTypes.Add(attr.AttributeClass.TypeArguments[0]);
+
+                var excludedType = attr.AttributeClass.TypeArguments[0];
+                var excludedPropertiesForType = attr.GetNamedArgumentValue<string[]>(nameof(ExcludeDtoForAttribute<object>.Properties)) ?? [];
+                if (excludedPropertiesForType.Length == 0)
+                {
+                    excludedTypes ??= [];
+                    excludedTypes.Add(excludedType);
+                }
+                else
+                {
+                    excludedTypeProperties[excludedType.ToDisplayString(FullPropertyTypeFormat)] = excludedPropertiesForType;
+                }
             }
         }
 
@@ -469,6 +491,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             FlattenConfigs: flattenConfigs,
             ExcludedTypes: excludedTypes?.ToArray(),
             ExcludedProperties: [.. assemblyExcludedPropertyNames, .. excludedPropertyNames],
+            ExcludedTypeProperties: excludedTypeProperties.Count > 0 ? excludedTypeProperties : null,
+            NullableProperties: [.. assemblyNullablePropertyNames, .. nullablePropertyNames],
             Compilation: context.SemanticModel.Compilation
         );
 
@@ -481,6 +505,14 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
 
         var excludedProperties =
             new HashSet<string>(context.ExcludedProperties ?? [], StringComparer.OrdinalIgnoreCase);
+
+        if (context.ExcludedTypeProperties?.TryGetValue(context.SourceSymbol.ToDisplayString(FullPropertyTypeFormat), out var typeSpecificProperties) == true)
+        {
+            excludedProperties.UnionWith(typeSpecificProperties);
+        }
+
+        var nullableProperties =
+            new HashSet<string>(context.NullableProperties ?? [], StringComparer.OrdinalIgnoreCase);
 
         if (createMethod is null && context.Compilation is not null && context.SourceSymbol is { IsAbstract: true })
         {
@@ -594,11 +626,18 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
             var (elementTypeCheck, _) = p.Type.GetCollectionInfo();
             if (IsParameterExcluded(elementTypeCheck, context.ExcludedTypes)) continue;
 
-            var ctx = new ParameterProcessingContext(p, context, excludedProperties, methodXml);
+            var ctx = new ParameterContext(p, context, excludedProperties, methodXml);
             var result = chain.ProcessParameter(ctx);
             if (result is null) continue;
 
-            // Marker for flattened expansion (handler returned a non-empty marker with empty type)
+            var propertyName = ToPascalCase(result.Value.Declaration.Name);
+            if (nullableProperties.Contains(propertyName))
+            {
+                var type = result.Value.Declaration.Type;
+                if (!type.EndsWith("?")) type += "?";
+                result = result.Value with { Declaration = (result.Value.Declaration.Name, type), IsNullable = true };
+            }
+
             if (result.Value.Declaration.Type == string.Empty)
             {
                 var (elementType, isCollection) = p.Type.GetCollectionInfo();
