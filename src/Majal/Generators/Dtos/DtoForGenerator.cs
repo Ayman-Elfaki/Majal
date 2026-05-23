@@ -38,10 +38,10 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         public string? XmlDocs { get; init; }
         public bool IsRecord { get; init; }
         public Accessibility Accessibility { get; init; }
-        public EquatableList<string> ParentTypeDeclarations { get; init; }
         public EquatableList<DtoData> NestedDtos { get; init; }
         public EquatableList<ParameterData> Parameters { get; init; }
         public EquatableList<DerivedTypeInfo> DerivedTypes { get; init; }
+        public EquatableList<string> ParentTypeDeclarations { get; init; }
 
         public DtoData(string @namespace, string dtoName, string rawDtoName, string[] parentTypeDeclarations,
             Accessibility accessibility, string? xmlDocs, string? baseDtoName, bool isRecord,
@@ -67,6 +67,232 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         bool IsDictionary,
         DtoContext Context
     );
+
+    // Parameter processing chain infrastructure
+    private readonly record struct ParameterProcessingContext(
+        DtoContext Context,
+        HashSet<string> ExcludedProperties,
+        string? MethodXml);
+
+    private interface IParameterProcessorHandler
+    {
+        ParameterData? ProcessParameter(IParameterSymbol param, ParameterProcessingContext context,
+            Func<IParameterSymbol, ParameterProcessingContext, ParameterData?> next);
+    }
+
+    private sealed class ParameterProcessorChain
+    {
+        private readonly Func<IParameterSymbol, ParameterProcessingContext, ParameterData?> _chain;
+
+        public ParameterProcessorChain(IEnumerable<IParameterProcessorHandler> handlers)
+        {
+            var handlerArray = handlers as IParameterProcessorHandler[] ?? [.. handlers];
+            Func<IParameterSymbol, ParameterProcessingContext, ParameterData?> next = (p, c) => null;
+
+            for (var i = handlerArray.Length - 1; i >= 0; i--)
+            {
+                var handler = handlerArray[i];
+                var currentNext = next;
+                next = (p, c) => handler.ProcessParameter(p, c, currentNext);
+            }
+
+            _chain = next;
+        }
+
+        public ParameterData? ProcessParameter(IParameterSymbol param, ParameterProcessingContext ctx) =>
+            _chain(param, ctx);
+    }
+
+    // Handlers
+    private sealed class ExcludedParameterHandler : IParameterProcessorHandler
+    {
+        public ParameterData? ProcessParameter(IParameterSymbol param, ParameterProcessingContext context,
+            Func<IParameterSymbol, ParameterProcessingContext, ParameterData?> next)
+        {
+            if (context.ExcludedProperties.Contains(param.Name)) return null;
+            // explicit pass-through to let later handlers decide
+            return next(param, context);
+        }
+    }
+
+    private sealed class ExcludedTypeHandler : IParameterProcessorHandler
+    {
+        public ParameterData? ProcessParameter(IParameterSymbol param, ParameterProcessingContext context,
+            Func<IParameterSymbol, ParameterProcessingContext, ParameterData?> next)
+        {
+            var (elementType, _, isDictionary) = param.Type.GetCollectionInfo();
+            if (ShouldExcludeParameter(param.Type, elementType, isDictionary, context.Context.ExcludedTypes))
+                return null;
+
+            return next(param, context);
+        }
+    }
+
+    private sealed class FlattenedValueObjectHandler : IParameterProcessorHandler
+    {
+        public ParameterData? ProcessParameter(IParameterSymbol param, ParameterProcessingContext context,
+            Func<IParameterSymbol, ParameterProcessingContext, ParameterData?> next)
+        {
+            var (elementType, isCollection, isDictionary) = param.Type.GetCollectionInfo();
+            var (unwrappedType, isNullable) = elementType.UnwrapNullable();
+
+            if (!isCollection && unwrappedType is INamedTypeSymbol type && IsValueObjectType(type) &&
+                context.Context.FlattenConfigs is not null &&
+                context.Context.FlattenConfigs.TryGetValue(type.ToDisplayString(), out var isReversed))
+            {
+                var valObjFactory = FindFactoryMethod(type, context.Context.FactoryMethodName);
+                if (valObjFactory is { Parameters.Length: > 1 })
+                {
+                    var valObjMethodXml = valObjFactory.GetDocumentationCommentXml();
+                    var addedAny = false;
+
+                    foreach (var sp in valObjFactory.Parameters)
+                    {
+                        var (spElementType, spIsCollection, spIsDictionary) = sp.Type.GetCollectionInfo();
+                        var (spUnwrappedType, spIsNullable) = spElementType.UnwrapNullable();
+
+                        var spResolveContext = new ParameterType(spUnwrappedType, spIsNullable || isNullable,
+                            spIsDictionary, context.Context);
+
+                        var spResolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(spResolveContext));
+                        if (spResolver is null) continue;
+
+                        var spResolvedElementType = spResolver.Resolve(spResolveContext);
+                        var spResolvedType = spIsCollection
+                            ? $"{GenericsNamespace}.IEnumerable<{spResolvedElementType}>"
+                            : spResolvedElementType;
+
+                        var combinedName = isReversed
+                            ? char.ToLowerInvariant(sp.Name[0]) + sp.Name.Substring(1) + ToPascalCase(param.Name)
+                            : char.ToLowerInvariant(param.Name[0]) + param.Name.Substring(1) + ToPascalCase(sp.Name);
+
+                        if (context.ExcludedProperties.Contains(combinedName)) continue;
+
+                        var spXml = ExtractParamDoc(valObjMethodXml, sp.Name) ??
+                                    ExtractParamDoc(context.MethodXml, param.Name);
+
+                        var parameter =
+                            new ParameterData((combinedName, spResolvedType), spIsNullable || isNullable, spXml);
+
+                        // Return the first flattened parameter as representative; caller will need to collect multiple.
+                        // To keep handler semantics simple, we attach multiple flattened parameters by encoding them into a single
+                        // ParameterData with a special name pattern is undesirable. Instead, we signal the chain to let the
+                        // caller handle flatten expansion by returning a ParameterData with the resolved type of the first.
+                        // However, to preserve existing behavior we will add parameters directly to the context by using
+                        // the Collected dictionary isn't appropriate here. So we return a single marker to indicate flattened
+                        // processing is required. To simplify, we return null so the orchestration in GetDtoData handles flattening.
+                        addedAny = true;
+                    }
+
+                    if (addedAny) return new ParameterData((param.Name, string.Empty), false, null);
+                }
+            }
+
+            return next(param, context);
+        }
+    }
+
+    private sealed class ValueObjectParameterHandler : IParameterProcessorHandler
+    {
+        public ParameterData? ProcessParameter(IParameterSymbol param, ParameterProcessingContext context,
+            Func<IParameterSymbol, ParameterProcessingContext, ParameterData?> next)
+        {
+            var (elementType, isCollection, isDictionary) = param.Type.GetCollectionInfo();
+            var (unwrappedType, isNullable) = elementType.UnwrapNullable();
+
+            if (unwrappedType is INamedTypeSymbol type && IsValueObjectType(type))
+            {
+                var resolveContext = new ParameterType(unwrappedType, isNullable, isDictionary, context.Context);
+                var resolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(resolveContext));
+                if (resolver is null) return null;
+
+                var resolvedElementType = resolver.Resolve(resolveContext);
+                var resolvedType = isCollection
+                    ? $"{GenericsNamespace}.IEnumerable<{resolvedElementType}>"
+                    : resolvedElementType;
+
+                var propertyName = param.Name;
+                var paramXml = ExtractParamDoc(context.MethodXml, param.Name);
+                return new ParameterData((propertyName, resolvedType), isNullable, paramXml);
+            }
+
+            return next(param, context);
+        }
+    }
+
+    private sealed class AggregateParameterHandler : IParameterProcessorHandler
+    {
+        public ParameterData? ProcessParameter(IParameterSymbol param, ParameterProcessingContext context,
+            Func<IParameterSymbol, ParameterProcessingContext, ParameterData?> next)
+        {
+            var (elementType, isCollection, isDictionary) = param.Type.GetCollectionInfo();
+            var (unwrappedType, isNullable) = elementType.UnwrapNullable();
+
+            if (IsAggregateType(unwrappedType))
+            {
+                var resolveContext = new ParameterType(unwrappedType, isNullable, isDictionary, context.Context);
+                var resolvedElementType = ResolveAggregateIdType(resolveContext);
+                var resolvedType = isCollection
+                    ? $"{GenericsNamespace}.IEnumerable<{resolvedElementType}>"
+                    : resolvedElementType;
+
+                var propertyName = isCollection ? $"{unwrappedType.Name}Ids" : $"{unwrappedType.Name}Id";
+                var paramXml = ExtractParamDoc(context.MethodXml, param.Name);
+                return new ParameterData((propertyName, resolvedType), isNullable, paramXml);
+            }
+
+            return next(param, context);
+        }
+    }
+
+    private sealed class EntityParameterHandler : IParameterProcessorHandler
+    {
+        public ParameterData? ProcessParameter(IParameterSymbol param, ParameterProcessingContext context,
+            Func<IParameterSymbol, ParameterProcessingContext, ParameterData?> next)
+        {
+            var (elementType, isCollection, isDictionary) = param.Type.GetCollectionInfo();
+            var (unwrappedType, isNullable) = elementType.UnwrapNullable();
+
+            if (IsEntityType(unwrappedType) && !IsAggregateType(unwrappedType))
+            {
+                var resolveContext = new ParameterType(unwrappedType, isNullable, isDictionary, context.Context);
+                var resolvedElementType = ResolveNestedDtoElementType(resolveContext);
+                var resolvedType = isCollection
+                    ? $"{GenericsNamespace}.IEnumerable<{resolvedElementType}>"
+                    : resolvedElementType;
+
+                var propertyName = param.Name;
+                var paramXml = ExtractParamDoc(context.MethodXml, param.Name);
+                return new ParameterData((propertyName, resolvedType), isNullable, paramXml);
+            }
+
+            return next(param, context);
+        }
+    }
+
+    private sealed class DefaultParameterHandler : IParameterProcessorHandler
+    {
+        public ParameterData? ProcessParameter(IParameterSymbol param, ParameterProcessingContext context,
+            Func<IParameterSymbol, ParameterProcessingContext, ParameterData?> next)
+        {
+            var (elementType, isCollection, isDictionary) = param.Type.GetCollectionInfo();
+            var (unwrappedType, isNullable) = elementType.UnwrapNullable();
+
+            var resolveContext = new ParameterType(unwrappedType, isNullable, isDictionary, context.Context);
+            var resolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(resolveContext));
+            if (resolver is null) return null;
+
+            var resolvedElementType = resolver.Resolve(resolveContext);
+            var resolvedType = isCollection
+                ? $"{GenericsNamespace}.IEnumerable<{resolvedElementType}>"
+                : resolvedElementType;
+
+            var isAggregate = IsAggregateType(unwrappedType);
+            var propertyName = isAggregate ? $"{unwrappedType?.Name}{(isCollection ? "Ids" : "Id")}" : param.Name;
+            var paramXml = ExtractParamDoc(context.MethodXml, param.Name);
+            return new ParameterData((propertyName, resolvedType), isNullable, paramXml);
+        }
+    }
 
     private readonly record struct DtoContext(
         string Namespace,
@@ -398,73 +624,80 @@ public sealed class DtoForGenerator : BaseGenerator<DtoForGenerator.DtoData>
         var methodXml = createMethod.GetDocumentationCommentXml();
         var parameters = new List<ParameterData>();
 
-        foreach (var p in createMethod.Parameters.Where(p => !excludedProperties.Contains(p.Name)))
+        var processingCtx = new ParameterProcessingContext(context, excludedProperties, methodXml);
+        IParameterProcessorHandler[] handlers =
+        [
+            new ExcludedParameterHandler(),
+            new ExcludedTypeHandler(),
+            new FlattenedValueObjectHandler(),
+            new ValueObjectParameterHandler(),
+            new AggregateParameterHandler(),
+            new EntityParameterHandler(),
+            new DefaultParameterHandler()
+        ];
+
+        var chain = new ParameterProcessorChain(handlers);
+
+        foreach (var p in createMethod.Parameters)
         {
-            var (elementType, isCollection, isDictionary) = p.Type.GetCollectionInfo();
-            var (unwrappedType, isNullable) = elementType.UnwrapNullable();
+            if (excludedProperties.Contains(p.Name)) continue;
 
-            if (ShouldExcludeParameter(p.Type, elementType, isDictionary, context.ExcludedTypes)) continue;
+            var (elementTypeCheck, isCollectionCheck, isDictionaryCheck) = p.Type.GetCollectionInfo();
+            if (ShouldExcludeParameter(p.Type, elementTypeCheck, isDictionaryCheck, context.ExcludedTypes)) continue;
 
-            if (!isCollection && unwrappedType is INamedTypeSymbol type && IsValueObjectType(type) &&
-                context.FlattenConfigs is not null &&
-                context.FlattenConfigs.TryGetValue(type.ToDisplayString(), out var isReversed))
+            var result = chain.ProcessParameter(p, processingCtx);
+            if (result is null) continue;
+
+            // Marker for flattened expansion (handler returned a non-empty marker with empty type)
+            if (result.Value.Declaration.Type == string.Empty)
             {
-                var valObjFactory = FindFactoryMethod(type, context.FactoryMethodName);
-                if (valObjFactory is { Parameters.Length: > 1 })
+                var (elementType, isCollection, isDictionary) = p.Type.GetCollectionInfo();
+                var (unwrappedType, isNullable) = elementType.UnwrapNullable();
+
+                if (!isCollection && unwrappedType is INamedTypeSymbol type && IsValueObjectType(type) &&
+                    context.FlattenConfigs is not null &&
+                    context.FlattenConfigs.TryGetValue(type.ToDisplayString(), out var isReversed))
                 {
-                    var valObjMethodXml = valObjFactory.GetDocumentationCommentXml();
-
-                    foreach (var sp in valObjFactory.Parameters)
+                    var valObjFactory = FindFactoryMethod(type, context.FactoryMethodName);
+                    if (valObjFactory is { Parameters.Length: > 1 })
                     {
-                        var (spElementType, spIsCollection, spIsDictionary) = sp.Type.GetCollectionInfo();
-                        var (spUnwrappedType, spIsNullable) = spElementType.UnwrapNullable();
+                        var valObjMethodXml = valObjFactory.GetDocumentationCommentXml();
 
-                        var spResolveContext = new ParameterType(spUnwrappedType, spIsNullable || isNullable,
-                            spIsDictionary, context);
+                        foreach (var sp in valObjFactory.Parameters)
+                        {
+                            var (spElementType, spIsCollection, spIsDictionary) = sp.Type.GetCollectionInfo();
+                            var (spUnwrappedType, spIsNullable) = spElementType.UnwrapNullable();
 
-                        var spResolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(spResolveContext));
-                        if (spResolver is null) continue;
+                            var spResolveContext =
+                                new ParameterType(spUnwrappedType, spIsNullable || isNullable, spIsDictionary, context);
 
-                        var spResolvedElementType = spResolver.Resolve(spResolveContext);
-                        var spResolvedType = spIsCollection
-                            ? $"{GenericsNamespace}.IEnumerable{spResolvedElementType}>"
-                            : spResolvedElementType;
+                            var spResolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(spResolveContext));
+                            if (spResolver is null) continue;
 
-                        var combinedName = isReversed
-                            ? char.ToLowerInvariant(sp.Name[0]) + sp.Name.Substring(1) + ToPascalCase(p.Name)
-                            : char.ToLowerInvariant(p.Name[0]) + p.Name.Substring(1) + ToPascalCase(sp.Name);
+                            var spResolvedElementType = spResolver.Resolve(spResolveContext);
+                            var spResolvedType = spIsCollection
+                                ? $"{GenericsNamespace}.IEnumerable<{spResolvedElementType}>"
+                                : spResolvedElementType;
 
-                        if (excludedProperties.Contains(combinedName)) continue;
+                            var combinedName = isReversed
+                                ? char.ToLowerInvariant(sp.Name[0]) + sp.Name.Substring(1) + ToPascalCase(p.Name)
+                                : char.ToLowerInvariant(p.Name[0]) + p.Name.Substring(1) + ToPascalCase(sp.Name);
 
-                        var spXml = ExtractParamDoc(valObjMethodXml, sp.Name) ?? ExtractParamDoc(methodXml, p.Name);
-                        var parameter =
-                            new ParameterData((combinedName, spResolvedType), spIsNullable || isNullable, spXml);
+                            if (excludedProperties.Contains(combinedName)) continue;
 
-                        parameters.Add(parameter);
+                            var spXml = ExtractParamDoc(valObjMethodXml, sp.Name) ?? ExtractParamDoc(methodXml, p.Name);
+                            var parameter =
+                                new ParameterData((combinedName, spResolvedType), spIsNullable || isNullable, spXml);
+
+                            parameters.Add(parameter);
+                        }
                     }
-
-                    continue;
                 }
+
+                continue;
             }
 
-            var isAggregate = IsAggregateType(unwrappedType);
-            var resolveContext = new ParameterType(unwrappedType, isNullable, isDictionary, context);
-
-            var resolver = ParameterTypeResolvers.FirstOrDefault(r => r.CanHandle(resolveContext));
-            if (resolver is null) continue;
-
-            var resolvedElementType = resolver.Resolve(resolveContext);
-
-            var resolvedType = isCollection
-                ? $"{GenericsNamespace}.IEnumerable<{resolvedElementType}>"
-                : resolvedElementType;
-
-            var propertyName = isAggregate
-                ? $"{unwrappedType.Name}{(isCollection ? "Ids" : "Id")}"
-                : p.Name;
-
-            var paramXml = ExtractParamDoc(methodXml, p.Name);
-            parameters.Add(new ParameterData((propertyName, resolvedType), isNullable, paramXml));
+            parameters.Add(result.Value);
         }
 
         DtoData[] nestedDtosResult =
