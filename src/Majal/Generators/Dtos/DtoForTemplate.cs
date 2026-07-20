@@ -95,6 +95,12 @@ public class DtoForTemplate : BaseTemplate
             WriteLine($"public {requiredKeyword}{param.Declaration.Type} {propertyName} {{ get; init; }}");
         }
 
+        if (dto.ReconstructionArguments is not null)
+        {
+            WriteLine("");
+            GenerateToSourceMethod(dto);
+        }
+
         if (dto.NestedDtos.Count > 0)
         {
             WriteLine("");
@@ -107,6 +113,74 @@ public class DtoForTemplate : BaseTemplate
 
         PopIndent();
         WriteLine("}");
+    }
+
+    private void GenerateToSourceMethod(DtoForGenerator.DtoData dto)
+    {
+        WriteLine($"public {dto.SourceTypeName} To{dto.SourceSimpleName}() =>");
+        PushIndent();
+        Write($"{dto.SourceTypeName}.{dto.FactoryMethodName}(");
+
+        var arguments = dto.ReconstructionArguments!.Value;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (i > 0) Write(", ");
+            Write($"{arguments[i].FactoryParameterName}: {BuildArgumentExpression(arguments[i])}");
+        }
+
+        WriteLine(");");
+        PopIndent();
+    }
+
+    private static string BuildArgumentExpression(DtoForGenerator.FactoryArgument argument)
+    {
+        return argument.Kind switch
+        {
+            DtoForGenerator.ReconstructKind.Direct => BuildDirectExpression(argument),
+            DtoForGenerator.ReconstructKind.ValueObject => BuildWrappedExpression(argument,
+                value => $"{argument.TargetTypeName}.Create({value})"),
+            DtoForGenerator.ReconstructKind.NestedType => BuildWrappedExpression(argument,
+                value => $"{value}.To{argument.TargetTypeName}()"),
+            DtoForGenerator.ReconstructKind.FlattenedValueObject => BuildFlattenedExpression(argument),
+            _ => $"this.{argument.DtoPropertyName}"
+        };
+    }
+
+    private static string BuildDirectExpression(DtoForGenerator.FactoryArgument argument)
+    {
+        var access = $"this.{argument.DtoPropertyName}";
+        return argument.IsCollection
+            ? ApplyCollectionConversion(access, argument.CollectionConversionKind)
+            : access;
+    }
+
+    private static string BuildWrappedExpression(DtoForGenerator.FactoryArgument argument,
+        Func<string, string> wrap)
+    {
+        var access = $"this.{argument.DtoPropertyName}";
+
+        if (argument.IsCollection)
+        {
+            var selectExpr = ApplyCollectionConversion(
+                $"{LinqNamespace}.Enumerable.Select({access}, x => {wrap("x")})",
+                argument.CollectionConversionKind);
+            return argument.IsNullable ? $"{access} is null ? null : {selectExpr}" : selectExpr;
+        }
+
+        return argument.IsNullable ? $"{access} is null ? null : {wrap(access)}" : wrap(access);
+    }
+
+    private static string ApplyCollectionConversion(string expression, string conversionKind) =>
+        string.IsNullOrEmpty(conversionKind)
+            ? expression
+            : $"{LinqNamespace}.Enumerable.{conversionKind}({expression})";
+
+    private static string BuildFlattenedExpression(DtoForGenerator.FactoryArgument argument)
+    {
+        var subArguments = string.Join(", ", argument.FlattenedArguments!.Value
+            .Select(a => $"{a.SubFactoryParameterName}: this.{a.DtoPropertyName}"));
+
+        return $"{argument.TargetTypeName}.Create({subArguments})";
     }
 
     private static string ToPascalCase(string input)

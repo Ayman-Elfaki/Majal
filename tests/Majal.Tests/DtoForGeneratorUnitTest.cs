@@ -756,6 +756,207 @@ public class DtoForGeneratorUnitTest
         Assert.DoesNotContain("MoneyDto", userDto);
     }
 
+    [Fact]
+    public void GeneratesToAggregateConversionMethodForSimpleEntity()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public partial class User
+            {
+                public static User Create(string name, int age) => new User();
+            }
+
+            [DtoFor<User>]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public global::User ToUser() =>", dto);
+        Assert.Contains("global::User.Create(name: this.Name, age: this.Age);", dto);
+
+        AssertNoCompilationErrors(compilation, runResult);
+    }
+
+    [Fact]
+    public void DoesNotGenerateConversionMethodWhenAggregateReferencedById()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity<int>, Aggregate]
+            public partial class User
+            {
+                public static User Create(int id, string name) => new User();
+            }
+
+            [Entity, Aggregate]
+            public partial class Order
+            {
+                public static Order Create(User user) => new Order();
+            }
+
+            [DtoFor<Order>]
+            public partial record OrderDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("OrderDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.DoesNotContain("ToOrder()", dto);
+    }
+
+    [Fact]
+    public void GeneratesToAggregateConversionMethodForScalarValueObject()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [ValueObject]
+            public partial class Email
+            {
+                public static Email Create(string value) => new Email();
+            }
+
+            [Entity]
+            public partial class User
+            {
+                public static User Create(string name, Email email) => new User();
+            }
+
+            [DtoFor<User>]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public global::User ToUser() =>", dto);
+        Assert.Contains("global::User.Create(name: this.Name, email: global::Email.Create(this.Email));", dto);
+    }
+
+    [Fact]
+    public void GeneratesToAggregateConversionMethodForFlattenedValueObject()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [ValueObject]
+            public partial class Money
+            {
+                public static Money Create(decimal amount, string currency) => new Money();
+            }
+
+            [Entity]
+            public partial class User
+            {
+                public static User Create(string name, Money money) => new User();
+            }
+
+            [DtoFor<User>]
+            [FlattenDtoFor<Money>]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public global::User ToUser() =>", dto);
+        Assert.Contains(
+            "global::User.Create(name: this.Name, money: global::Money.Create(amount: this.MoneyAmount, currency: this.MoneyCurrency));",
+            dto);
+
+        AssertNoCompilationErrors(compilation, runResult);
+    }
+
+    [Fact]
+    public void GeneratesToAggregateConversionMethodForNestedEntityCollection()
+    {
+        const string source =
+            """
+            using Majal;
+            using System.Collections.Generic;
+
+            [Entity]
+            public partial class OrderLine
+            {
+                public static OrderLine Create(string product) => new OrderLine();
+            }
+
+            [Entity]
+            public partial class Order
+            {
+                public static Order Create(List<OrderLine> lines) => new Order();
+            }
+
+            [DtoFor<Order>]
+            public partial record OrderDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("OrderDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public global::OrderLine ToOrderLine() =>", dto);
+        Assert.Contains("global::OrderLine.Create(product: this.Product);", dto);
+        Assert.Contains("public global::Order ToOrder() =>", dto);
+        Assert.Contains(
+            "lines: global::System.Linq.Enumerable.ToList(global::System.Linq.Enumerable.Select(this.Lines, x => x.ToOrderLine()))",
+            dto);
+
+        AssertNoCompilationErrors(compilation, runResult);
+    }
 
     [Fact]
     public void GeneratesGenericDto()
@@ -989,6 +1190,7 @@ public class DtoForGeneratorUnitTest
         {
             MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(List<>).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(DtoForGenerator).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(EntityAttribute).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(DtoForAttribute<>).Assembly.Location),
@@ -998,5 +1200,20 @@ public class DtoForGeneratorUnitTest
         };
 
         return CSharpCompilation.Create("Test", [syntaxTree], references);
+    }
+
+    private static void AssertNoCompilationErrors(CSharpCompilation compilation, GeneratorDriverRunResult runResult)
+    {
+        var updatedCompilation = compilation
+            .AddReferences(MetadataReference.CreateFromFile(
+                System.Reflection.Assembly.Load("System.Collections").Location))
+            .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(runResult.GeneratedTrees);
+
+        var errors = updatedCompilation.GetDiagnostics(TestContext.Current.CancellationToken)
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToArray();
+
+        Assert.True(errors.Length == 0, string.Join("\n", errors.Select(e => e.ToString())));
     }
 }
