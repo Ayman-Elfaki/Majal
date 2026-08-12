@@ -12,6 +12,7 @@
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <IncludeBuildOutput>false</IncludeBuildOutput>
         <BuildOutputTargetFolder>analyzers</BuildOutputTargetFolder>
+        <SuppressPackageTlvFolderCheck>true</SuppressPackageTlvFolderCheck>
     </PropertyGroup>
 
     <PropertyGroup>
