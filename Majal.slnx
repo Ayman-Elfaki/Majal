@@ -19,6 +19,7 @@
         <File Path="docs/value-objects.md" />
     </Folder>
     <Folder Name="/samples/">
+        <Project Path="samples/HotelReservation.Sample/HotelReservation.Sample.csproj" />
         <Project Path="samples/Majal.Sample/Majal.Sample.csproj" />
     </Folder>
     <Folder Name="/src/">
