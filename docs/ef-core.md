@@ -4,13 +4,15 @@ Majal provides seamless integration with Entity Framework Core (EF Core) by gene
 
 ## Enabling EF Core Integration
 
-To enable the generation of EF Core components, you need to set the `MajalEnableEFCore` MSBuild property to `true` in your project file (`.csproj`):
+EF Core support ships as a separate package, `Majal.EntityFrameworkCore`. Reference it alongside `Majal` and your own EF Core packages to enable generation of the interceptors, conventions, and value converters described below — there is no MSBuild switch to flip, adding the package reference is the opt-in:
 
 ```xml
-<PropertyGroup>
-  <MajalEnableEFCore>true</MajalEnableEFCore>
-</PropertyGroup>
+<PackageReference Include="Majal" Version="<VERSION>" />
+<PackageReference Include="Majal.EntityFrameworkCore" Version="<VERSION>" />
+<PackageReference Include="Microsoft.EntityFrameworkCore" Version="<VERSION>" />
 ```
+
+`Majal.EntityFrameworkCore` requires `Majal` to already be referenced, since the generated interceptors/conventions target the attributes and interfaces (`[Archivable]`, `[Auditable]`, `[Translatable<T>]`, `[ValueObject<T>]`, `ITranslatableDbContext<T>`, etc.) that `Majal` provides. It does not bring in an EF Core package dependency itself — you still add whichever EF Core provider package (`Microsoft.EntityFrameworkCore.Sqlite`, `.SqlServer`, etc.) your project needs.
 
 ## Value Objects
 

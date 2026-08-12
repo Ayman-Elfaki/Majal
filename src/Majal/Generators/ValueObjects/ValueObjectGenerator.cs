@@ -69,10 +69,6 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
     protected override string GenericAttributeFullName =>
         $"{AttributeNamespace}.{ValueObjectAttributeName}`1";
 
-    private const string PropertyName = "MajalEnableEFCore";
-    private const string MsBuildPropertySuffix = "build_property";
-    private const string FullPropertyName = $"{MsBuildPropertySuffix}.{PropertyName}";
-
     public override void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var genericProvider = context.SyntaxProvider
@@ -91,30 +87,17 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             .WithTrackingName(TrackingNames.Transform)
             .Collect();
 
-        var valueConverterEnabled = context
-            .AnalyzerConfigOptionsProvider
-            .Select((config, _) =>
-                config.GlobalOptions.TryGetValue(FullPropertyName, out var enableSwitch) &&
-                enableSwitch.Equals("true", StringComparison.Ordinal));
-
-        var provider = genericProvider.Combine(nonGenericProvider).Combine(valueConverterEnabled);
+        var provider = genericProvider.Combine(nonGenericProvider);
 
         context.RegisterImplementationSourceOutput(provider, (ctx, source) =>
         {
-            var (generics, nonGenerics) = source.Left;
+            var (generics, nonGenerics) = source;
 
             ValueObjectData[] entities = [.. generics, .. nonGenerics];
-            var enableEfCore = source.Right;
-
-            if (enableEfCore)
-            {
-                var code = new ValueObjectConfigurationTemplate([..generics]).TransformText();
-                ctx.AddSource("ValueObjectExtensions.g.cs", SourceText.From(code, Encoding.UTF8));
-            }
 
             foreach (var data in entities)
             {
-                var template = new ValueObjectTemplate { Data = data, EnableEfCore = enableEfCore };
+                var template = new ValueObjectTemplate { Data = data };
                 var code = template.TransformText();
                 ctx.AddSource($"{data.RawTypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
             }

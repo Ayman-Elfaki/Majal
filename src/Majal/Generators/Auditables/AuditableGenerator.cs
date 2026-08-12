@@ -31,10 +31,6 @@ public sealed class AuditableGenerator : BaseGenerator<AuditableGenerator.Audita
     private const string FilenameSuffix = ".Auditable.g.cs";
     protected override string AttributeFullName => $"{AttributeNamespace}.{AttributeName}";
 
-    private const string PropertyName = "MajalEnableEFCore";
-    private const string MsBuildPropertySuffix = "build_property";
-    private const string FullPropertyName = $"{MsBuildPropertySuffix}.{PropertyName}";
-
     public override void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var provider = context.SyntaxProvider
@@ -44,18 +40,6 @@ public sealed class AuditableGenerator : BaseGenerator<AuditableGenerator.Audita
             .Select(static (m, _) => m!.Value)
             .WithTrackingName(TrackingNames.Transform)
             .Collect();
-
-        var configProvider = context
-            .AnalyzerConfigOptionsProvider
-            .Select((config, _) =>
-                config.GlobalOptions.TryGetValue(FullPropertyName, out var enableSwitch) &&
-                enableSwitch.Equals("true", StringComparison.Ordinal));
-
-        context.RegisterImplementationSourceOutput(configProvider, (productionContext, generateInterceptor) =>
-        {
-            var code = generateInterceptor ? new AuditableInterceptorTemplate().TransformText() : string.Empty;
-            productionContext.AddSource("AuditableSaveChangesInterceptor.g.cs", SourceText.From(code, Encoding.UTF8));
-        });
 
         context.RegisterImplementationSourceOutput(provider, (productionContext, source) =>
         {

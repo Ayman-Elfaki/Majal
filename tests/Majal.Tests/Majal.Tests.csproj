@@ -26,6 +26,7 @@
     <ItemGroup>
         <ProjectReference Include="..\..\src\Majal\Majal.csproj" />
         <ProjectReference Include="..\..\src\Majal.Types\Majal.Types.csproj" />
+        <ProjectReference Include="..\..\src\Majal.SourceGeneration.Common\Majal.SourceGeneration.Common.csproj" />
     </ItemGroup>
 
 </Project>

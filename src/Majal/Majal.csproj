@@ -44,13 +44,14 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Majal.Types\Majal.Types.csproj" PrivateAssets="All" />
+        <ProjectReference Include="..\Majal.SourceGeneration.Common\Majal.SourceGeneration.Common.csproj" PrivateAssets="All" />
     </ItemGroup>
 
     <ItemGroup>
         <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
         <None Include="$(OutputPath)\Majal.Types.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
         <None Include="$(OutputPath)\Majal.Types.dll" Pack="true" PackagePath="lib\$(TargetFramework)" Visible="false" />
-        <None Include="Majal.props" Visible="true" Pack="true" PackagePath="build" />
+        <None Include="$(OutputPath)\Majal.SourceGeneration.Common.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     </ItemGroup>
 
     <ItemGroup>

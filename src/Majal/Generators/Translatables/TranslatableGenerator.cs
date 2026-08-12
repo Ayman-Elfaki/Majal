@@ -40,10 +40,6 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
     protected override string AttributeFullName => $"{AttributeNamespace}.{AttributeName}";
     protected override string GenericAttributeFullName => $"{AttributeNamespace}.{AttributeName}`1";
 
-    private const string PropertyName = "MajalEnableEFCore";
-    private const string MsBuildPropertySuffix = "build_property";
-    private const string FullPropertyName = $"{MsBuildPropertySuffix}.{PropertyName}";
-
     public override void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var optionsProvider = context.CompilationProvider
@@ -64,18 +60,6 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
             .Select(static (m, _) => m!.Value)
             .WithTrackingName(TrackingNames.Transform)
             .Collect();
-
-        var configProvider = context
-            .AnalyzerConfigOptionsProvider
-            .Select((config, _) =>
-                config.GlobalOptions.TryGetValue(FullPropertyName, out var enableSwitch) &&
-                enableSwitch.Equals("true", StringComparison.Ordinal));
-
-        context.RegisterImplementationSourceOutput(configProvider, (productionContext, generateConvention) =>
-        {
-            var code = generateConvention ? new TranslatableConventionTemplate().TransformText() : string.Empty;
-            productionContext.AddSource("TranslatableFilterConvention.g.cs", SourceText.From(code, Encoding.UTF8));
-        });
 
         var provider = genericProvider.Combine(nonGenericProvider).Combine(optionsProvider);
 
