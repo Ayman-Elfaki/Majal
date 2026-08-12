@@ -22,16 +22,25 @@ Majal is a **C# source generator library** that helps you implement Domain-Drive
 - **Auditables** (Creation/Update tracking)
 - **Translatables** (Multi-language support)
 - **Ordinals** (Sort order)
+- **DTOs** (generated from a type's factory method, with reverse conversion back to the domain type)
 
-The library ships as a Roslyn analyzer/source generator package that can be referenced from any .NET project.
+The library ships as a set of Roslyn analyzer/source generator packages that can be referenced from any .NET project.
 
-## NuGet Package
+## NuGet Packages
+
+The core generators live in `Majal`. EF Core integration and DTO generation are separate, opt-in packages so you only take the dependencies you need:
 
 ```xml
 <PackageReference Include="Majal" Version="<VERSION>" />
+
+<!-- optional: EF Core interceptors, conventions, and value converters -->
+<PackageReference Include="Majal.EntityFrameworkCore" Version="<VERSION>" />
+
+<!-- optional: [DtoFor<T>] DTO generation -->
+<PackageReference Include="Majal.DataTransferObjects" Version="<VERSION>" />
 ```
 
-The package contains the generators and the required analyzer DLL (`Majal.dll`).
+Each package contains its generators and the required analyzer DLLs.
 
 ## Building the Project
 
@@ -49,10 +58,10 @@ The generated analyzer DLL will be placed in `src/Majal/bin/Debug/netstandard2.0
 
 ## Running Tests
 
-The repository contains a test project (`Majal.Tests`). To run the unit tests:
+The repository contains four test projects: `Majal.Tests` (generator/analyzer unit tests), `Majal.FunctionalTests` (compiled runtime behavior), `Majal.DataTransferObjects.Tests` (DTO generator unit tests), and `Majal.EntityFrameworkCore.Tests` (EF Core interceptor/convention/value-converter integration tests against a real SQLite database). Run them all with:
 
 ```bash
-dotnet test tests/Majal.Tests/Majal.Tests.csproj
+dotnet test Majal.slnx
 ```
 
 ## Documentation
@@ -65,6 +74,7 @@ dotnet test tests/Majal.Tests/Majal.Tests.csproj
 - [Auditables Guide](docs/auditables.md)
 - [Translatables Guide](docs/translatables.md)
 - [Ordinals Guide](docs/ordinals.md)
+- [DTOs Guide](docs/dtos.md)
 - [EF Core Integration](docs/ef-core.md)
 
 

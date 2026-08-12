@@ -32,10 +32,6 @@ public sealed class ArchivableGenerator : BaseGenerator<ArchivableGenerator.Arch
     private const string FilenameSuffix = ".Archivable.g.cs";
     protected override string AttributeFullName => $"{AttributeNamespace}.{AttributeName}";
 
-    private const string PropertyName = "MajalEnableEFCore";
-    private const string MsBuildPropertySuffix = "build_property";
-    private const string FullPropertyName = $"{MsBuildPropertySuffix}.{PropertyName}";
-
     public override void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var provider = context.SyntaxProvider
@@ -45,21 +41,6 @@ public sealed class ArchivableGenerator : BaseGenerator<ArchivableGenerator.Arch
             .Select(static (m, _) => m!.Value)
             .WithTrackingName(TrackingNames.Transform)
             .Collect();
-
-        var configProvider = context
-            .AnalyzerConfigOptionsProvider
-            .Select((config, _) =>
-                config.GlobalOptions.TryGetValue(FullPropertyName, out var enableSwitch) &&
-                enableSwitch.Equals("true", StringComparison.Ordinal));
-
-        context.RegisterImplementationSourceOutput(configProvider, (ctx, enableEfCore) =>
-        {
-            var interceptorCode =  enableEfCore ? new ArchivableInterceptorTemplate().TransformText() : string.Empty;
-            ctx.AddSource("ArchivableSaveChangesInterceptor.g.cs", SourceText.From(interceptorCode, Encoding.UTF8));
-
-            var code = enableEfCore ? new ArchivableConventionTemplate().TransformText() : string.Empty;
-            ctx.AddSource("ArchivableFilterConvention.g.cs", SourceText.From(code, Encoding.UTF8));
-        });
 
         context.RegisterImplementationSourceOutput(provider, (productionContext, source) =>
         {

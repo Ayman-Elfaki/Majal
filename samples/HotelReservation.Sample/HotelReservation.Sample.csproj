@@ -4,7 +4,6 @@
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <MajalEnableEFCore>true</MajalEnableEFCore>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
 
@@ -24,14 +23,16 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Majal\Majal.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+        <ProjectReference Include="..\..\src\Majal.SourceGeneration.Common\Majal.SourceGeneration.Common.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
         <ProjectReference Include="..\..\src\Majal.Types\Majal.Types.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="true"/>
+        <ProjectReference Include="..\..\src\Majal.EntityFrameworkCore\Majal.EntityFrameworkCore.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+        <ProjectReference Include="..\..\src\Majal.DataTransferObjects\Majal.DataTransferObjects.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+        <ProjectReference Include="..\..\src\Majal.DataTransferObjects.Types\Majal.DataTransferObjects.Types.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="true"/>
     </ItemGroup>
 
     <ItemGroup>
       <Folder Include="Data\" />
       <Using Include="Majal" />
     </ItemGroup>
-
-    <Import Project="..\..\src\Majal\Majal.props" />
 
 </Project>

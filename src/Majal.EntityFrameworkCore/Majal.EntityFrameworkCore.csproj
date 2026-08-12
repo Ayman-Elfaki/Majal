@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>true</ImplicitUsings>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <BuildOutputTargetFolder>analyzers</BuildOutputTargetFolder>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PackageId>Majal.EntityFrameworkCore</PackageId>
+        <Authors>Ayman Elfaki</Authors>
+        <Description>EF Core integration (interceptors, conventions, value converters) for Majal DDD source generators.</Description>
+        <PackageTags>Domain-Driven Design;DDD;Source Generator;EF Core;EntityFrameworkCore</PackageTags>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/Ayman-Elfaki/Majal</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/Ayman-Elfaki/Majal</PackageProjectUrl>
+        <Copyright>Copyright (c) Ayman Elfaki 2026</Copyright>
+        <PackageReadmeFile>Readme.md</PackageReadmeFile>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageIcon>logo.png</PackageIcon>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\..\Readme.md" Pack="true" PackagePath="\" />
+        <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
+        <None Include="..\..\assets\logo.png" Pack="true" PackagePath="\" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="All" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Majal.SourceGeneration.Common\Majal.SourceGeneration.Common.csproj" PrivateAssets="All" />
+        <ProjectReference Include="..\Majal.Types\Majal.Types.csproj" PrivateAssets="All" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+        <None Include="$(OutputPath)\Majal.SourceGeneration.Common.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    </ItemGroup>
+
+</Project>

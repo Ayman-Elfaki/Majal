@@ -5,12 +5,10 @@ namespace Majal.Generators.ValueObjects;
 
 public class ValueObjectTemplate : BaseTemplate
 {
-    public bool EnableEfCore { get; init; }
     public ValueObjectGenerator.ValueObjectData Data { get; init; }
 
     public const string FactoryMethodName = "Create";
     public const string EqualityMethodName = "GetEqualityComponents";
-    public const string EfCoreValueConverterTypeName = "EfCoreValueConverter";
 
 
     public override string TransformText()
@@ -120,19 +118,6 @@ public class ValueObjectTemplate : BaseTemplate
             GenerateTypeConverter();
 
             GenerateJsonConverter();
-
-            if (EnableEfCore)
-            {
-                const string converter = $"v => v.Value, v => {FactoryMethodName}(v)";
-                WriteLine("/// <summary>Provides an EF Core <c>ValueConverter</c> for persisting this value object as its primitive type.</summary>");
-                WriteLine($"public sealed class {EfCoreValueConverterTypeName}() :");
-                PushIndent();
-                WriteLine($"{EfCoreValueConversion}.ValueConverter<{Data.TypeName}, {type}>({converter})");
-                PopIndent();
-                WriteLine("{");
-                WriteLine("}");
-                WriteLine("");
-            }
 
             WriteLine("");
         }
