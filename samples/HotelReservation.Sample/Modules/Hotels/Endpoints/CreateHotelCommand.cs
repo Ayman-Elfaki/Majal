@@ -1,29 +1,27 @@
 using FluentValidation;
-using Majal.Sample.Common.Filters;
-using Majal.Sample.Common.Persistence;
-using Majal.Sample.Modules.Projects.Entities;
-using Majal.Sample.Modules.Projects.ValueObjects;
+using HotelReservation.Sample.Common.Persistence;
+using HotelReservation.Sample.Modules.Hotels.Entities;
+using HotelReservation.Sample.Modules.Hotels.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine.Http;
 
-namespace Majal.Sample.Modules.Projects.Endpoints;
+namespace HotelReservation.Sample.Modules.Hotels.Endpoints;
 
 /// <summary>
-/// create a new project
+/// create a new hotel
 /// </summary>
-public partial class CreateProjectCommand
+public partial class CreateHotelCommand
 {
     /// <summary>
-    /// The Project Dto
+    /// The Hotel Dto
     /// </summary>
-    [DtoFor<StrategicProject>]
-    [FlattenDtoFor<Capacity>(IsReversed = true)]
-    public partial class StrategicProjectDtos;
+    [DtoFor<Hotel>]
+    public partial class HotelDtos;
 
     /// <summary>
     /// The Dto Validator
     /// </summary>
-    public class Validator : AbstractValidator<StrategicProjectDtos>
+    public class Validator : AbstractValidator<HotelDtos>
     {
         /// <summary>
         /// the validator constructor
@@ -32,7 +30,7 @@ public partial class CreateProjectCommand
         {
             RuleFor(dto => dto.Name)
                 .NotEmpty()
-                .MaximumLength(ProjectName.MaxLength);
+                .MaximumLength(HotelName.MaxLength);
 
             RuleFor(dto => dto.Translations)
                 .NotEmpty();
@@ -41,11 +39,11 @@ public partial class CreateProjectCommand
             {
                 r.RuleFor(p => p.DisplayName)
                     .NotEmpty()
-                    .MaximumLength(ProjectName.MaxLength);
+                    .MaximumLength(HotelName.MaxLength);
 
                 r.RuleFor(p => p.Description)
                     .NotEmpty()
-                    .MaximumLength(ProjectDescription.MaxLength);
+                    .MaximumLength(HotelDescription.MaxLength);
 
                 r.RuleFor(p => p.Locale)
                     .NotEmpty()
@@ -55,20 +53,19 @@ public partial class CreateProjectCommand
     }
 
     /// <summary>
-    /// Create New Project
+    /// Create a new hotel
     /// </summary>
     /// <param name="dto"></param>
     /// <param name="context"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    [Tags("Projects")]
-    [WolverinePost("/projects")]
-    public static async Task<IResult> Create(StrategicProjectDtos dto, [FromServices] AppDbContext context,
-        CancellationToken ct)
+    [Tags("Hotels")]
+    [WolverinePost("/hotels")]
+    public static async Task<IResult> Create(HotelDtos dto, [FromServices] AppDbContext context, CancellationToken ct)
     {
-        var project = dto.ToStrategicProject();
+        var hotel = dto.ToHotel();
 
-        context.Projects.Add(project);
+        context.Hotels.Add(hotel);
         await context.SaveChangesAsync(ct);
 
         return Results.Ok();
