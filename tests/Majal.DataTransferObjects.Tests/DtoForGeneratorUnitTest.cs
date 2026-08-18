@@ -794,6 +794,43 @@ public class DtoForGeneratorUnitTest
     }
 
     [Fact]
+    public void GeneratesFromEntityConversionMethodForReadableProperties()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public partial class User
+            {
+                public static User Create(string name, int age) => new User();
+                public string Name { get; init; } = string.Empty;
+                public int Age { get; init; }
+            }
+
+            [DtoFor<User>]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.Contains("public static UserDto FromUser(global::User source) => new()", dto);
+        Assert.Contains("Name = source.Name,", dto);
+        Assert.Contains("Age = source.Age", dto);
+        AssertNoCompilationErrors(compilation, runResult);
+    }
+
+    [Fact]
     public void DoesNotGenerateConversionMethodWhenAggregateReferencedById()
     {
         const string source =

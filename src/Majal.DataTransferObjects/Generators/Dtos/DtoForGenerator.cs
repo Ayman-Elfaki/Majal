@@ -7,6 +7,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using static Majal.Generators.Dtos.ParameterHandlers.ParameterResolution;
+using static Majal.Common.Abstractions.Constants;
 
 namespace Majal.Generators.Dtos;
 
@@ -300,7 +301,9 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
         var methodXml = createMethod.GetDocumentationCommentXml();
         var parameters = new List<ParameterData>();
         var reconstructionArguments = new List<FactoryArgument>();
+        var forwardArguments = new List<ForwardArgument>();
         var canReconstruct = true;
+        var canForward = true;
 
         foreach (var p in createMethod.Parameters)
         {
@@ -327,6 +330,9 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
 
             foreach (var result in outcome.Value.Properties)
                 parameters.Add(ApplyNullable(result, nullableProperties));
+
+            if (!TryBuildForwardArguments(context, p, outcome.Value, forwardArguments))
+                canForward = false;
 
             if (outcome.Value.Reconstruction is not { } reconstruction)
             {
@@ -358,8 +364,97 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
             context.SourceSymbol.ToDisplayString(FullPropertyTypeFormat),
             context.SourceSymbol.Name,
             context.FactoryMethodName,
-            canReconstruct ? [.. reconstructionArguments] : null
+            canReconstruct ? [.. reconstructionArguments] : null,
+            canForward ? [.. forwardArguments] : null
         );
+    }
+
+    private static bool TryBuildForwardArguments(DtoContext context, IParameterSymbol parameter,
+        ParameterOutcome outcome, List<ForwardArgument> forwardArguments)
+    {
+        var (elementType, isCollection) = parameter.Type.GetCollectionInfo();
+        var (unwrappedType, isNullable) = elementType.UnwrapNullable();
+        var sourceProperty = ToPascalCase(parameter.Name);
+
+        if (IsAggregateType(unwrappedType))
+        {
+            var propertyName = isCollection ? $"{unwrappedType.Name}Ids" : $"{unwrappedType.Name}Id";
+            var sourceExpression = isCollection
+                ? $"{LinqNamespace}.Enumerable.Select(source.{ToPascalCase(parameter.Name)}, x => x.Id)"
+                : $"source.{ToPascalCase(parameter.Name)}.Id";
+            if (!HasReadableProperty(context.SourceSymbol, ToPascalCase(parameter.Name))) return false;
+            forwardArguments.Add(new ForwardArgument(propertyName, sourceExpression));
+            return true;
+        }
+
+        if (!HasReadableProperty(context.SourceSymbol, sourceProperty)) return false;
+
+        if (IsValueObjectType(unwrappedType))
+        {
+            if (outcome.Reconstruction is { Kind: ReconstructKind.FlattenedValueObject, FlattenedArguments: not null })
+            {
+                foreach (var argument in outcome.Reconstruction.Value.FlattenedArguments.Value)
+                {
+                    var sourceMember = ToPascalCase(argument.SubFactoryParameterName);
+                    if (!HasReadableProperty(unwrappedType, sourceMember)) return false;
+                    forwardArguments.Add(new ForwardArgument(
+                        argument.DtoPropertyName,
+                        $"source.{sourceProperty}.{sourceMember}"));
+                }
+
+                return true;
+            }
+
+            var hasGeneratedValue = unwrappedType is INamedTypeSymbol namedType &&
+                                    (GetValueObjectUnderlyingType(namedType) is not null ||
+                                     namedType.GetAnyMajalAttribute(nameof(ValueObjectAttribute))?.AttributeClass is
+                                     { TypeArguments.Length: > 0 } ||
+                                     FindFactoryMethod(namedType, context.FactoryMethodName) is { Parameters.Length: 1 });
+            if (!hasGeneratedValue && !HasReadableProperty(unwrappedType, "Value")) return false;
+            var valueExpression = $"source.{sourceProperty}.Value";
+            if (isNullable) valueExpression = $"source.{sourceProperty} is null ? null : {valueExpression}";
+            forwardArguments.Add(new ForwardArgument(sourceProperty, valueExpression));
+            return true;
+        }
+
+        if (IsEntityType(unwrappedType) && outcome.Reconstruction is { TargetTypeName: not null })
+        {
+            var nestedDtoType = outcome.Properties[0].Declaration.Type;
+            if (isCollection)
+            {
+                var open = nestedDtoType.IndexOf('<');
+                nestedDtoType = nestedDtoType.Substring(open + 1, nestedDtoType.Length - open - 2);
+            }
+
+            var nestedMethod = outcome.Reconstruction.Value.TargetTypeName!;
+            var expression = isCollection
+                ? $"{LinqNamespace}.Enumerable.Select(source.{sourceProperty}, x => {nestedDtoType}.From{nestedMethod}(x))"
+                : $"{nestedDtoType}.From{nestedMethod}(source.{sourceProperty})";
+            if (isNullable && !isCollection)
+                expression = $"source.{sourceProperty} is null ? null : {expression}";
+
+            forwardArguments.Add(new ForwardArgument(sourceProperty, expression));
+            return true;
+        }
+
+        var directExpression = sourceProperty == "Locale" &&
+                               context.SourceSymbol.HasAnyMajaAttribute("TranslatableAttribute")
+            ? $"source.{sourceProperty}.IetfLanguageTag"
+            : $"source.{sourceProperty}";
+        forwardArguments.Add(new ForwardArgument(sourceProperty, directExpression));
+        return true;
+    }
+
+    private static bool HasReadableProperty(ITypeSymbol type, string propertyName)
+    {
+        for (var current = type; current is not null; current = current.BaseType)
+        {
+            if (current.GetMembers(propertyName).OfType<IPropertySymbol>().Any(p => p.GetMethod is not null))
+                return true;
+        }
+
+        return (propertyName == "Id" && IsEntityType(type)) ||
+               (propertyName == "Locale" && type.HasAnyMajaAttribute("TranslatableAttribute"));
     }
 
     private static ParameterData ApplyNullable(ParameterData data, HashSet<string> nullableProperties)

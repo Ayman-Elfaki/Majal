@@ -20,12 +20,13 @@ public readonly record struct DtoData
     public string? SourceSimpleName { get; }
     public string? FactoryMethodName { get; }
     public EquatableList<FactoryArgument>? ReconstructionArguments { get; }
+    public EquatableList<ForwardArgument>? ForwardArguments { get; }
 
     public DtoData(string @namespace, string dtoName, string rawDtoName, string[] parentTypeDeclarations,
         Accessibility accessibility, string? xmlDocs, string? baseDtoName, bool isRecord,
         DerivedTypeInfo[] derivedTypes, ParameterData[] parameters, DtoData[] nestedDtos,
         string? sourceTypeName = null, string? sourceSimpleName = null, string? factoryMethodName = null,
-        FactoryArgument[]? reconstructionArguments = null)
+        FactoryArgument[]? reconstructionArguments = null, ForwardArgument[]? forwardArguments = null)
     {
         DtoName = dtoName;
         Namespace = @namespace;
@@ -44,5 +45,8 @@ public readonly record struct DtoData
         ReconstructionArguments = reconstructionArguments is null
             ? null
             : new EquatableList<FactoryArgument>(reconstructionArguments);
+        ForwardArguments = forwardArguments is null
+            ? null
+            : new EquatableList<ForwardArgument>(forwardArguments);
     }
 }

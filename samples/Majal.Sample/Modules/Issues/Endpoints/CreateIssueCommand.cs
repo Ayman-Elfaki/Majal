@@ -60,6 +60,6 @@ public partial record CreateIssueCommand
         
         project.Issues.Add(issue);
         await context.SaveChangesAsync(ct);
-        return Results.Ok();
+        return Results.Ok(PendingIssuesDto.FromPendingIssue(issue));
     }
 }

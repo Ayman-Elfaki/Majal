@@ -42,6 +42,18 @@ public partial record UserDto
 }
 ```
 
+The DTO also gets a static `From{Source}()` method when the source type exposes readable properties matching the factory parameters:
+
+```csharp
+public static UserDto FromUser(global::User source) => new()
+{
+    Name = source.Name,
+    Age = source.Age
+};
+```
+
+Nested entities are converted through their generated `From{Source}()` methods, collections are projected with LINQ, value objects use their `Value` property, and aggregates use the generated `{Aggregate}Id` or `{Aggregate}Ids` property. The static method is omitted when a required source member cannot be resolved. The existing `To{Source}()` method is unaffected.
+
 ## Nested Types
 
 Parameters that are themselves `[Entity]`/`[Aggregate]` types are expanded into nested DTOs (or, for aggregates, replaced with just their ID) rather than exposed as raw domain objects:

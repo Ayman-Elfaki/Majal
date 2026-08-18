@@ -102,6 +102,12 @@ public class DtoForTemplate : BaseTemplate
             GenerateToSourceMethod(dto);
         }
 
+        if (dto.ForwardArguments is not null)
+        {
+            WriteLine("");
+            GenerateFromSourceMethod(dto);
+        }
+
         if (dto.NestedDtos.Count > 0)
         {
             WriteLine("");
@@ -145,6 +151,28 @@ public class DtoForTemplate : BaseTemplate
 
         PopIndent();
         WriteLine(");");
+        PopIndent();
+    }
+
+    private void GenerateFromSourceMethod(DtoData dto)
+    {
+        WriteLine("/// <summary>Creates a DTO from the specified source entity.</summary>");
+        WriteLine("/// <param name=\"source\">The source entity to convert.</param>");
+        WriteLine($"public static {dto.DtoName} From{dto.SourceSimpleName}({dto.SourceTypeName} source) => new()");
+        PushIndent();
+        WriteLine("{");
+        PushIndent();
+
+        var arguments = dto.ForwardArguments!.Value;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            var argument = arguments[i];
+            var suffix = i < arguments.Count - 1 ? "," : "";
+            WriteLine($"{argument.DtoPropertyName} = {argument.SourceExpression}{suffix}");
+        }
+
+        PopIndent();
+        WriteLine("};");
         PopIndent();
     }
 

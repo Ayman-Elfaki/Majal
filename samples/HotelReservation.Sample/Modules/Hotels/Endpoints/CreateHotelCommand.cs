@@ -68,6 +68,6 @@ public partial class CreateHotelCommand
         context.Hotels.Add(hotel);
         await context.SaveChangesAsync(ct);
 
-        return Results.Ok();
+        return Results.Ok(HotelDtos.FromHotel(hotel));
     }
 }
