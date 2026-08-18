@@ -14,31 +14,42 @@ EF Core support ships as a separate package, `Majal.EntityFrameworkCore`. Refere
 
 `Majal.EntityFrameworkCore` requires `Majal` to already be referenced, since the generated interceptors/conventions target the attributes and interfaces (`[Archivable]`, `[Auditable]`, `[Translatable<T>]`, `[ValueObject<T>]`, `ITranslatableDbContext<T>`, etc.) that `Majal` provides. It does not bring in an EF Core package dependency itself — you still add whichever EF Core provider package (`Microsoft.EntityFrameworkCore.Sqlite`, `.SqlServer`, etc.) your project needs.
 
-## Value Objects
+## Base DbContext
 
-Majal automatically generates EF Core value converters for all your `[ValueObject]` types. To register these converters globally, use the `RegisterValueObjectsConventions` extension method in your `DbContext.OnModelCreating` or `ConfigureConventions`:
+The recommended registration path is to inherit from `MajalDbContext<TLocale>`. This base class automatically applies the Majal EF Core setup for you:
+
+- `UseMajal(...)` registers value object conventions, the archivable filter, and the translatable locale filter.
+- `AddMajalInterceptors()` registers the auditable and archivable `SaveChangesInterceptor`s.
 
 ```csharp
-protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+public sealed class AppDbContext(
+    DbContextOptions<AppDbContext> options,
+    ILocaleProvider<CultureInfo> localeProvider)
+    : MajalDbContext<CultureInfo>(options, localeProvider.GetCurrentLocale())
 {
-    configurationBuilder.RegisterValueObjectsConventions();
+    public DbSet<Product> Products => Set<Product>();
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+    {
+        base.ConfigureConventions(builder);
+        builder.Properties<CultureInfo>().HaveConversion<CultureInfoValueConverter>();
+    }
 }
 ```
 
-This ensures that all properties using your generated value objects are correctly mapped to their underlying types (e.g., `string`, `int`) in the database.
+This keeps the EF Core setup centralized and consistent across all Majal-enabled contexts.
+
+## Value Objects
+
+Majal automatically generates EF Core value converters for all your `[ValueObject]` types. When you use `MajalDbContext<TLocale>`, these are registered automatically through `UseMajal(...)`.
+
+If you need to add custom conversion rules for a non-generated type, call `base.ConfigureConventions(builder)` and then add your own configuration afterwards.
 
 ## Auditing
 
 The `AuditableSaveChangesInterceptor` automatically populates the `CreatedOn` and `UpdatedOn` properties for entities marked with `[Auditable]`.
 
-### Registration
-
-```csharp
-protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-{
-    optionsBuilder.AddInterceptors(new AuditableSaveChangesInterceptor());
-}
-```
+This interceptor is included automatically when your context inherits from `MajalDbContext<TLocale>`.
 
 ## Archiving (Soft Deletion)
 
@@ -47,19 +58,7 @@ Majal handles soft deletion through two components:
 1.  **`ArchivableSaveChangesInterceptor`**: Intercepts deletions and instead marks the entity as archived by setting `IsArchived = true` and `ArchivedOn = DateTimeOffset.UtcNow`.
 2.  **`ArchivableFilterConvention`**: Applies a global query filter to all `IArchivable` entities so that archived records are excluded by default.
 
-### Registration
-
-```csharp
-protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-{
-    optionsBuilder.AddInterceptors(new ArchivableSaveChangesInterceptor());
-}
-
-protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
-{
-    configurationBuilder.Conventions.Add(_ => new ArchivableFilterConvention());
-}
-```
+These are also registered automatically by the base Majal context.
 
 ### Ignoring the Filter
 
@@ -71,21 +70,15 @@ var allUsers = await dbContext.Users.IgnoreArchivableFilter().ToListAsync();
 
 ## Multi-language Support (Translatables)
 
-The `TranslatableFilterConvention` helps you automatically filter translatable entities based on the current locale.
-
-### Registration
-
-Your `DbContext` must implement `ITranslatableDbContext<TLocale>` to provide the current locale.
+The `TranslatableFilterConvention` automatically filters translatable entities based on the current locale from `ITranslatableDbContext<TLocale>`. When your context inherits from `MajalDbContext<TLocale>`, the locale is supplied through the base class and the filter is registered automatically.
 
 ```csharp
-public class MyDbContext : DbContext, ITranslatableDbContext<string>
+public sealed class AppDbContext(
+    DbContextOptions<AppDbContext> options,
+    ILocaleProvider<CultureInfo> localeProvider)
+    : MajalDbContext<CultureInfo>(options, localeProvider.GetCurrentLocale())
 {
-    public string Locale { get; set; } = "en-US"; // Typically set via a service or middleware
-
-    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
-    {
-        configurationBuilder.Conventions.Add(_ => new TranslatableFilterConvention<string, MyDbContext>(this));
-    }
+    public DbSet<ProductTranslation> ProductTranslations => Set<ProductTranslation>();
 }
 ```
 

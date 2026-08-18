@@ -1,4 +1,5 @@
 using System.Text;
+using Majal.Generators;
 using Majal.Generators.Archivables;
 using Majal.Generators.Auditables;
 using Majal.Generators.Translatables;
@@ -22,6 +23,8 @@ public sealed class StaticArtifactsGenerator : IIncrementalGenerator
                 SourceText.From(new AuditableInterceptorTemplate().TransformText(), Encoding.UTF8));
             ctx.AddSource("TranslatableFilterConvention.g.cs",
                 SourceText.From(new TranslatableConventionTemplate().TransformText(), Encoding.UTF8));
+            ctx.AddSource("MajalDbContext.g.cs",
+                SourceText.From(new MajalDbContextTemplate().TransformText(), Encoding.UTF8));
         });
     }
 }

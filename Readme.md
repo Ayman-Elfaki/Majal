@@ -64,6 +64,28 @@ The repository contains four test projects: `Majal.Tests` (generator/analyzer un
 dotnet test Majal.slnx
 ```
 
+## EF Core Integration
+
+Majal's EF Core package centralizes the registration of value-object conventions, translatable filters, archivable filters, and save-change interceptors through `MajalDbContext<TLocale>`.
+
+```csharp
+public sealed class AppDbContext(
+    DbContextOptions<AppDbContext> options,
+    ILocaleProvider<CultureInfo> localeProvider)
+    : MajalDbContext<CultureInfo>(options, localeProvider.GetCurrentLocale())
+{
+    public DbSet<Product> Products => Set<Product>();
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+    {
+        base.ConfigureConventions(builder);
+        builder.Properties<CultureInfo>().HaveConversion<CultureInfoValueConverter>();
+    }
+}
+```
+
+This keeps the context setup consistent and removes the need to manually register the generated conventions and interceptors in each `DbContext`.
+
 ## Documentation
 
 - [Getting Started](docs/getting-started.md)

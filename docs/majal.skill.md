@@ -52,8 +52,8 @@ Use `[Translatable<TLocale>]` (usually `TLocale` is `CultureInfo` or `string`).
 3.  **Check Generated Code**: Remember that many properties (`Id`, `CreatedOn`, `Locale`, etc.) are NOT visible in the source file but are available at compile-time and via IntelliSense.
 4.  **EF Core Integration**: 
     - Enable by adding `<PackageReference Include="Majal.EntityFrameworkCore" />` alongside `Majal` in the `.csproj` (no MSBuild property needed — the package reference itself is the opt-in).
-    - Register interceptors (`AuditableSaveChangesInterceptor`, `ArchivableSaveChangesInterceptor`) in `OnConfiguring`.
-    - Register conventions (`ArchivableFilterConvention`, `TranslatableFilterConvention`, `RegisterValueObjectsConventions`) in `ConfigureConventions`.
+    - Prefer inheriting from `MajalDbContext<TLocale>` so conventions and interceptors are registered automatically via `UseMajal(...)` and `AddMajalInterceptors()`.
+    - If you need custom conversions or extra conventions, call `base.ConfigureConventions(builder)` and add your custom configuration afterward.
     - Refer to `docs/ef-core.md` for full details.
 5.  **DTO Generation**:
     - Add `<PackageReference Include="Majal.DataTransferObjects" />` alongside `Majal`.
