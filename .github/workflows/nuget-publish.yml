@@ -17,6 +17,17 @@ jobs:
         with:
           dotnet-version: '10.x'
 
+      # NuGet.config includes the repository-local package source used by samples and local builds.
+      - name: Create local package source
+        run: mkdir -p .artifacts
+
+      # Pack the projects first so the solution restore can resolve the package version used by the samples.
+      - name: Pack NuGet packages
+        run: |
+          dotnet pack src/Majal/Majal.csproj -c Release -o ./.artifacts
+          dotnet pack src/Majal.DataTransferObjects/Majal.DataTransferObjects.csproj -c Release -o ./.artifacts
+          dotnet pack src/Majal.EntityFrameworkCore/Majal.EntityFrameworkCore.csproj -c Release -o ./.artifacts
+
       # Restore the project dependencies to ensure that all required packages are available for building and testing the project.
       - name: Restore dependencies
         run: dotnet restore
@@ -36,13 +47,6 @@ jobs:
       # Execute the test project to ensure all EF Core integration tests pass before building the package.
       - name: Run EntityFrameworkCore tests
         run: dotnet test ./tests/Majal.EntityFrameworkCore.Tests/Majal.EntityFrameworkCore.Tests.csproj -c Release --no-restore
-
-      # Pack the projects into NuGet packages, specifying the output directory for the generated .nupkg files.
-      - name: Pack NuGet packages
-        run: |
-          dotnet pack src/Majal/Majal.csproj -c Release -o ./.artifacts
-          dotnet pack src/Majal.DataTransferObjects/Majal.DataTransferObjects.csproj -c Release -o ./.artifacts
-          dotnet pack src/Majal.EntityFrameworkCore/Majal.EntityFrameworkCore.csproj -c Release -o ./.artifacts
 
       # Push the generated NuGet packages to NuGet.org using the API key stored in GitHub Secrets. The command includes the --skip-duplicate flag to avoid errors if the package version already exists on NuGet.org.
       - name: Push packages to NuGet.org
