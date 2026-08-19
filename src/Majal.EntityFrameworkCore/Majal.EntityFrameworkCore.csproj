@@ -13,6 +13,7 @@
         <IncludeBuildOutput>false</IncludeBuildOutput>
         <BuildOutputTargetFolder>analyzers</BuildOutputTargetFolder>
         <SuppressPackageTlvFolderCheck>true</SuppressPackageTlvFolderCheck>
+        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     </PropertyGroup>
 
     <PropertyGroup>

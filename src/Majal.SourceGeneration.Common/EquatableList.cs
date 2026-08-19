@@ -10,7 +10,17 @@ public readonly struct EquatableList<T>(IEnumerable<T> list) : IEquatable<Equata
     {
         if (_internalList is null && other is null) return true;
         if (_internalList is null || other is null) return false;
-        return _internalList.SequenceEqual(other.Value._internalList);
+
+        var otherList = other.Value._internalList;
+        if (_internalList.Count != otherList.Count) return false;
+
+        for (var index = 0; index < _internalList.Count; index++)
+        {
+            if (!EqualityComparer<T>.Default.Equals(_internalList[index], otherList[index]))
+                return false;
+        }
+
+        return true;
     }
 
     public T this[int index] => _internalList[index];
@@ -28,9 +38,14 @@ public readonly struct EquatableList<T>(IEnumerable<T> list) : IEquatable<Equata
     public override int GetHashCode()
     {
         if (_internalList is null) return 0;
+
         unchecked
         {
-            return _internalList.Aggregate(17, (current, item) => current * 23 + (item?.GetHashCode() ?? 0));
+            var hash = 17;
+            foreach (var item in _internalList)
+                hash = hash * 23 + (item?.GetHashCode() ?? 0);
+
+            return hash;
         }
     }
 

@@ -56,6 +56,14 @@ dotnet build src/Majal/Majal.csproj -c Release
 
 The generated analyzer DLL will be placed in `src/Majal/bin/Debug/netstandard2.0/` (or `Release` folder).
 
+To build the samples against locally generated packages, run this from the repository root:
+
+```powershell
+./scripts/Build-SamplesWithLocalPackages.ps1
+```
+
+The script writes the packages to `.artifacts`, restores both samples from that local feed, and builds them in Release configuration.
+
 ## Running Tests
 
 The repository contains four test projects: `Majal.Tests` (generator/analyzer unit tests), `Majal.FunctionalTests` (compiled runtime behavior), `Majal.DataTransferObjects.Tests` (DTO generator unit tests), and `Majal.EntityFrameworkCore.Tests` (EF Core interceptor/convention/value-converter integration tests against a real SQLite database). Run them all with:

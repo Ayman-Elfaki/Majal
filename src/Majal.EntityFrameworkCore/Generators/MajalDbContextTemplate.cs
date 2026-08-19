@@ -77,7 +77,7 @@ public class MajalDbContextTemplate : BaseTemplate
         WriteLine("/// <summary>Initializes a new instance of the <see cref=\"MajalDbContext\"/> class.</summary>");
         WriteLine("/// <param name=\"options\">The EF Core options for the context.</param>");
         WriteLine("/// <param name=\"locale\">The current locale used for translatable entity filtering.</param>");
-        WriteLine("public MajalDbContext(Microsoft.EntityFrameworkCore.DbContextOptions<MajalDbContext> options, string locale = \"en-US\")");
+        WriteLine("public MajalDbContext(Microsoft.EntityFrameworkCore.DbContextOptions options, string locale = \"en-US\")");
         WriteLine("    : base(options, locale)");
         WriteLine("{");
         WriteLine("}");

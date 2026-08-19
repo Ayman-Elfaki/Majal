@@ -3,7 +3,7 @@
   "profiles": {
     "DebugRoslynSourceGenerator": {
       "commandName": "DebugRoslynComponent",
-      "targetProject": "../Majal.Sample/Majal.Sample.csproj"
+      "targetProject": "../../samples/Todo.Api/Todo.Api.csproj"
     }
   }
 }

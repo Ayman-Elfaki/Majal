@@ -20,8 +20,8 @@
         <File Path="docs/value-objects.md" />
     </Folder>
     <Folder Name="/samples/">
-        <Project Path="samples/HotelReservation.Sample/HotelReservation.Sample.csproj" />
-        <Project Path="samples/Majal.Sample/Majal.Sample.csproj" />
+        <Project Path="samples/Todo.Api/Todo.Api.csproj" />
+        <Project Path="samples/Todo.Core/Todo.Core.csproj" />
     </Folder>
     <Folder Name="/src/">
         <Project Path="src/Majal.DataTransferObjects.Types/Majal.DataTransferObjects.Types.csproj" />

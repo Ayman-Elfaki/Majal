@@ -4,6 +4,7 @@ using Majal.Generators.Archivables;
 using Majal.Generators.Auditables;
 using Majal.Generators.Translatables;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
 namespace Majal.EntityFrameworkCore.Generators;
@@ -13,8 +14,23 @@ public sealed class StaticArtifactsGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        context.RegisterPostInitializationOutput(ctx =>
+        var dbContextDeclarations = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                static (node, _) =>
+                {
+                    if (node is not ClassDeclarationSyntax { BaseList.Types.Count: > 0 } declaration)
+                        return false;
+
+                    return declaration.BaseList!.Types.Any(baseType =>
+                        baseType.Type.ToString().StartsWith("MajalDbContext", StringComparison.Ordinal));
+                },
+                static (_, _) => true)
+            .Collect();
+
+        context.RegisterSourceOutput(dbContextDeclarations, (ctx, declarations) =>
         {
+            if (declarations.IsDefaultOrEmpty) return;
+
             ctx.AddSource("ArchivableSaveChangesInterceptor.g.cs",
                 SourceText.From(new ArchivableInterceptorTemplate().TransformText(), Encoding.UTF8));
             ctx.AddSource("ArchivableFilterConvention.g.cs",
