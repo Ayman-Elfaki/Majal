@@ -22,10 +22,15 @@ internal sealed class EntityParameterHandler : IParameterHandler
         var paramXml = ExtractParamDoc(ctx.MethodXml, ctx.Parameter.Name);
         var dtoPropertyName = ToPascalCase(propertyName);
 
-        TryGetNestedDto(resolvedElementType, ctx.DtoContext.CollectedDto, out var nestedDto);
+        TryGetNestedDto(resolvedElementType, ctx.DtoContext.Graph, out var nestedDto);
+        var nestedSourceName = nestedDto.SourceSimpleName;
+        if (nestedSourceName is null && ctx.DtoContext.Graph.TryGetNode(
+                resolvedElementType.TrimEnd('?'), out var nestedNode))
+            nestedSourceName = nestedNode.SourceSymbol.Name;
+
         var reconstruction = new FactoryArgument(
             ctx.Parameter.Name, ReconstructKind.NestedType, dtoPropertyName,
-            nestedDto.SourceSimpleName, isCollection,
+            nestedSourceName, isCollection,
             isCollection ? GetCollectionConversionSuffix(ctx.Parameter.Type) : "", isNullable);
 
         return new ParameterOutcome(

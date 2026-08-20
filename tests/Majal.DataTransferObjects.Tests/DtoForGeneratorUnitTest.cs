@@ -273,6 +273,83 @@ public class DtoForGeneratorUnitTest
     }
 
     [Fact]
+    public void TerminatesMutualEntityCycle()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public partial class Parent
+            {
+                public static Parent Create(Child child) => new Parent();
+            }
+
+            [Entity]
+            public partial class Child
+            {
+                public static Child Create(Parent parent) => new Child();
+            }
+
+            [DtoFor<Parent>]
+            public partial record ParentDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var result = CSharpGeneratorDriver.Create(new DtoForGenerator())
+            .RunGenerators(compilation, TestContext.Current.CancellationToken)
+            .GetRunResult();
+
+        var generated = result.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ParentDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Equal(1, generated.Split("public partial record ParentDtoChildDto").Length - 1);
+        Assert.Contains("public required ParentDto Parent { get; init; }", generated);
+        AssertNoCompilationErrors(compilation, result);
+    }
+
+    [Fact]
+    public void DeduplicatesSharedNestedEntity()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public partial class Address
+            {
+                public static Address Create(string street) => new Address();
+            }
+
+            [Entity]
+            public partial class Order
+            {
+                public static Order Create(Address shipping, Address billing) => new Order();
+            }
+
+            [DtoFor<Order>]
+            public partial record OrderDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var result = CSharpGeneratorDriver.Create(new DtoForGenerator())
+            .RunGenerators(compilation, TestContext.Current.CancellationToken)
+            .GetRunResult();
+
+        var generated = result.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("OrderDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public required OrderDtoAddressDto Shipping { get; init; }", generated);
+        Assert.Contains("public required OrderDtoAddressDto Billing { get; init; }", generated);
+        Assert.Equal(1, generated.Split("public partial record OrderDtoAddressDto").Length - 1);
+        AssertNoCompilationErrors(compilation, result);
+    }
+
+    [Fact]
     public void GeneratesDtoForDerivedEntityWithFactoryMethod()
     {
         const string source =

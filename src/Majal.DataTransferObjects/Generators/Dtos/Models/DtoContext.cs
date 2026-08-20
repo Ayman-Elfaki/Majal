@@ -14,7 +14,7 @@ internal readonly record struct DtoContext(
     bool IsRoot,
     bool IsRecord,
     string FactoryMethodName,
-    Dictionary<string, DtoData> CollectedDto,
+    DtoGraph Graph,
     Dictionary<string, bool>? FlattenConfigs = null,
     ITypeSymbol[]? ExcludedTypes = null,
     string[]? ExcludedProperties = null!,

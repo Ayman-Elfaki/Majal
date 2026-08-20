@@ -96,7 +96,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
             IsRecord: dtoSymbol.IsRecord,
             SourceSymbol: sourceSymbol,
             FactoryMethodName: options.FactoryMethodName,
-            CollectedDto: new Dictionary<string, DtoData>(),
+            Graph: new DtoGraph(),
             FlattenConfigs: typeConfig.FlattenConfigs,
             ExcludedTypes: typeConfig.ExcludedTypes,
             ExcludedProperties: options.ExcludedProperties,
@@ -105,7 +105,10 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
             Compilation: compilation
         );
 
-        return GetDtoData(dtoContext);
+        dtoContext.Graph.Register(sourceSymbol, dtoContext.DtoName);
+        var rootData = GetDtoData(dtoContext);
+        if (rootData is { } data) dtoContext.Graph.Complete(sourceSymbol, data);
+        return rootData;
     }
 
     private static DtoOptions ReadDtoOptions(AttributeData attribute, string dtoSymbolName, Compilation compilation)
@@ -224,10 +227,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
                     var derivedSymbol = method.ContainingType;
                     var derivedDtoName = $"{context.DtoNamePrefix}{derivedSymbol.Name}{context.DtoNameSuffix}";
 
-                    if (!context.CollectedDto.ContainsKey(derivedDtoName))
+                    if (context.Graph.Register(derivedSymbol, derivedDtoName))
                     {
-                        context.CollectedDto[derivedDtoName] = default;
-
                         var derivedContext = context with
                         {
                             IsRoot = false,
@@ -241,7 +242,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
                         if (derivedData != null)
                         {
                             var updatedData = derivedData.Value with { BaseDtoName = context.DtoName };
-                            context.CollectedDto[derivedDtoName] = updatedData;
+                            context.Graph.Complete(derivedSymbol, updatedData);
                             derivedDtos.Add(updatedData);
                         }
                     }
@@ -268,7 +269,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
                         };
 
                         derivedDtos[i] = updatedData;
-                        context.CollectedDto[derivedDto.DtoName] = updatedData;
+                        if (context.Graph.TryGetNode(derivedDto.DtoName, out var derivedNode))
+                            context.Graph.Complete(derivedNode.SourceSymbol, updatedData);
                     }
                 }
 
@@ -276,8 +278,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
 
                 var nestedDtos =
                     context.IsRoot
-                        ? context.CollectedDto.Values
-                            .Where(v => !string.IsNullOrEmpty(v.DtoName) && v.DtoName != context.DtoName).ToArray()
+                        ? context.Graph.GetCompletedDtos(context.SourceSymbol).ToArray()
                         : [];
 
                 return new DtoData(
@@ -339,7 +340,7 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
         }
 
         DtoData[] nestedDtosResult =
-            context.IsRoot ? [.. context.CollectedDto.Values.Where(v => !string.IsNullOrEmpty(v.DtoName))] : [];
+            context.IsRoot ? [.. context.Graph.GetCompletedDtos(context.SourceSymbol)] : [];
 
         var xmlDocsResult = ExtractSummary(methodXml) ??
                             FormatXmlDocs(context.SourceSymbol.GetDocumentationCommentXml());

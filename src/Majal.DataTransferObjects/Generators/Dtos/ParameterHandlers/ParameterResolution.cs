@@ -122,9 +122,14 @@ internal static class ParameterResolution
         var resolvedElementType = nestedDtoName;
         if (parameterType.IsNullable) resolvedElementType += "?";
 
-        if (parameterType.Context.DtoContext.CollectedDto.ContainsKey(nestedDtoName)) return resolvedElementType;
+        var graph = parameterType.Context.DtoContext.Graph;
+        if (graph.TryGetNode(eNamedType, out var existingNode))
+        {
+            resolvedElementType = existingNode.DtoName;
+            return parameterType.IsNullable ? $"{resolvedElementType}?" : resolvedElementType;
+        }
 
-        parameterType.Context.DtoContext.CollectedDto[nestedDtoName] = default;
+        graph.Register(eNamedType, nestedDtoName);
 
         var nestedContext = parameterType.Context.DtoContext with
         {
@@ -136,17 +141,19 @@ internal static class ParameterResolution
 
         var nestedData = DtoForGenerator.GetDtoData(nestedContext);
 
-        if (nestedData == null) return resolvedElementType;
-        parameterType.Context.DtoContext.CollectedDto[nestedDtoName] = nestedData.Value;
+        if (nestedData == null)
+        {
+            graph.Fail(eNamedType);
+            return resolvedElementType;
+        }
+
+        graph.Complete(eNamedType, nestedData.Value);
 
         if (nestedData.Value.DtoName == nestedDtoName) return resolvedElementType;
 
         var actualDtoName = nestedData.Value.DtoName;
         resolvedElementType = actualDtoName;
         if (parameterType.IsNullable) resolvedElementType += "?";
-
-        if (!parameterType.Context.DtoContext.CollectedDto.ContainsKey(actualDtoName))
-            parameterType.Context.DtoContext.CollectedDto[actualDtoName] = nestedData.Value;
 
         return resolvedElementType;
     }
@@ -157,7 +164,7 @@ internal static class ParameterResolution
     {
         var suffix = isCollection ? GetCollectionConversionSuffix(ctx.Parameter.Type) : "";
 
-        if (TryGetNestedDto(resolvedElementType, ctx.DtoContext.CollectedDto, out var nestedDto))
+        if (TryGetNestedDto(resolvedElementType, ctx.DtoContext.Graph, out var nestedDto))
         {
             return new FactoryArgument(ctx.Parameter.Name, ReconstructKind.NestedType, dtoPropertyName,
                 nestedDto.SourceSimpleName, isCollection, suffix, isNullable);
@@ -167,13 +174,20 @@ internal static class ParameterResolution
             scalarTargetTypeName, isCollection, suffix, isNullable);
     }
 
-    public static bool TryGetNestedDto(string resolvedElementType, Dictionary<string, DtoData> collectedDto,
+    public static bool TryGetNestedDto(string resolvedElementType, DtoGraph graph,
         out DtoData nestedDto)
     {
         var key = resolvedElementType.EndsWith("?")
             ? resolvedElementType.Substring(0, resolvedElementType.Length - 1)
             : resolvedElementType;
-        return collectedDto.TryGetValue(key, out nestedDto);
+        if (graph.TryGetNode(key, out var node) && node.Data is { } data)
+        {
+            nestedDto = data;
+            return true;
+        }
+
+        nestedDto = default;
+        return false;
     }
 
     public static string GetCollectionConversionSuffix(ITypeSymbol parameterType)
