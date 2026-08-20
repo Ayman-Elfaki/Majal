@@ -76,7 +76,7 @@ public sealed class AggregateGenerator : BaseGenerator<AggregateGenerator.Aggreg
     {
         if (context.TargetSymbol is not INamedTypeSymbol symbol) return null;
 
-        var attribute = symbol.GetAttribute(AttributeName, AttributeNamespace);
+        var attribute = symbol.GetAnyMajalAttribute(AttributeName);
 
         var hasEntityAttribute = symbol.HasAttribute(EntityAttributeName, AttributeNamespace);
 

@@ -26,7 +26,7 @@ public partial record UserDto;
 
 ## Generated Code
 
-The generator produces one property per factory-method parameter, plus a reverse `To{Source}()` method that reconstructs the source type by calling its factory method:
+The generator produces one property per factory-method parameter, plus a reverse `ToEntity()` method that reconstructs the source type by calling its factory method:
 
 ```csharp
 public partial record UserDto
@@ -34,7 +34,7 @@ public partial record UserDto
     public required global::System.String Name { get; init; }
     public required global::System.Int32 Age { get; init; }
 
-    public global::User ToUser() =>
+    public global::User ToEntity() =>
         global::User.Create(
             name: this.Name,
             age: this.Age
@@ -42,17 +42,36 @@ public partial record UserDto
 }
 ```
 
-The DTO also gets a static `From{Source}()` method when the source type exposes readable properties matching the factory parameters:
+The DTO also gets a static `FromEntity()` method when the source type exposes readable properties matching the factory parameters:
 
 ```csharp
-public static UserDto FromUser(global::User source) => new()
+public static UserDto FromEntity(global::User source) => new()
 {
     Name = source.Name,
     Age = source.Age
 };
 ```
 
-Nested entities are converted through their generated `From{Source}()` methods, collections are projected with LINQ, value objects use their `Value` property, and aggregates use the generated `{Aggregate}Id` or `{Aggregate}Ids` property. The static method is omitted when a required source member cannot be resolved. The existing `To{Source}()` method is unaffected.
+Nested entities are converted through their generated `FromEntity()` methods, collections are projected with LINQ, value objects use their `Value` property, and aggregates use the generated `{Aggregate}Id` or `{Aggregate}Ids` property. The static method is omitted only when a parameter cannot be represented automatically or supplied as a DTO value. The existing `ToEntity()` method is unaffected.
+
+For a concrete derived entity, readable properties inherited from its base type are used as usual. If a factory parameter is not represented by a readable entity property, `FromEntity()` accepts that DTO value explicitly instead of guessing it:
+
+```csharp
+public static PersonalTodoListDto FromEntity(
+    global::PersonalTodoList source,
+    global::System.Boolean isImportant,
+    global::System.UInt32 capacityMaximum,
+    global::System.UInt32 capacityMinimum) => new()
+{
+    Name = source.Name,
+    IsImportant = isImportant,
+    CapacityMaximum = capacityMaximum,
+    CapacityMinimum = capacityMinimum,
+    Translations = source.Translations
+};
+```
+
+The explicit arguments use the generated DTO property types, including flattened value-object properties.
 
 ## Nested Types
 
@@ -84,7 +103,7 @@ public partial class Email
 // User.Create(string name, Email email) generates:
 public required global::System.String Email { get; init; }
 // ...
-public global::User ToUser() =>
+public global::User ToEntity() =>
     global::User.Create(
         name: this.Name,
         email: global::Email.Create(this.Email)
@@ -117,7 +136,7 @@ Set `IsReversed = true` to prefix the inner property name instead of the parent 
 public partial record UserDto;
 ```
 
-Excluding a property that's required for reconstruction disables generation of the reverse `To{Source}()` method for that DTO, since the factory method could no longer be called with complete arguments.
+Excluding a property that's required for reconstruction disables generation of the reverse `ToEntity()` method for that DTO, since the factory method could no longer be called with complete arguments.
 
 ## Polymorphic DTOs
 
@@ -146,5 +165,5 @@ public partial record UserDto;
 ## Benefits
 
 * **Always in sync**: DTO shape is derived directly from the factory method, so it can't drift from how the domain type is actually constructed.
-* **Round-trippable**: The generated `To{Source}()` method reconstructs the domain type from the DTO wherever reconstruction is possible.
+* **Round-trippable**: The generated `ToEntity()` method reconstructs the domain type from the DTO wherever reconstruction is possible.
 * **Nesting handled for you**: Entities, aggregates, and value objects referenced by the factory method are automatically expanded into nested DTOs or unwrapped to their primitive representation.

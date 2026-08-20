@@ -99,13 +99,13 @@ public class DtoForTemplate : BaseTemplate
         if (dto.ReconstructionArguments is not null)
         {
             WriteLine("");
-            GenerateToSourceMethod(dto);
+            GenerateToEntityMethod(dto);
         }
 
         if (dto.ForwardArguments is not null)
         {
             WriteLine("");
-            GenerateFromSourceMethod(dto);
+            GenerateFromEntityMethod(dto);
         }
 
         if (dto.NestedDtos.Count > 0)
@@ -122,9 +122,9 @@ public class DtoForTemplate : BaseTemplate
         WriteLine("}");
     }
 
-    private void GenerateToSourceMethod(DtoData dto)
+    private void GenerateToEntityMethod(DtoData dto)
     {
-        WriteLine($"public {dto.SourceTypeName} To{dto.SourceSimpleName}() =>");
+        WriteLine($"public {dto.SourceTypeName} ToEntity() =>");
         PushIndent();
         WriteLine($"{dto.SourceTypeName}.{dto.FactoryMethodName}(");
         PushIndent();
@@ -154,11 +154,21 @@ public class DtoForTemplate : BaseTemplate
         PopIndent();
     }
 
-    private void GenerateFromSourceMethod(DtoData dto)
+    private void GenerateFromEntityMethod(DtoData dto)
     {
         WriteLine("/// <summary>Creates a DTO from the specified source entity.</summary>");
         WriteLine("/// <param name=\"source\">The source entity to convert.</param>");
-        WriteLine($"public static {dto.DtoName} From{dto.SourceSimpleName}({dto.SourceTypeName} source) => new()");
+        var suppliedArguments = dto.ForwardArguments!.Value
+            .Where(argument => argument.SourceParameterType is not null)
+            .ToArray();
+        foreach (var argument in suppliedArguments)
+            WriteLine($"/// <param name=\"{argument.SourceParameterName}\">The value for the {argument.DtoPropertyName} DTO property.</param>");
+
+        var signature = $"public static {dto.DtoName} FromEntity({dto.SourceTypeName} source";
+        foreach (var argument in suppliedArguments)
+            signature += $", {argument.SourceParameterType} {argument.SourceParameterName}";
+
+        WriteLine($"{signature}) => new()");
         PushIndent();
         WriteLine("{");
         PushIndent();
@@ -168,7 +178,8 @@ public class DtoForTemplate : BaseTemplate
         {
             var argument = arguments[i];
             var suffix = i < arguments.Count - 1 ? "," : "";
-            WriteLine($"{argument.DtoPropertyName} = {argument.SourceExpression}{suffix}");
+            var sourceExpression = argument.SourceParameterName ?? argument.SourceExpression;
+            WriteLine($"{argument.DtoPropertyName} = {sourceExpression}{suffix}");
         }
 
         PopIndent();
@@ -184,7 +195,7 @@ public class DtoForTemplate : BaseTemplate
             ReconstructKind.ValueObject => BuildWrappedExpression(argument,
                 value => $"{argument.TargetTypeName}.Create({value})"),
             ReconstructKind.NestedType => BuildWrappedExpression(argument,
-                value => $"{value}.To{argument.TargetTypeName}()"),
+                value => $"{value}.ToEntity()"),
             _ => $"this.{argument.DtoPropertyName}"
         };
     }

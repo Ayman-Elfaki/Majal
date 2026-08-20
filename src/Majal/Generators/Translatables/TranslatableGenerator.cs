@@ -92,7 +92,7 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
 
         if (!hasEntityAttribute) return null;
 
-        var attribute = symbol.GetAttribute(AttributeName, AttributeNamespace);
+        var attribute = symbol.GetAnyMajalAttribute(AttributeName);
 
         string? valueType = null;
 

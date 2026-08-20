@@ -48,7 +48,7 @@ Use `[Translatable<TLocale>]` (usually `TLocale` is `CultureInfo` or `string`).
 ## Interaction Guidelines for AI
 
 1.  **Always use `partial`**: When creating or modifying classes/records marked with Majal attributes, ensure they have the `partial` keyword.
-2.  **Refer to Samples**: Look at `samples/Todo.Api` and `samples/Todo.Core` for idiomatic usage.
+2.  **Refer to Samples**: Look at `samples/EShop` for idiomatic usage.
 3.  **Check Generated Code**: Remember that many properties (`Id`, `CreatedOn`, `Locale`, etc.) are NOT visible in the source file but are available at compile-time and via IntelliSense.
 4.  **EF Core Integration**: 
     - Enable by adding `<PackageReference Include="Majal.EntityFrameworkCore" />` alongside `Majal` in the `.csproj` (no MSBuild property needed — the package reference itself is the opt-in).

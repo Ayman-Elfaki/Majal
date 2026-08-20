@@ -24,6 +24,19 @@ public class OrdinalTemplate : BaseTemplate
         PushIndent();
         WriteLine("/// <inheritdoc />");
         WriteLine($"public required {UIntType} Ordinal {{ get; set; }}");
+        WriteLine("");
+        WriteLine("/// <summary>Assigns ordinal positions based on the order of the supplied entities.</summary>");
+        WriteLine($"public static void Reorder(global::System.Collections.Generic.IReadOnlyList<{Data.TypeName}> entities)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("for (var i = 0; i < entities.Count; i++)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("entities[i].Ordinal = (uint)i;");
+        PopIndent();
+        WriteLine("}");
+        PopIndent();
+        WriteLine("}");
         PopIndent();
         WriteLine("}");
 

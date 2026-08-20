@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Majal.FunctionalTests;
 
 public class DtoForFunctionalTests
@@ -16,10 +18,21 @@ public class DtoForFunctionalTests
     {
         var dto = new PersonDto { Name = "Ada", Age = 36 };
 
-        var person = dto.ToPerson();
+        var person = dto.ToEntity();
 
         Assert.Equal("Ada", person.Name);
         Assert.Equal(36, person.Age);
+    }
+
+    [Fact]
+    public void DtoFor_Translatable_FromEntity_SuppliesLocaleAsExplicitParameter()
+    {
+        var entity = NoteTranslation.Create("Hello", "en-US");
+
+        var dto = NoteTranslationDto.FromEntity(entity, "en-US");
+
+        Assert.Equal("Hello", dto.Content);
+        Assert.Equal("en-US", dto.Locale);
     }
 }
 
@@ -39,3 +52,15 @@ public partial class Person
 
 [DtoFor<Person>]
 public partial record PersonDto;
+
+[Entity, Translatable<CultureInfo>]
+public partial class NoteTranslation
+{
+    public string Content { get; private init; } = string.Empty;
+
+    public static NoteTranslation Create(string content, string locale) =>
+        new NoteTranslation { Content = content, Locale = CultureInfo.GetCultureInfo(locale) };
+}
+
+[DtoFor<NoteTranslation>]
+public partial record NoteTranslationDto;

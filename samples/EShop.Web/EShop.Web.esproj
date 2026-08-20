@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.4110890">
+    <PropertyGroup>
+        <BuildCommand></BuildCommand>
+        <TestCommand></TestCommand>
+        <StartupCommand>bun run dev</StartupCommand>
+        <ShouldRunBuildScript>false</ShouldRunBuildScript>
+        <BuildOutputFolder>$(MSBuildProjectDirectory)\.nuxt</BuildOutputFolder>
+        <ShouldRunNpmInstall>false</ShouldRunNpmInstall>
+        <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    </PropertyGroup>
+</Project>

@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "EShop",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "samples/EShop/EShop.csproj", "--launch-profile", "http"],
+      "port": 9100,
+      "url": "http://localhost:9100"
+    },
+    {
+      "name": "EShop.Web",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["--cwd=samples/EShop.Web", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}

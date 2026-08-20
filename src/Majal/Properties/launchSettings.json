@@ -3,7 +3,7 @@
   "profiles": {
     "DebugRoslynSourceGenerator": {
       "commandName": "DebugRoslynComponent",
-      "targetProject": "../../samples/Todo.Api/Todo.Api.csproj"
+      "targetProject": "../../samples/EShop/EShop.csproj"
     }
   }
 }

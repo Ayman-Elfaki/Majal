@@ -108,7 +108,7 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
     {
         if (context.TargetSymbol is not INamedTypeSymbol symbol) return null;
 
-        var attribute = symbol.GetAttribute(ValueObjectAttributeName, AttributeNamespace);
+        var attribute = symbol.GetAnyMajalAttribute(ValueObjectAttributeName);
 
         string? valueType = null;
 

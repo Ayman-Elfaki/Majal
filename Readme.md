@@ -59,10 +59,10 @@ The generated analyzer DLL will be placed in `src/Majal/bin/Debug/netstandard2.0
 To build the samples against locally generated packages, run this from the repository root:
 
 ```powershell
-./scripts/Build-SamplesWithLocalPackages.ps1
+./scripts/build.ps1
 ```
 
-The script writes the packages to `.artifacts`, restores both samples from that local feed, and builds them in Release configuration.
+The script writes the packages to `.artifacts`, restores the sample from that local feed, and builds it in Release configuration.
 
 ## Running Tests
 
@@ -71,6 +71,17 @@ The repository contains four test projects: `Majal.Tests` (generator/analyzer un
 ```bash
 dotnet test Majal.slnx
 ```
+
+## Samples
+
+- [`samples/EShop`](samples/EShop) -- an ASP.NET Core + Wolverine.Http API exercising every Majal generator
+  feature (entities, aggregates, value objects, translatables, archivables, auditables, ordinals, and
+  `[DtoFor<T>]` including polymorphic and flattened DTOs) over EF Core/SQLite.
+- [`samples/EShop.Web`](samples/EShop.Web) -- a Nuxt UI front end for the EShop API, calling it through
+  [nuxt-api-party](https://nuxt-api-party.byjohann.dev/)'s server-side proxy.
+
+Run the API first (`dotnet run --project samples/EShop`), then the web app
+(`bun install && bun run dev` from `samples/EShop.Web`).
 
 ## EF Core Integration
 

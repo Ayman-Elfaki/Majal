@@ -95,7 +95,7 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
     {
         if (context.TargetSymbol is not INamedTypeSymbol classSymbol) return null;
 
-        var attribute = classSymbol.GetAttribute(EntityAttributeName, AttributeNamespace);
+        var attribute = classSymbol.GetAnyMajalAttribute(EntityAttributeName);
 
         var idType = "int";
         if (attribute?.AttributeClass is { TypeArguments.Length: > 0 })
