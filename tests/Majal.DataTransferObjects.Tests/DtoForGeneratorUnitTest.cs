@@ -794,7 +794,7 @@ public class DtoForGeneratorUnitTest
     }
 
     [Fact]
-    public void GeneratesFromEntityConversionMethodForReadableProperties()
+    public void DoesNotGenerateFromEntityConversionMethodForReadableProperties()
     {
         const string source =
             """
@@ -824,14 +824,12 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.Contains("public static UserDto FromEntity(global::User source) => new()", dto);
-        Assert.Contains("Name = source.Name,", dto);
-        Assert.Contains("Age = source.Age", dto);
+        Assert.DoesNotContain("FromEntity(", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void GeneratesFromEntityConversionMethodForDerivedEntityWithSuppliedValues()
+    public void DoesNotGenerateFromEntityConversionMethodForDerivedEntityWithSuppliedValues()
     {
         const string source =
             """
@@ -864,16 +862,12 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.Contains(
-            "public static PersonalTodoListDto FromEntity(global::PersonalTodoList source, global::System.Boolean isImportant) => new()",
-            dto);
-        Assert.Contains("Name = source.Name,", dto);
-        Assert.Contains("IsImportant = isImportant", dto);
+        Assert.DoesNotContain("FromEntity(", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void GeneratesFromEntityConversionMethodForNestedEntity()
+    public void DoesNotGenerateFromEntityConversionMethodForNestedEntity()
     {
         const string source =
             """
@@ -912,14 +906,12 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.Contains("public static UserDto FromEntity(global::User source) => new()", dto);
-        Assert.Contains("Name = source.Name,", dto);
-        Assert.Contains("Address = UserDtoAddressDto.FromEntity(source.Address)", dto);
+        Assert.DoesNotContain("FromEntity(", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void GeneratesFromEntitySuppliedParameterForTranslatableLocale()
+    public void DoesNotGenerateFromEntitySuppliedParameterForTranslatableLocale()
     {
         const string source =
             """
@@ -950,17 +942,12 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.Contains(
-            "public static NoteDto FromEntity(global::Note source, global::System.String locale) => new()",
-            dto);
-        Assert.Contains("Content = source.Content,", dto);
-        Assert.Contains("Locale = locale", dto);
-        Assert.DoesNotContain("source.Locale", dto);
+        Assert.DoesNotContain("FromEntity(", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void GeneratesFromEntitySuppliedParameterForAggregateWithoutReadableProperty()
+    public void DoesNotGenerateFromEntitySuppliedParameterForAggregateWithoutReadableProperty()
     {
         const string source =
             """
@@ -994,15 +981,12 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.Contains(
-            "public static ShipmentDto FromEntity(global::Shipment source, global::System.Int32 warehouseId) => new()",
-            dto);
-        Assert.Contains("WarehouseId = warehouseId", dto);
+        Assert.DoesNotContain("FromEntity(", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void GeneratesFromEntitySuppliedParameterForScalarValueObjectWithoutValue()
+    public void DoesNotGenerateFromEntitySuppliedParameterForScalarValueObjectWithoutValue()
     {
         const string source =
             """
@@ -1038,15 +1022,12 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.Contains(
-            "public static ProductDto FromEntity(global::Product source, ProductDtoBarcodeDto identifier) => new()",
-            dto);
-        Assert.Contains("Identifier = identifier", dto);
+        Assert.DoesNotContain("FromEntity(", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void GeneratesFromEntitySuppliedParametersForFlattenedValueObjectWithPartialReadability()
+    public void DoesNotGenerateFromEntitySuppliedParametersForFlattenedValueObjectWithPartialReadability()
     {
         const string source =
             """
@@ -1086,18 +1067,12 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.Contains(
-            "public static UserDto FromEntity(global::User source, global::System.Decimal moneyAmount, global::System.String moneyCurrency) => new()",
-            dto);
-        Assert.Contains("MoneyAmount = moneyAmount", dto);
-        Assert.Contains("MoneyCurrency = moneyCurrency", dto);
-        Assert.Equal(1, dto.Split("MoneyAmount =").Length - 1);
-        Assert.Equal(1, dto.Split("MoneyCurrency =").Length - 1);
+        Assert.DoesNotContain("FromEntity(", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void SuppliedForwardArgumentRespectsNullableOverride()
+    public void DoesNotGenerateFromEntityWithNullableOverride()
     {
         const string source =
             """
@@ -1112,8 +1087,6 @@ public class DtoForGeneratorUnitTest
 
             public class SpecialWidget : Widget
             {
-                // The unresolvable CultureInfo parameter disables ToEntity() generation so this test can
-                // focus purely on FromEntity()'s nullable-supplied-argument behavior.
                 public static SpecialWidget Create(string name, bool isFeatured, CultureInfo notes) =>
                     new SpecialWidget();
             }
@@ -1135,14 +1108,12 @@ public class DtoForGeneratorUnitTest
 
         Assert.NotNull(dto);
         Assert.Contains("public global::System.Boolean? IsFeatured { get; init; }", dto);
-        Assert.Contains(
-            "public static SpecialWidgetDto FromEntity(global::SpecialWidget source, global::System.Boolean? isFeatured) => new()",
-            dto);
+        Assert.DoesNotContain("FromEntity(", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void SuppliedForwardArgumentAvoidsSourceNameCollision()
+    public void DoesNotGenerateFromEntityWithSourceNameCollision()
     {
         const string source =
             """
@@ -1175,12 +1146,7 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.DoesNotContain(
-            "FromEntity(global::ImportedWidget source, global::System.String source)", dto);
-        Assert.Contains(
-            "public static ImportedWidgetDto FromEntity(global::ImportedWidget source, global::System.String source2) => new()",
-            dto);
-        Assert.Contains("Source = source2", dto);
+        Assert.DoesNotContain("FromEntity(", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 

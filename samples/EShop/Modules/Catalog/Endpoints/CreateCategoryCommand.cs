@@ -37,6 +37,6 @@ public partial record CreateCategoryCommand
 
         // Id isn't a factory-method parameter, so [DtoFor] never includes it -- surface it alongside the
         // DTO so callers can reference what they just created.
-        return Results.Ok(new { category.Id, Category = CategoryDto.FromEntity(category, dto.Translations) });
+        return Results.Ok(new { category.Id, Category = category });
     }
 }

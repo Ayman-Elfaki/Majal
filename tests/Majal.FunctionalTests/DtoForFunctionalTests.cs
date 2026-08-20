@@ -24,16 +24,6 @@ public class DtoForFunctionalTests
         Assert.Equal(36, person.Age);
     }
 
-    [Fact]
-    public void DtoFor_Translatable_FromEntity_SuppliesLocaleAsExplicitParameter()
-    {
-        var entity = NoteTranslation.Create("Hello", "en-US");
-
-        var dto = NoteTranslationDto.FromEntity(entity, "en-US");
-
-        Assert.Equal("Hello", dto.Content);
-        Assert.Equal("en-US", dto.Locale);
-    }
 }
 
 public partial class Person

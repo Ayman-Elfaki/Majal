@@ -83,7 +83,7 @@ public partial record PlaceOrderCommand
         return Results.Ok(new
         {
             order.Id,
-            Order = OrderDto.FromEntity(order, dto.CustomerId, dto.Lines, dto.PaymentMethod)
+            Order = order
         });
     }
 }

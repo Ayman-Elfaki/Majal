@@ -18,7 +18,7 @@ public abstract partial class Product
 
     /// <summary>
     /// Named differently from the "tags" factory parameter on purpose: <see cref="ProductTags"/> wraps a
-    /// collection via a single-parameter factory, a shape the DTO generator's FromEntity() can't safely
+    /// collection via a single-parameter factory, a shape the DTO generator can't safely
     /// auto-convert today. This naming routes it through the generator's explicit "supplied argument"
     /// fallback instead of generating invalid code.
     /// </summary>
@@ -27,7 +27,7 @@ public abstract partial class Product
     /// <summary>
     /// Named differently from the "translations" factory parameter for the same reason as
     /// <see cref="Category.TranslationList"/>: <see cref="ProductTranslation"/> is <c>[Translatable]</c>,
-    /// so its FromEntity() needs a supplied "locale" argument the generator can't thread through a
+    /// so its locale is supplied by the translation infrastructure rather than threaded through a
     /// nested-collection forwarding call.
     /// </summary>
     public List<ProductTranslation> TranslationList { get; protected init; } = [];

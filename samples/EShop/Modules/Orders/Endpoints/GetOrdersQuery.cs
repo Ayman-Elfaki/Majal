@@ -21,33 +21,12 @@ public class GetOrdersQuery
 
         var results = orders.OrderByDescending(o => o.CreatedOn).Select(order =>
         {
-            var lines = order.LineItems.Select(lineItem => 
-                GetOrderQuery.OrderDto.OrderLineDto.FromEntity(
-                    lineItem, 
-                    lineItem.ProductId, 
-                    GetOrderQuery.OrderDto.MoneyDto.FromEntity(lineItem.UnitPrice)
-                )
-            );
-
-            var payment = order.Payment switch
-            {
-                CreditCardPayment creditCard =>
-                    (object)GetOrderQuery.OrderDto.CreditCardPaymentDto.FromEntity(creditCard),
-                PayPalPayment payPal => GetOrderQuery.OrderDto.PayPalPaymentDto.FromEntity(payPal),
-                _ => throw new InvalidOperationException($"Unknown payment method '{order.Payment.GetType()}'.")
-            };
-
             return new
             {
                 order.Id,
                 order.CreatedOn,
                 LineIds = order.LineItems.Select(l => l.Id),
-                Order = GetOrderQuery.OrderDto.FromEntity(
-                    order, 
-                    order.CustomerId, 
-                    lines,
-                    (GetOrderQuery.OrderDto.PaymentMethodDto)payment
-                )
+                Order = order
             };
         });
 

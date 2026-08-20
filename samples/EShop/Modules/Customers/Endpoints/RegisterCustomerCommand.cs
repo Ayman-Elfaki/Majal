@@ -31,6 +31,6 @@ public partial record RegisterCustomerCommand
         var customer = dto.ToEntity();
         db.Customers.Add(customer);
         await db.SaveChangesAsync(ct);
-        return Results.Ok(new { customer.Id, Customer = CustomerDto.FromEntity(customer) });
+        return Results.Ok(new { customer.Id, Customer = customer });
     }
 }

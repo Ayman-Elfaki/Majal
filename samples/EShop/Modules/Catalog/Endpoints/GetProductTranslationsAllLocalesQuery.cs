@@ -20,8 +20,6 @@ public partial record GetProductTranslationsAllLocalesQuery
             .IgnoreTranslatableFilter()
             .ToListAsync(ct);
 
-        // "locale" isn't a readable property the DTO generator can see (Locale is added by a separate
-        // generator pass), so FromEntity() takes it as a supplied argument -- see docs/dtos.md.
-        return Results.Ok(translations.Select(t => ProductTranslationDto.FromEntity(t, t.Locale.Name)));
+        return Results.Ok(translations);
     }
 }

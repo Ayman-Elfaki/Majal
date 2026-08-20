@@ -44,13 +44,12 @@ public partial record GetArchivedProductsQuery
             .Select(p => new
             {
                 p.Id,
-                Product = (object)ArchivedPhysicalProductDto.FromEntity(p, p.TagList.Values, p.StockQuantity)
+                Product = (object)p
             })
             .Concat(digital.Select(d => new
             {
                 d.Id,
-                Product = (object)ArchivedDigitalProductDto.FromEntity(
-                    d, ArchivedDigitalProductDto.MoneyDto.FromEntity(d.Price), d.TagList.Values, d.StockQuantity)
+                Product = (object)d
             }));
 
         return Results.Ok(results);

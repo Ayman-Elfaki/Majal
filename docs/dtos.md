@@ -42,37 +42,6 @@ public partial record UserDto
 }
 ```
 
-The DTO also gets a static `FromEntity()` method when the source type exposes readable properties matching the factory parameters:
-
-```csharp
-public static UserDto FromEntity(global::User source) => new()
-{
-    Name = source.Name,
-    Age = source.Age
-};
-```
-
-Nested entities are converted through their generated `FromEntity()` methods, collections are projected with LINQ, value objects use their `Value` property, and aggregates use the generated `{Aggregate}Id` or `{Aggregate}Ids` property. The static method is omitted only when a parameter cannot be represented automatically or supplied as a DTO value. The existing `ToEntity()` method is unaffected.
-
-For a concrete derived entity, readable properties inherited from its base type are used as usual. If a factory parameter is not represented by a readable entity property, `FromEntity()` accepts that DTO value explicitly instead of guessing it:
-
-```csharp
-public static PersonalTodoListDto FromEntity(
-    global::PersonalTodoList source,
-    global::System.Boolean isImportant,
-    global::System.UInt32 capacityMaximum,
-    global::System.UInt32 capacityMinimum) => new()
-{
-    Name = source.Name,
-    IsImportant = isImportant,
-    CapacityMaximum = capacityMaximum,
-    CapacityMinimum = capacityMinimum,
-    Translations = source.Translations
-};
-```
-
-The explicit arguments use the generated DTO property types, including flattened value-object properties.
-
 ## Nested Types
 
 Parameters that are themselves `[Entity]`/`[Aggregate]` types are expanded into nested DTOs (or, for aggregates, replaced with just their ID) rather than exposed as raw domain objects:

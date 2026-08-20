@@ -13,7 +13,7 @@ public partial class Category
 
     /// <summary>
     /// Named differently from the "translations" factory parameter on purpose: <see cref="CategoryTranslation"/>
-    /// is <c>[Translatable]</c>, so its own generated FromEntity() needs a supplied "locale" argument the
+    /// is <c>[Translatable]</c>, so its locale is supplied by the translation infrastructure.
     /// generator can't thread through a nested-collection forwarding call. This naming routes the whole
     /// collection through the safe "supplied argument" fallback instead of generating invalid code.
     /// </summary>

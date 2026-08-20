@@ -53,7 +53,7 @@ public partial record CreatePhysicalProductCommand
         return Results.Ok(new
         {
             product.Id,
-            Product = PhysicalProductDto.FromEntity(product, dto.Tags, dto.Translations, product.StockQuantity)
+            Product = product
         });
     }
 }

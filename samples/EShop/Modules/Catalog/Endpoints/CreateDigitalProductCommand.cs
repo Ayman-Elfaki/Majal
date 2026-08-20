@@ -51,8 +51,7 @@ public partial record CreateDigitalProductCommand
         return Results.Ok(new
         {
             product.Id,
-            Product = DigitalProductDto.FromEntity(product, DigitalProductDto.MoneyDto.FromEntity(product.Price),
-                dto.Tags, dto.Translations, product.StockQuantity)
+            Product = product
         });
     }
 }

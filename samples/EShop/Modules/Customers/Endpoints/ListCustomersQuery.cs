@@ -20,7 +20,7 @@ public class ListCustomersQuery
         var results = customers.Select(c => new
         {
             c.Id,
-            Customer = RegisterCustomerCommand.CustomerDto.FromEntity(c)
+            Customer = c
         });
 
         return Results.Ok(results);

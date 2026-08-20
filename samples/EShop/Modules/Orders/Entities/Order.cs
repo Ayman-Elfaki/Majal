@@ -19,7 +19,7 @@ public partial class Order
 
     /// <summary>
     /// Named differently from the "lines" factory parameter for the same reason as <see cref="Payment"/>:
-    /// <see cref="OrderLine"/>'s own generated FromEntity() needs a supplied "productId" argument (it
+    /// <see cref="OrderLine"/>'s product ID is supplied by the order line entity (it
     /// references <see cref="Product"/> by aggregate reference, which isn't
     /// a readable property here), so a matching name would make the generator try a nested-collection
     /// forwarding call that can't supply it.
@@ -28,7 +28,7 @@ public partial class Order
 
     /// <summary>
     /// Named differently from the "paymentMethod" factory parameter on purpose: <see cref="PaymentMethod"/>
-    /// is an abstract polymorphic type with no source-generated FromEntity(), so a property matching the
+    /// is an abstract polymorphic type, so a property matching the
     /// parameter name would make the DTO generator try (and fail) to auto-convert it. This naming makes
     /// the parameter fall back to the generator's explicit "supplied argument" path instead.
     /// </summary>

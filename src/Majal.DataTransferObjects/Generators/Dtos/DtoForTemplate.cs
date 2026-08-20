@@ -102,12 +102,6 @@ public class DtoForTemplate : BaseTemplate
             GenerateToEntityMethod(dto);
         }
 
-        if (dto.ForwardArguments is not null)
-        {
-            WriteLine("");
-            GenerateFromEntityMethod(dto);
-        }
-
         if (dto.NestedDtos.Count > 0)
         {
             WriteLine("");
@@ -151,39 +145,6 @@ public class DtoForTemplate : BaseTemplate
 
         PopIndent();
         WriteLine(");");
-        PopIndent();
-    }
-
-    private void GenerateFromEntityMethod(DtoData dto)
-    {
-        WriteLine("/// <summary>Creates a DTO from the specified source entity.</summary>");
-        WriteLine("/// <param name=\"source\">The source entity to convert.</param>");
-        var suppliedArguments = dto.ForwardArguments!.Value
-            .Where(argument => argument.SourceParameterType is not null)
-            .ToArray();
-        foreach (var argument in suppliedArguments)
-            WriteLine($"/// <param name=\"{argument.SourceParameterName}\">The value for the {argument.DtoPropertyName} DTO property.</param>");
-
-        var signature = $"public static {dto.DtoName} FromEntity({dto.SourceTypeName} source";
-        foreach (var argument in suppliedArguments)
-            signature += $", {argument.SourceParameterType} {argument.SourceParameterName}";
-
-        WriteLine($"{signature}) => new()");
-        PushIndent();
-        WriteLine("{");
-        PushIndent();
-
-        var arguments = dto.ForwardArguments!.Value;
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            var argument = arguments[i];
-            var suffix = i < arguments.Count - 1 ? "," : "";
-            var sourceExpression = argument.SourceParameterName ?? argument.SourceExpression;
-            WriteLine($"{argument.DtoPropertyName} = {sourceExpression}{suffix}");
-        }
-
-        PopIndent();
-        WriteLine("};");
         PopIndent();
     }
 

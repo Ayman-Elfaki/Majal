@@ -26,10 +26,7 @@ public partial record GetCategoriesQuery
         var results = categories.Select(c => new
         {
             c.Id,
-            Category = AdminCategoryDto.FromEntity(
-                c,
-                c.TranslationList.Select(t =>
-                    AdminCategoryDto.AdminCategoryTranslationDto.FromEntity(t, t.Locale.Name)))
+            Category = c
         });
 
         return Results.Ok(results);
