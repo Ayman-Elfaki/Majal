@@ -9,6 +9,7 @@ public readonly record struct DtoData
     public string DtoName { get; }
     public string RawDtoName { get; }
     public string? BaseDtoName { get; init; }
+    public string? TranslatableLocaleType { get; init; }
     public string? XmlDocs { get; }
     public bool IsRecord { get; }
     public Accessibility Accessibility { get; init; }
@@ -25,7 +26,7 @@ public readonly record struct DtoData
         Accessibility accessibility, string? xmlDocs, string? baseDtoName, bool isRecord,
         DerivedTypeInfo[] derivedTypes, ParameterData[] parameters, DtoData[] nestedDtos,
         string? sourceTypeName = null, string? sourceSimpleName = null, string? factoryMethodName = null,
-        FactoryArgument[]? reconstructionArguments = null)
+        FactoryArgument[]? reconstructionArguments = null, string? translatableLocaleType = null)
     {
         DtoName = dtoName;
         Namespace = @namespace;
@@ -35,6 +36,7 @@ public readonly record struct DtoData
         RawDtoName = rawDtoName;
         ParentTypeDeclarations = new EquatableList<string>(parentTypeDeclarations);
         BaseDtoName = baseDtoName;
+        TranslatableLocaleType = translatableLocaleType;
         NestedDtos = new EquatableList<DtoData>(nestedDtos);
         Parameters = new EquatableList<ParameterData>(parameters);
         DerivedTypes = new EquatableList<DerivedTypeInfo>(derivedTypes);

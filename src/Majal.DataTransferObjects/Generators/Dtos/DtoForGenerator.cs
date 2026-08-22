@@ -150,6 +150,21 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
             [.. assemblyNullablePropertyNames, .. nullablePropertyNames]);
     }
 
+    private static string? GetTranslatableLocaleType(INamedTypeSymbol sourceSymbol, Compilation? compilation)
+    {
+        var translatableAttribute = sourceSymbol.GetAnyMajalAttribute(nameof(TranslatableAttribute));
+        if (translatableAttribute?.AttributeClass is { TypeArguments.Length: > 0 })
+            return translatableAttribute.AttributeClass.TypeArguments[0]
+                .ToDisplayString(FullPropertyTypeFormat);
+
+        if (translatableAttribute is null) return null;
+
+        var defaultLocaleType = compilation?.GetAssemblyDefaultValue<INamedTypeSymbol>(
+            nameof(TranslatableOptionsAttribute), nameof(TranslatableOptionsAttribute.DefaultLocaleType));
+
+        return defaultLocaleType?.ToDisplayString(FullPropertyTypeFormat) ?? StringType;
+    }
+
     private static DtoTypeConfig ReadDtoTypeConfig(INamedTypeSymbol dtoSymbol)
     {
         var excludedTypeProperties = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
@@ -292,7 +307,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
                     context.IsRecord,
                     [.. derivedTypes],
                     commonParameters,
-                    nestedDtos
+                    nestedDtos,
+                    translatableLocaleType: GetTranslatableLocaleType(context.SourceSymbol, context.Compilation)
                 );
             }
         }
@@ -300,12 +316,20 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
         if (createMethod is null) return null;
 
         var methodXml = createMethod.GetDocumentationCommentXml();
+        var translatableLocaleType = GetTranslatableLocaleType(context.SourceSymbol, context.Compilation);
         var parameters = new List<ParameterData>();
         var reconstructionArguments = new List<FactoryArgument>();
         var canReconstruct = true;
 
         foreach (var p in createMethod.Parameters)
         {
+            if (translatableLocaleType is not null &&
+                string.Equals(p.Name, "locale", StringComparison.OrdinalIgnoreCase))
+            {
+                canReconstruct = false;
+                continue;
+            }
+
             if (excludedProperties.Contains(p.Name))
             {
                 canReconstruct = false;
@@ -360,7 +384,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
             context.SourceSymbol.ToDisplayString(FullPropertyTypeFormat),
             context.SourceSymbol.Name,
             context.FactoryMethodName,
-            canReconstruct ? [.. reconstructionArguments] : null
+            canReconstruct ? [.. reconstructionArguments] : null,
+            translatableLocaleType
         );
     }
 

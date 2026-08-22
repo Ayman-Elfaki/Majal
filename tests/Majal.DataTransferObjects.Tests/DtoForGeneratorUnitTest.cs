@@ -1019,7 +1019,45 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
+        Assert.Contains("public partial record NoteDto : global::Majal.ITranslatable<global::System.Globalization.CultureInfo>", dto);
+        Assert.Contains("public required global::System.Globalization.CultureInfo Locale { get; init; }", dto);
+        Assert.DoesNotContain("public required global::System.String Locale { get; init; }", dto);
         Assert.DoesNotContain("FromEntity(", dto);
+        AssertNoCompilationErrors(compilation, runResult);
+    }
+
+    [Fact]
+    public void DoesNotGenerateITranslatableForEntityWithoutTranslatableAttribute()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public partial class Article : ITranslatable<string>
+            {
+                public string Locale { get; init; } = string.Empty;
+
+                public static Article Create(string locale) => new Article();
+            }
+
+            [DtoFor<Article>]
+            public partial record ArticleDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ArticleDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
+        Assert.DoesNotContain("ITranslatable", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 

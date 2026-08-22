@@ -67,7 +67,12 @@ public class DtoForTemplate : BaseTemplate
         }
 
         var isBase = dto.DerivedTypes.Count > 0 && string.IsNullOrWhiteSpace(dto.BaseDtoName);
-        var inheritance = string.IsNullOrWhiteSpace(dto.BaseDtoName) ? "" : $" : {dto.BaseDtoName}";
+        var inheritedTypes = new List<string>();
+        if (!string.IsNullOrWhiteSpace(dto.BaseDtoName)) inheritedTypes.Add(dto.BaseDtoName!);
+        if (!string.IsNullOrWhiteSpace(dto.TranslatableLocaleType))
+            inheritedTypes.Add($"{MajalNamespace}.ITranslatable<{dto.TranslatableLocaleType}>");
+
+        var inheritance = inheritedTypes.Count == 0 ? "" : $" : {string.Join(", ", inheritedTypes)}";
         var modifier = "partial ";
 
         if (isBase) modifier = "abstract " + modifier;
@@ -94,6 +99,11 @@ public class DtoForTemplate : BaseTemplate
             }
 
             WriteLine($"public {requiredKeyword}{param.Declaration.Type} {propertyName} {{ get; init; }}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.TranslatableLocaleType))
+        {
+            WriteLine($"public required {dto.TranslatableLocaleType} Locale {{ get; init; }}");
         }
 
         if (dto.ReconstructionArguments is not null)
