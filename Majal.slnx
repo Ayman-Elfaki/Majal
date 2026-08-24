@@ -21,10 +21,10 @@
     </Folder>
     <Folder Name="/samples/">
         <Project Path="samples/EShop/EShop.csproj" />
-        <Project Path="samples/EShop.Web/EShop.Web.esproj">
-            <Build />
-            <Deploy />
-        </Project>
+        <Project Path="samples/EShop.Web/EShop.Web.esproj" />
+    </Folder>
+    <Folder Name="/scripts/">
+        <File Path="scripts/build.ps1" />
     </Folder>
     <Folder Name="/src/">
         <Project Path="src/Majal.DataTransferObjects.Types/Majal.DataTransferObjects.Types.csproj" />
