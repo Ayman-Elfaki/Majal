@@ -14,7 +14,7 @@ using Wolverine.Http.FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScoped<ILocaleProvider<CultureInfo>, HttpLocaleProvider>();
+builder.Services.AddScoped<ILocaleProvider<string>, HttpLocaleProvider>();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -35,6 +35,9 @@ builder.Host.UseWolverine(options =>
     options.Policies.AutoApplyTransactions();
     options.Policies.UseDurableLocalQueues();
     options.Discovery.IncludeAssembly(typeof(EShopDbContext).Assembly);
+    options.CodeGeneration.AlwaysUseServiceLocationFor<ILocaleProvider<CultureInfo>>();
+    options.CodeGeneration.AlwaysUseServiceLocationFor<DbContextOptions<EShopDbContext>>();
+    
 });
 
 builder.Services.AddWolverineHttp();

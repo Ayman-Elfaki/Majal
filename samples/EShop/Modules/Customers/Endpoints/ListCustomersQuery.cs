@@ -1,3 +1,4 @@
+using EShop.Modules.Customers.Entities;
 using EShop.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,18 +10,25 @@ namespace EShop.Modules.Customers.Endpoints;
 /// Lists all registered customers, reusing <see cref="RegisterCustomerCommand.CustomerDto"/> -- <c>Name</c>
 /// and <c>Email</c> are both plain readable value-object properties, so no supplied arguments are needed.
 /// </summary>
-public class ListCustomersQuery
+public partial class ListCustomersQuery
 {
+    [DtoFor<Customer>]
+    public partial class CustomerDto;
+
     [Tags("Customers")]
     [WolverineGet("/customers")]
     public static async Task<IResult> List([FromServices] EShopDbContext db, CancellationToken ct)
     {
-        var customers = await db.Customers.ToListAsync(ct);
+        var customers = await db.Customers.AsNoTracking().ToListAsync(ct);
 
         var results = customers.Select(c => new
         {
             c.Id,
-            Customer = c
+            Customer = new CustomerDto
+            {
+                Name = c.Name,
+                Email = c.Email
+            }
         });
 
         return Results.Ok(results);

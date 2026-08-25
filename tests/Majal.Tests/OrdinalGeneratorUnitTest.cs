@@ -41,10 +41,6 @@ public class OrdinalGeneratorUnitTest
         Assert.NotNull(generated);
         Assert.Contains(classDefinition, generated);
         Assert.Contains("public required global::System.UInt32 Ordinal { get; set; }", generated);
-        Assert.Contains(
-            "public static void Reorder(global::System.Collections.Generic.IReadOnlyList<OrdinalEntity> entities)",
-            generated);
-        Assert.Contains("entities[i].Ordinal = (uint)i;", generated);
     }
 
     private static CSharpCompilation CreateCompilation(string source)

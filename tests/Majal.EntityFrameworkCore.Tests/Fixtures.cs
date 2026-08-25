@@ -49,3 +49,25 @@ public partial class Customer
 
     public required Email Email { get; set; }
 }
+
+[Entity, Ordinal]
+public partial class Todo
+{
+    // Public constructor for testing
+    public Todo()
+    {
+    }
+
+    public string Title { get; set; } = string.Empty;
+}
+
+[Entity<string>, Ordinal]
+public partial class TaggedTodo
+{
+    // Public constructor for testing
+    public TaggedTodo()
+    {
+    }
+
+    public string Title { get; set; } = string.Empty;
+}

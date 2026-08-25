@@ -167,6 +167,9 @@ public class DtoForTemplate : BaseTemplate
                 value => $"{argument.TargetTypeName}.Create({value})"),
             ReconstructKind.NestedType => BuildWrappedExpression(argument,
                 value => $"{value}.ToEntity()"),
+            ReconstructKind.Locale => argument.TargetTypeName == "ToString"
+                ? $"this.{argument.DtoPropertyName}.ToString()"
+                : $"this.{argument.DtoPropertyName}",
             _ => $"this.{argument.DtoPropertyName}"
         };
     }

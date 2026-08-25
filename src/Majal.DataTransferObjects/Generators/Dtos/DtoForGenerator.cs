@@ -77,8 +77,6 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
 
         if (attribute?.AttributeClass?.TypeArguments[0] is not INamedTypeSymbol sourceSymbol) return null;
 
-        if (sourceSymbol.IsAbstract) return null;
-
         var compilation = context.SemanticModel.Compilation;
 
         var options = ReadDtoOptions(attribute, dtoSymbol.Name, compilation);
@@ -326,7 +324,16 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
             if (translatableLocaleType is not null &&
                 string.Equals(p.Name, "locale", StringComparison.OrdinalIgnoreCase))
             {
-                canReconstruct = false;
+                var localeParameterType = p.Type.ToDisplayString(FullPropertyTypeFormat);
+                if (localeParameterType != translatableLocaleType && localeParameterType != StringType)
+                {
+                    canReconstruct = false;
+                    continue;
+                }
+
+                var requiresToString = localeParameterType != translatableLocaleType;
+                reconstructionArguments.Add(new FactoryArgument(p.Name, ReconstructKind.Locale, "Locale",
+                    requiresToString ? "ToString" : null));
                 continue;
             }
 
@@ -352,7 +359,9 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
             }
 
             foreach (var result in outcome.Value.Properties)
+            {
                 parameters.Add(ApplyNullable(result, nullableProperties));
+            }
 
             if (outcome.Value.Reconstruction is not { } reconstruction)
             {

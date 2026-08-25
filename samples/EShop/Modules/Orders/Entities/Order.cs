@@ -1,7 +1,6 @@
-using EShop.Modules.Catalog.Entities;
-using EShop.Modules.Catalog.ValueObjects;
 using EShop.Modules.Customers.Entities;
 using EShop.Modules.Orders.Events;
+using EShop.Modules.Products.ValueObjects;
 
 namespace EShop.Modules.Orders.Entities;
 
@@ -9,7 +8,7 @@ namespace EShop.Modules.Orders.Entities;
 /// <summary>
 /// Order aggregate root. Lets the generator add its own <c>Id</c> property (contrast with
 /// <see cref="Customer"/>, which pre-declares its own) and actually publishes and clears a domain event,
-/// unlike <see cref="Product"/>'s bare, unused <c>[Aggregate]</c> declaration.
+/// unlike <see cref="Products.Entities.Product"/>'s bare, unused <c>[Aggregate]</c> declaration.
 /// </summary>
 [Entity<Guid>, Aggregate<OrderEvent>]
 [Auditable]
@@ -20,7 +19,7 @@ public partial class Order
     /// <summary>
     /// Named differently from the "lines" factory parameter for the same reason as <see cref="Payment"/>:
     /// <see cref="OrderLine"/>'s product ID is supplied by the order line entity (it
-    /// references <see cref="Product"/> by aggregate reference, which isn't
+    /// references <see cref="Products.Entities.Product"/> by aggregate reference, which isn't
     /// a readable property here), so a matching name would make the generator try a nested-collection
     /// forwarding call that can't supply it.
     /// </summary>

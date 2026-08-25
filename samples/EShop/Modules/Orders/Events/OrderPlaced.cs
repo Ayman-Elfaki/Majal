@@ -1,4 +1,4 @@
-using EShop.Modules.Catalog.ValueObjects;
+using EShop.Modules.Products.ValueObjects;
 
 namespace EShop.Modules.Orders.Events;
 

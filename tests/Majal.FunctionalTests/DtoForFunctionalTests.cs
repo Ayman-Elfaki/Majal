@@ -24,6 +24,17 @@ public class DtoForFunctionalTests
         Assert.Equal(36, person.Age);
     }
 
+    [Fact]
+    public void DtoFor_ReverseConversion_RoundTripsTranslatableLocale()
+    {
+        var dto = new NoteTranslationDto { Content = "Bonjour", Locale = CultureInfo.GetCultureInfo("fr-FR") };
+
+        var note = dto.ToEntity();
+
+        Assert.Equal("Bonjour", note.Content);
+        Assert.Equal(CultureInfo.GetCultureInfo("fr-FR"), note.Locale);
+    }
+
 }
 
 public partial class Person

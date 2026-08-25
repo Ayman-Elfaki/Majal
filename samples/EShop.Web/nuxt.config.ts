@@ -14,6 +14,11 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2026-06-30',
 
+  icon: {
+    clientBundle: {
+      scan: true
+    }
+  },
   // nuxt-api-party proxies every request through a Nuxt server route, so the EShop API's base
   // URL never reaches the browser and CORS never applies. See samples/EShop for the API itself.
   apiParty: {

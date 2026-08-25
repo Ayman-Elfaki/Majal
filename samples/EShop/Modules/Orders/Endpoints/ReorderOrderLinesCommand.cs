@@ -1,3 +1,4 @@
+using EShop.Modules.Orders.Entities;
 using EShop.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,16 +16,10 @@ public class ReorderOrderLinesCommand
     public static async Task<IResult> Reorder(Guid id, Request request, [FromServices] EShopDbContext db,
         CancellationToken ct)
     {
-        var order = await db.Orders.Include(o => o.LineItems).FirstOrDefaultAsync(o => o.Id == id, ct);
-        if (order is null) return Results.NotFound();
+        var exists = await db.Orders.AnyAsync(o => o.Id == id, ct);
+        if (!exists) return Results.NotFound();
 
-        for (var i = 0; i < request.LineIdsInOrder.Count; i++)
-        {
-            var line = order.LineItems.FirstOrDefault(l => l.Id == request.LineIdsInOrder[i]);
-            if (line is not null) line.Ordinal = (uint)i;
-        }
-
-        await db.SaveChangesAsync(ct);
+        await db.Set<OrderLine>().ReorderAsync(request.LineIdsInOrder, ct);
         return Results.NoContent();
     }
 }

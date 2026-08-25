@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Wolverine;
 using Wolverine.Http;
-using Money = EShop.Modules.Catalog.ValueObjects.Money;
+using Money = EShop.Modules.Products.ValueObjects.Money;
 using Order = EShop.Modules.Orders.Entities.Order;
 using OrderLine = EShop.Modules.Orders.Entities.OrderLine;
 using PaymentMethod = EShop.Modules.Orders.Entities.PaymentMethod;
@@ -23,6 +23,11 @@ public partial record PlaceOrderCommand
     [DtoFor<Order>]
     [FlattenDtoFor<Money>(IsReversed = true)]
     public partial record OrderDto;
+
+    public class ResponseDto
+    {
+        public Guid Id { get; set; }
+    }
 
     public class Validator : AbstractValidator<OrderDto>
     {
@@ -48,17 +53,14 @@ public partial record PlaceOrderCommand
 
         var productIds = dto.Lines.Select(l => l.ProductId).Distinct().ToArray();
         var products = await db.Products
-            .Where(p => productIds.Contains(p.Id))
+            .Where(p => ((IEnumerable<int>)productIds).Contains(p.Id))
             .ToDictionaryAsync(p => p.Id, ct);
 
         if (products.Count != productIds.Length) return Results.NotFound("One or more products were not found.");
 
         var lines = dto.Lines.Select(line =>
-            OrderLine.Create(
-                products[line.ProductId], 
-                line.Quantity, 
-                Money.Create(line.AmountUnitPrice, 
-                line.CurrencyUnitPrice)
+            OrderLine.Create(products[line.ProductId], line.Quantity,
+                Money.Create(line.AmountUnitPrice, line.CurrencyUnitPrice)
             )
         );
 
@@ -80,10 +82,6 @@ public partial record PlaceOrderCommand
         foreach (var domainEvent in order.Events) await bus.PublishAsync(domainEvent);
         order.Clear();
 
-        return Results.Ok(new
-        {
-            order.Id,
-            Order = order
-        });
+        return Results.Ok(new ResponseDto { Id = order.Id });
     }
 }

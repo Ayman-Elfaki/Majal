@@ -9,4 +9,6 @@ public sealed class TestDbContext(DbContextOptions<TestDbContext> options, strin
     public DbSet<LogEntry> LogEntries => Set<LogEntry>();
     public DbSet<Article> Articles => Set<Article>();
     public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<Todo> Todos => Set<Todo>();
+    public DbSet<TaggedTodo> TaggedTodos => Set<TaggedTodo>();
 }

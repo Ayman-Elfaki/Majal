@@ -1,4 +1,3 @@
-using EShop.Modules.Catalog.Entities;
 using EShop.Modules.Orders.Events;
 
 namespace EShop.Modules.Orders.Handlers;
@@ -6,7 +5,7 @@ namespace EShop.Modules.Orders.Handlers;
 /// <summary>
 /// Picked up by Wolverine's convention-based handler discovery and invoked when an <see cref="OrderPlaced"/>
 /// event is published -- the one domain event in this sample that's actually dispatched end-to-end, unlike
-/// <see cref="Product"/>'s bare, unused <c>[Aggregate]</c> declaration.
+/// <see cref="Products.Entities.Product"/>'s bare, unused <c>[Aggregate]</c> declaration.
 /// </summary>
 public class OrderPlacedHandler
 {

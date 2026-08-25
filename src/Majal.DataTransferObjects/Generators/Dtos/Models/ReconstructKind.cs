@@ -5,5 +5,6 @@ public enum ReconstructKind
     Direct,
     ValueObject,
     FlattenedValueObject,
-    NestedType
+    NestedType,
+    Locale
 }

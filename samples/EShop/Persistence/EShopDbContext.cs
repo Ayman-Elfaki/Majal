@@ -1,27 +1,24 @@
-using System.Globalization;
-using EShop.Modules.Catalog.Entities;
+using EShop.Modules.Categories.Entities;
 using EShop.Modules.Customers.Entities;
 using EShop.Modules.Orders.Entities;
 using EShop.Modules.Orders.Events;
-using EShop.Persistence.Converters;
+using EShop.Modules.Products.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace EShop.Persistence;
 
-public sealed class EShopDbContext(DbContextOptions<EShopDbContext> options,
-    ILocaleProvider<CultureInfo> localeProvider)
-    : MajalDbContext<CultureInfo>(options, localeProvider.GetCurrentLocale())
+public sealed class EShopDbContext(
+    DbContextOptions<EShopDbContext> options,
+    ILocaleProvider<string> localeProvider)
+    : MajalDbContext<string>(options, localeProvider.GetCurrentLocale())
 {
-    public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product> Products => Set<Product>();
-    public DbSet<Customer> Customers => Set<Customer>();
+
+    public DbSet<Category> Categories => Set<Category>();
+
     public DbSet<Order> Orders => Set<Order>();
 
-    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
-    {
-        base.ConfigureConventions(configurationBuilder);
-        configurationBuilder.Properties<CultureInfo>().HaveConversion<CultureInfoValueConverter>();
-    }
+    public DbSet<Customer> Customers => Set<Customer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -11,26 +11,26 @@ internal enum DtoNodeState
 
 internal sealed class DtoGraph
 {
-    private readonly Dictionary<INamedTypeSymbol, DtoGraphNode> nodes =
+    private readonly Dictionary<INamedTypeSymbol, DtoGraphNode> _nodes =
         new(SymbolEqualityComparer.Default);
-    private readonly Dictionary<string, INamedTypeSymbol> names = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, INamedTypeSymbol> _names = new(StringComparer.Ordinal);
 
     public bool Register(INamedTypeSymbol sourceSymbol, string dtoName)
     {
-        if (nodes.ContainsKey(sourceSymbol)) return false;
+        if (_nodes.ContainsKey(sourceSymbol)) return false;
 
-        nodes[sourceSymbol] = new DtoGraphNode(sourceSymbol, dtoName, DtoNodeState.Visiting);
-        if (!names.ContainsKey(dtoName)) names.Add(dtoName, sourceSymbol);
+        _nodes[sourceSymbol] = new DtoGraphNode(sourceSymbol, dtoName, DtoNodeState.Visiting);
+        if (!_names.ContainsKey(dtoName)) _names.Add(dtoName, sourceSymbol);
         return true;
     }
 
     public bool TryGetNode(INamedTypeSymbol sourceSymbol, out DtoGraphNode node) =>
-        nodes.TryGetValue(sourceSymbol, out node!);
+        _nodes.TryGetValue(sourceSymbol, out node!);
 
     public bool TryGetNode(string dtoName, out DtoGraphNode node)
     {
-        if (names.TryGetValue(dtoName, out var sourceSymbol))
-            return nodes.TryGetValue(sourceSymbol, out node!);
+        if (_names.TryGetValue(dtoName, out var sourceSymbol))
+            return _nodes.TryGetValue(sourceSymbol, out node!);
 
         node = null!;
         return false;
@@ -38,19 +38,19 @@ internal sealed class DtoGraph
 
     public void Complete(INamedTypeSymbol sourceSymbol, DtoData data)
     {
-        if (nodes.TryGetValue(sourceSymbol, out var node))
+        if (_nodes.TryGetValue(sourceSymbol, out var node))
             node.Complete(data);
     }
 
     public void Fail(INamedTypeSymbol sourceSymbol)
     {
-        if (nodes.TryGetValue(sourceSymbol, out var node))
+        if (_nodes.TryGetValue(sourceSymbol, out var node))
             node.State = DtoNodeState.Failed;
     }
 
     public IEnumerable<DtoData> GetCompletedDtos(INamedTypeSymbol root)
     {
-        return nodes.Values
+        return _nodes.Values
             .Where(node => node.State == DtoNodeState.Completed &&
                            !SymbolEqualityComparer.Default.Equals(node.SourceSymbol, root))
             .Select(node => node.Data!.Value);

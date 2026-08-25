@@ -25,6 +25,7 @@
     </Folder>
     <Folder Name="/scripts/">
         <File Path="scripts/build.ps1" />
+        <File Path="scripts/build.sh" />
     </Folder>
     <Folder Name="/src/">
         <Project Path="src/Majal.DataTransferObjects.Types/Majal.DataTransferObjects.Types.csproj" />
