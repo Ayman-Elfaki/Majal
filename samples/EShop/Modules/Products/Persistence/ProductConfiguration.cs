@@ -36,6 +36,7 @@ internal class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         builder.HasOne(p => p.Category)
             .WithMany()
+            .HasForeignKey(p => p.CategoryId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(p => p.Translations)

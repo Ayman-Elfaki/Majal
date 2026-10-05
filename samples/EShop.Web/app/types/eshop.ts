@@ -43,7 +43,7 @@ export interface ProductTranslation {
   locale: string
 }
 
-/** Body for `POST /products/physical`. Price is flattened via `[FlattenDtoFor<Money>]`. */
+/** Body for `POST /products/physical`. Price is flattened via `[DtoFlatten<Money>]`. */
 export interface CreatePhysicalProductRequest {
   categoryId: number
   sku: string
@@ -93,13 +93,19 @@ export function isDigitalProduct(product: ProductView): product is DigitalProduc
   return 'downloadUrl' in product
 }
 
-/** Item shape for `GET /products` and `GET /admin/products/archived`. */
+/** Item shape for `GET /products`. */
 export interface ProductListItem {
   id: number
   product: ProductView
   createdOn?: string
   updatedOn?: string | null
   ordinal?: number
+}
+
+/** Item shape for direct polymorphic projection `GET /admin/products/archived`. */
+export type ArchivedProductItem = ProductView & {
+  id: number
+  archivedOn?: string | null
 }
 
 /** Item shape for `GET /admin/products/translations`. */

@@ -572,6 +572,82 @@ public class ValueObjectGeneratorUnitTest
         Assert.Contains("if (ReferenceEquals(left, right)) return true;", generated);
     }
 
+    [Fact]
+    public void GeneratesValueObjectForEnum_WithStaticReadonlyFields()
+    {
+        const string source =
+            $$"""
+              using {{ValueObjectsNamespace}};
+
+              public enum OrderStatus
+              {
+                  Pending,
+                  Shipped,
+                  Delivered
+              }
+
+              [ValueObject<OrderStatus>]
+              public readonly partial struct Status;
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public required OrderStatus Value { get; init; }", generated);
+        Assert.Contains("public static readonly Status Pending = new() { Value = OrderStatus.Pending };", generated);
+        Assert.Contains("public static readonly Status Shipped = new() { Value = OrderStatus.Shipped };", generated);
+        Assert.Contains("public static readonly Status Delivered = new() { Value = OrderStatus.Delivered };", generated);
+        Assert.Contains("global::System.Enum.TryParse<OrderStatus>(s, true, out var value) && global::System.Enum.IsDefined(typeof(OrderStatus), value)", generated);
+    }
+
+    [Fact]
+    public void GeneratesValueObjectForFlagsEnum_WithoutIsDefined()
+    {
+        const string source =
+            $$"""
+              using System;
+              using {{ValueObjectsNamespace}};
+
+              [Flags]
+              public enum Permissions
+              {
+                  None = 0,
+                  Read = 1,
+                  Write = 2,
+                  Execute = 4
+              }
+
+              [ValueObject<Permissions>]
+              public readonly partial struct UserPermissions;
+              """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new ValueObjectGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var generated = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("ValueObject.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public static readonly UserPermissions Read = new() { Value = Permissions.Read };", generated);
+        Assert.Contains("public static readonly UserPermissions Write = new() { Value = Permissions.Write };", generated);
+        Assert.Contains("global::System.Enum.TryParse<Permissions>(s, true, out var value)", generated);
+        Assert.DoesNotContain("global::System.Enum.IsDefined(typeof(Permissions), value)", generated);
+    }
+
     private static CSharpCompilation CreateCompilation(string source)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(source);

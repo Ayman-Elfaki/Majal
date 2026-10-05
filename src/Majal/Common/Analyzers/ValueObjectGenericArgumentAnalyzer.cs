@@ -12,8 +12,8 @@ public sealed class ValueObjectGenericArgumentAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
-        title: "Value object generic argument must be a primitive data type",
-        messageFormat: "Class marked with [ValueObject] must have a primitive data type as generic argument",
+        title: "Value object generic argument must be a primitive data type or enum",
+        messageFormat: "Class marked with [ValueObject] must have a primitive data type or enum as generic argument",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -49,15 +49,17 @@ public sealed class ValueObjectGenericArgumentAnalyzer : DiagnosticAnalyzer
 
         if (valueAttr == null) return;
 
-        var isPrimitive = IsPrimitive(valueAttr.AttributeClass?.TypeArguments.FirstOrDefault());
+        var isValid = IsValidGenericArgument(valueAttr.AttributeClass?.TypeArguments.FirstOrDefault());
 
-        if (isPrimitive) return;
+        if (isValid) return;
 
         // report diagnostic on the type identifier
         if (namedType.Locations.FirstOrDefault() is not { IsInSource: true } location) return;
         context.ReportDiagnostic(Diagnostic.Create(Rule, location, namedType.Name));
     }
 
+    private static bool IsValidGenericArgument(ITypeSymbol? type) =>
+        type is not null && (type.TypeKind == TypeKind.Enum || IsPrimitive(type));
 
     private static bool IsPrimitive(ITypeSymbol? type) =>
         type?.Name is not null && SupportedTypes.Contains(type.Name, StringComparer.OrdinalIgnoreCase);

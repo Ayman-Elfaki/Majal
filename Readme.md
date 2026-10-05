@@ -22,7 +22,7 @@ Majal is a **C# source generator library** that helps you implement Domain-Drive
 - **Auditables** (Creation/Update tracking)
 - **Translatables** (Multi-language support)
 - **Ordinals** (Sort order)
-- **DTOs** (generated from a type's factory method, with reverse conversion back to the domain type)
+- **DTOs** (compile-time forward mapping with `From` & queryable `Projection`, reverse conversion via `To`, custom member mapping, flattening, and polymorphic hierarchies)
 
 The library ships as a set of Roslyn analyzer/source generator packages that can be referenced from any .NET project.
 

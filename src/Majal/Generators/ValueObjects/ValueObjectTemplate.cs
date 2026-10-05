@@ -96,6 +96,18 @@ public class ValueObjectTemplate : BaseTemplate
                 WriteLine("");
             }
 
+            if (Data.Value is { IsEnum: true, EnumMembers: { Count: > 0 } members })
+            {
+                foreach (var member in members)
+                {
+                    WriteLine("/// <summary>");
+                    WriteLine($"/// Represents the <see cref=\"{type}.{member}\"/> value.");
+                    WriteLine("/// </summary>");
+                    WriteLine($"public static readonly {Data.TypeName} {member} = new() {{ Value = {type}.{member} }};");
+                    WriteLine("");
+                }
+            }
+
             if (!Data.Methods.Any(m => m is { Name: EqualityMethodName, IsStatic: false, Parameters.Count: 0 }))
             {
                 WriteLine("/// <summary>Returns the sequence of components used for structural equality comparisons.</summary>");
@@ -266,7 +278,11 @@ public class ValueObjectTemplate : BaseTemplate
                 WriteLine($"public override {Data.TypeName} Read({string.Join(", ", parameters)})");
                 WriteLine("{");
                 PushIndent();
-                WriteLine("var value = reader.GetString();");
+                WriteLine($"var value = reader.TokenType == {JsonNamespace}.JsonTokenType.Number");
+                PushIndent();
+                WriteLine("? (reader.TryGetInt64(out var intVal) ? intVal.ToString() : reader.GetDecimal().ToString())");
+                WriteLine(": reader.GetString();");
+                PopIndent();
                 WriteLine($"var culture =  {GlobalizationNamespace}.CultureInfo.InvariantCulture;");
                 WriteLine("");
                 WriteLine($"if ({Data.TypeName}.TryParse(value, culture, out var result))");
@@ -345,7 +361,23 @@ public class ValueObjectTemplate : BaseTemplate
 
                 if (type == "string")
                 {
+                    WriteLine($"result = {FactoryMethodName}(s);");
                     WriteLine("return true;");
+                }
+                else if (Data.Value is { IsEnum: true } enumData)
+                {
+                    var isDefinedCheck = enumData.IsFlagsEnum
+                        ? ""
+                        : $" && {SystemNamespace}.Enum.IsDefined(typeof({type}), value)";
+
+                    WriteLine($"if ({SystemNamespace}.Enum.TryParse<{type}>(s, true, out var value){isDefinedCheck})");
+                    WriteLine("{");
+                    PushIndent();
+                    WriteLine($"result = {FactoryMethodName}(value);");
+                    WriteLine("return true;");
+                    PopIndent();
+                    WriteLine("}");
+                    WriteLine("return false;");
                 }
                 else
                 {

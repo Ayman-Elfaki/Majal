@@ -10,5 +10,6 @@ public readonly record struct FactoryArgument(
     bool IsCollection = false,
     string CollectionConversionKind = "",
     bool IsNullable = false,
-    EquatableList<FlattenedArgument>? FlattenedArguments = null
+    EquatableList<FlattenedArgument>? FlattenedArguments = null,
+    bool IsNestedValueObject = false
 );

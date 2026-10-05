@@ -15,21 +15,25 @@ public partial class Product { ... }
 ```
 
 ### 2. Value Object Generation
-- **Simple (Generic)**: Use `[ValueObject<T>]` for single-value wrappers (e.g., `Name`). Generates `Value` property and conversion operators.
+- **Simple (Generic)**: Use `[ValueObject<T>]` for single-value wrappers (primitives or enums). Generates `Value` property and conversion operators. For enum types, also generates `static readonly` fields for each enum member (e.g., `Status.Pending`).
 - **Complex (Non-Generic)**: Use `[ValueObject]` for multi-property objects (e.g., `Money`). 
 - **Rules**: Records or Structs MUST be `partial`. 
-- **User Implementation**: For non-generic VOs, the user MUST implement the `static partial From(...)` factory and `private partial (...) GetEqualityComponents()` methods.
+- **User Implementation**: For non-generic VOs, the user MUST implement the `static partial Create(...)` factory and `private partial (...) GetEqualityComponents()` methods.
 
 ```csharp
 [ValueObject<string>]
 public partial record ProjectName;
+
+[ValueObject<OrderStatus>]
+public partial struct Status;
+// Generated: Status.Pending, Status.Shipped, Status.Delivered, etc.
 
 [ValueObject]
 public partial struct Money 
 { 
     public decimal Amount { get; init; } 
     public string Currency { get; init; }
-    public static partial Money From(decimal amount, string currency) => new() { Amount = amount, Currency = currency };
+    public static partial Money Create(decimal amount, string currency) => new() { Amount = amount, Currency = currency };
     private partial (decimal, string) GetEqualityComponents() => (Amount, Currency);
 }
 ```
@@ -58,7 +62,9 @@ Use `[Translatable<TLocale>]` (usually `TLocale` is `CultureInfo` or `string`).
 5.  **DTO Generation**:
     - Add `<PackageReference Include="Majal.DataTransferObjects" />` alongside `Majal`.
     - Mark a partial class/record with `[DtoFor<TSource>]`, where `TSource` has a static `Create` factory method.
-    - Refer to `docs/dtos.md` for flattening, exclusion, and polymorphic DTOs.
+    - Generates forward mapping (`FromEntity`, `FromEntityOrDefault`), queryable expressions (`Projection`), and reverse mapping (`ToEntity`).
+    - Customize mappings with `[DtoMember("...", MapFrom = "...", Nullable = true, Using = typeof(...))]`, `[DtoIgnore]`, `[DtoIgnoreType<T>]`, and `[DtoFlatten<TValueObject>]`.
+    - Configure defaults with `[assembly: DtoConfig]`. Refer to `docs/dtos.md` for full details.
 
 ## Common Patterns
 

@@ -12,16 +12,16 @@ namespace EShop.Modules.Categories.Endpoints;
 public partial record CreateCategoryCommand
 {
     [DtoFor<Category>]
-    public partial record CategoryDtos;
+    public partial record CategoryDto;
 
-    public class Validator : AbstractValidator<CategoryDtos>
+    public class Validator : AbstractValidator<CategoryDto>
     {
         public Validator()
         {
             RuleFor(c => c.Name).NotEmpty().MaximumLength(CategoryName.MaxLength);
 
             RuleFor(c => c.Translations).SetValidator(new TranslatableValidator());
-            
+
             RuleForEach(c => c.Translations).ChildRules(t =>
             {
                 t.RuleFor(x => x.Description).NotEmpty();
@@ -32,7 +32,7 @@ public partial record CreateCategoryCommand
 
     [Tags("Categories")]
     [WolverinePost("/categories")]
-    public static async Task<IResult> Create(CategoryDtos dtos, [FromServices] EShopDbContext db,
+    public static async Task<IResult> Create(CategoryDto dtos, [FromServices] EShopDbContext db,
         CancellationToken ct)
     {
         var category = dtos.ToEntity();

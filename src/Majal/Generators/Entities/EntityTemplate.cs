@@ -45,6 +45,17 @@ public class EntityTemplate(EntityGenerator.EntityData data) : BaseTemplate
             WriteLine($"public {data.IdType} Id {{ get; set; }} = default!;");
         }
 
+        foreach (var fk in data.ForeignKeys)
+        {
+            if (data.Properties.Contains(fk.Name)) continue;
+            WriteLine("");
+            WriteLine("/// <summary>");
+            WriteLine($"/// Gets or sets the foreign key for <see cref=\"{fk.NavigationPropertyName}\"/>.");
+            WriteLine("/// </summary>");
+            var initializer = (!fk.IsNullable && !fk.IsValueType) ? " = default!;" : string.Empty;
+            WriteLine($"public {fk.Type} {fk.Name} {{ get; set; }}{initializer}");
+        }
+
         WriteLine("");
         WriteLine("/// <inheritdoc />");
         WriteLine($"public override {BoolType} Equals({ObjectType}? obj)");

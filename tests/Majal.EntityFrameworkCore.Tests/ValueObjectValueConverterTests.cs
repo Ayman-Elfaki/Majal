@@ -27,6 +27,32 @@ public class ValueObjectValueConverterTests
     }
 
     [Fact]
+    public void Persisting_RoundTripsEnumBasedValueObject_ThroughGeneratedConverter()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        connection.Open();
+
+        var options = new DbContextOptionsBuilder<TestDbContext>().UseSqlite(connection).Options;
+
+        using (var context = new TestDbContext(options))
+        {
+            context.Database.EnsureCreated();
+            context.Customers.Add(new Customer
+            {
+                Email = Email.Create("ada@example.com"),
+                Tier = Tier.Premium
+            });
+            context.SaveChanges();
+        }
+
+        using var readContext = new TestDbContext(options);
+        var customer = readContext.Customers.Single();
+
+        Assert.Equal(Tier.Premium, customer.Tier);
+        Assert.Equal(CustomerTier.Premium, customer.Tier.Value);
+    }
+
+    [Fact]
     public void MaxLength_IsAppliedToUnderlyingColumn()
     {
         using var connection = new SqliteConnection("Data Source=:memory:");

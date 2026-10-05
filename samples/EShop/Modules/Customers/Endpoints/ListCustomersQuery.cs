@@ -24,11 +24,7 @@ public partial class ListCustomersQuery
         var results = customers.Select(c => new
         {
             c.Id,
-            Customer = new CustomerDto
-            {
-                Name = c.Name,
-                Email = c.Email
-            }
+            Customer = CustomerDto.FromEntity(c)
         });
 
         return Results.Ok(results);

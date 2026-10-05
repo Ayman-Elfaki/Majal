@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Majal.Common.Abstractions;
 using Majal.Generators.Dtos.Models;
 using Microsoft.CodeAnalysis;
@@ -106,10 +109,33 @@ public class DtoForTemplate : BaseTemplate
             WriteLine($"public required {dto.TranslatableLocaleType} Locale {{ get; init; }}");
         }
 
-        if (dto.ReconstructionArguments is not null)
+        // Forward mapping: From and Projection
+        if (dto.Directions.HasFlag(MapDirection.ToDto))
         {
-            WriteLine("");
-            GenerateToEntityMethod(dto);
+            if (isBase && dto.SourceTypeName is not null)
+            {
+                WriteLine("");
+                GeneratePolymorphicFromMethod(dto);
+                WriteLine("");
+                GeneratePolymorphicProjectionProperty(dto);
+            }
+            else if (!isBase && dto.SourceTypeName is not null && dto.ForwardMappings is not null)
+            {
+                WriteLine("");
+                GenerateFromMethod(dto);
+                WriteLine("");
+                GenerateProjectionProperty(dto);
+            }
+        }
+
+        // Reverse mapping: To
+        if (dto.Directions.HasFlag(MapDirection.ToEntity))
+        {
+            if (dto.ReconstructionArguments is not null)
+            {
+                WriteLine("");
+                GenerateToMethod(dto);
+            }
         }
 
         if (dto.NestedDtos.Count > 0)
@@ -126,9 +152,123 @@ public class DtoForTemplate : BaseTemplate
         WriteLine("}");
     }
 
-    private void GenerateToEntityMethod(DtoData dto)
+    private void GeneratePolymorphicFromMethod(DtoData dto)
     {
-        WriteLine($"public {dto.SourceTypeName} ToEntity() =>");
+        WriteLine($"public static {dto.DtoName} {FromName(dto)}({dto.SourceTypeName} source) =>");
+        PushIndent();
+        WriteLine("source switch");
+        WriteLine("{");
+        PushIndent();
+
+        foreach (var dt in dto.DerivedTypes)
+        {
+            var sourceName = dt.SourceTypeName ?? dt.Discriminator;
+            WriteLine($"{sourceName} p => {dt.DtoName}.FromEntity(p),");
+        }
+
+        WriteLine(
+            $$"""_ => throw new global::System.ArgumentOutOfRangeException(nameof(source), source, $"Unknown derived type '{source.GetType()}'.")""");
+        PopIndent();
+        WriteLine("};");
+        PopIndent();
+        WriteLine("");
+        WriteLine("public static " + dto.DtoName + "? " + FromName(dto) + "OrDefault(" + dto.SourceTypeName + "? source) =>");
+        PushIndent();
+        WriteLine($"source is null ? null : {FromName(dto)}(source);");
+        PopIndent();
+    }
+
+    private void GeneratePolymorphicProjectionProperty(DtoData dto)
+    {
+        WriteLine(
+            $"public static global::System.Linq.Expressions.Expression<global::System.Func<{dto.SourceTypeName}, {dto.DtoName}>> Projection =>");
+        PushIndent();
+        WriteLine("source =>");
+        PushIndent();
+
+        for (var i = 0; i < dto.DerivedTypes.Count; i++)
+        {
+            var dt = dto.DerivedTypes[i];
+            var sourceName = dt.SourceTypeName ?? dt.Discriminator;
+            var castSource = $"(({sourceName})source)";
+            var nestedDto = dto.NestedDtos.FirstOrDefault(n => n.DtoName == dt.DtoName);
+            var mappings = dt.ForwardMappings ?? nestedDto.ForwardMappings;
+
+            Write($"source is {sourceName} ? ({dto.DtoName})new {dt.DtoName}");
+            if (mappings is { Count: > 0 } validMappings)
+            {
+                WriteLine("");
+                WriteLine("{");
+                PushIndent();
+                foreach (var mapping in validMappings)
+                {
+                    var projExpr =
+                        System.Text.RegularExpressions.Regex.Replace(mapping.ProjectionExpression, @"\bsource\b",
+                            castSource);
+                    WriteLine($"{mapping.DtoPropertyName} = {projExpr},");
+                }
+
+                PopIndent();
+                Write("} : ");
+            }
+            else
+            {
+                Write("() : ");
+            }
+        }
+
+        WriteLine("null!;");
+        PopIndent();
+        PopIndent();
+    }
+
+    private void GenerateFromMethod(DtoData dto)
+    {
+        WriteLine($"public static {dto.DtoName} {FromName(dto)}({dto.SourceTypeName} source) =>");
+        PushIndent();
+        WriteLine("new()");
+        WriteLine("{");
+        PushIndent();
+
+        foreach (var mapping in dto.ForwardMappings!.Value)
+        {
+            WriteLine($"{mapping.DtoPropertyName} = {mapping.AdaptExpression},");
+        }
+
+        PopIndent();
+        WriteLine("};");
+        PopIndent();
+        WriteLine("");
+        WriteLine($"public static {dto.DtoName}? {FromName(dto)}OrDefault({dto.SourceTypeName}? source) =>");
+        PushIndent();
+        var adaptArg = dto.IsSourceValueType ? "source.Value" : "source";
+        WriteLine($"source is null ? null : {FromName(dto)}({adaptArg});");
+        PopIndent();
+    }
+
+    private void GenerateProjectionProperty(DtoData dto)
+    {
+        var newKeyword = !string.IsNullOrWhiteSpace(dto.BaseDtoName) ? "new " : "";
+        WriteLine(
+            $"public static {newKeyword}global::System.Linq.Expressions.Expression<global::System.Func<{dto.SourceTypeName}, {dto.DtoName}>> Projection =>");
+        PushIndent();
+        WriteLine($"source => new {dto.DtoName}");
+        WriteLine("{");
+        PushIndent();
+
+        foreach (var mapping in dto.ForwardMappings!.Value)
+        {
+            WriteLine($"{mapping.DtoPropertyName} = {mapping.ProjectionExpression},");
+        }
+
+        PopIndent();
+        WriteLine("};");
+        PopIndent();
+    }
+
+    private void GenerateToMethod(DtoData dto)
+    {
+        WriteLine($"public {dto.SourceTypeName} {ToName(dto)}() =>");
         PushIndent();
         WriteLine($"{dto.SourceTypeName}.{dto.FactoryMethodName}(");
         PushIndent();
@@ -158,6 +298,10 @@ public class DtoForTemplate : BaseTemplate
         PopIndent();
     }
 
+    private static string FromName(DtoData dto) => dto.IsSourceValueObject ? "FromValueObject" : "FromEntity";
+
+    private static string ToName(DtoData dto) => dto.IsSourceValueObject ? "ToValueObject" : "ToEntity";
+
     private static string BuildArgumentExpression(FactoryArgument argument)
     {
         return argument.Kind switch
@@ -166,7 +310,7 @@ public class DtoForTemplate : BaseTemplate
             ReconstructKind.ValueObject => BuildWrappedExpression(argument,
                 value => $"{argument.TargetTypeName}.Create({value})"),
             ReconstructKind.NestedType => BuildWrappedExpression(argument,
-                value => $"{value}.ToEntity()"),
+                value => $"{value}.{(argument.IsNestedValueObject ? "ToValueObject" : "ToEntity")}()"),
             ReconstructKind.Locale => argument.TargetTypeName == "ToString"
                 ? $"this.{argument.DtoPropertyName}.ToString()"
                 : $"this.{argument.DtoPropertyName}",
@@ -181,6 +325,7 @@ public class DtoForTemplate : BaseTemplate
             ? ApplyCollectionConversion(access, argument.CollectionConversionKind)
             : access;
     }
+
 
     private static string BuildWrappedExpression(FactoryArgument argument, Func<string, string> wrap)
     {

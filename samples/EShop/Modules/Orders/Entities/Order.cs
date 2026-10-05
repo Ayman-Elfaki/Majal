@@ -4,13 +4,13 @@ using EShop.Modules.Products.ValueObjects;
 
 namespace EShop.Modules.Orders.Entities;
 
-
 /// <summary>
 /// Order aggregate root. Lets the generator add its own <c>Id</c> property (contrast with
 /// <see cref="Customer"/>, which pre-declares its own) and actually publishes and clears a domain event,
 /// unlike <see cref="Products.Entities.Product"/>'s bare, unused <c>[Aggregate]</c> declaration.
 /// </summary>
-[Entity<Guid>, Aggregate<OrderEvent>]
+[Entity<Guid>(GenerateForeignKeys = false)]
+[Aggregate<OrderEvent>]
 [Auditable]
 public partial class Order
 {

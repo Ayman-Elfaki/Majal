@@ -47,6 +47,30 @@ public class ValueObjectGenericArgumentAnalyzerTests
     }
 
     [Fact]
+    public async Task Analyzer_ShouldNotReportError_WhenGenericArgumentIsEnum()
+    {
+        const string source =
+            """
+            using Majal;
+
+            public enum Status
+            {
+                Active,
+                Inactive
+            }
+
+            [ValueObject<Status>]
+            public partial struct ProjectStatus
+            {
+            }
+            """;
+
+        var diagnostics = await GetDiagnostics(source);
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == ValueObjectGenericArgumentAnalyzer.DiagnosticId);
+    }
+
+    [Fact]
     public async Task Analyzer_ShouldNotReportError_WhenNonGenericValueObject()
     {
         const string source =

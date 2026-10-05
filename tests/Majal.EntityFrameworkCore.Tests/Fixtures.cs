@@ -39,6 +39,16 @@ public readonly partial struct Email
     internal const int MaxLength = 100;
 }
 
+public enum CustomerTier
+{
+    Standard,
+    Premium,
+    Vip
+}
+
+[ValueObject<CustomerTier>]
+public readonly partial struct Tier;
+
 [Entity]
 public partial class Customer
 {
@@ -48,6 +58,7 @@ public partial class Customer
     }
 
     public required Email Email { get; set; }
+    public Tier Tier { get; set; } = Tier.Standard;
 }
 
 [Entity, Ordinal]

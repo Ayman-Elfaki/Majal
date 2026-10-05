@@ -15,8 +15,32 @@ For value objects that wrap a single value (like a `ProjectName` or `SKU` string
 public readonly partial struct ProjectName;
 
 // Usage
-var name = ProjectName.From("My Project");
+var name = ProjectName.Create("My Project");
 string value = name.Value; 
+```
+
+### Enum-Based Value Objects
+
+For value objects that encapsulate an enum, use `[ValueObject<TEnum>]`. Majal automatically generates:
+- A `Value` property of the enum type.
+- `static readonly` fields for every enum member (e.g., `Status.Pending`), allowing you to use the value object as a direct, type-safe replacement for the enum.
+- Case-insensitive string parsing via `Parse` and `TryParse` (with `Enum.IsDefined` validation for non-flags enums).
+- Implicit/explicit conversions, JSON serialization, and EF Core converter support.
+
+```csharp
+public enum OrderStatus
+{
+    Pending,
+    Shipped,
+    Delivered
+}
+
+[ValueObject<OrderStatus>]
+public readonly partial struct Status;
+
+// Usage:
+var status = Status.Pending;
+order.ChangeStatus(Status.Delivered);
 ```
 
 ### Complex (Non-Generic) Value Objects

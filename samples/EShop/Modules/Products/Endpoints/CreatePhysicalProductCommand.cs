@@ -10,8 +10,9 @@ namespace EShop.Modules.Products.Endpoints;
 /// <summary>Create a new physical (shippable) product in an existing category.</summary>
 public partial record CreatePhysicalProductCommand
 {
-    [DtoFor<PhysicalProduct>(Nullable = ["InitialStockQuantity"])]
-    [FlattenDtoFor<Money>]
+    [DtoFlatten<Money>]
+    [DtoMember("InitialStockQuantity", Nullable = true)]
+    [DtoFor<PhysicalProduct>(Directions = MapDirection.ToEntity)]
     public partial record PhysicalProductDto;
 
     public class Validator : AbstractValidator<PhysicalProductDto>

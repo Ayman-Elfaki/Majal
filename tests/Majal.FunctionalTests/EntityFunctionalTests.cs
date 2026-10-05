@@ -25,6 +25,26 @@ public class EntityFunctionalTests
         Assert.Equal(customer1, customer2);
         Assert.Equal(1, customer1.Id);
     }
+
+    [Fact]
+    public void Entity_GeneratesForeignKeyForNavigationProperty()
+    {
+        var customer = new Customer { Id = 42, Name = "Alice" };
+        var order = new Order
+        {
+            Id = 1,
+            Customer = customer,
+            CustomerId = customer.Id,
+            OptionalCustomer = null,
+            OptionalCustomerId = null
+        };
+
+        Assert.Equal(42, order.CustomerId);
+        Assert.Null(order.OptionalCustomerId);
+
+        order.OptionalCustomerId = 99;
+        Assert.Equal(99, order.OptionalCustomerId);
+    }
 }
 
 [Entity]
@@ -47,4 +67,25 @@ public partial class Customer
     }
 
     public string Name { get; set; } = string.Empty;
+}
+
+[Entity<int>]
+public partial class Order
+{
+    public Order()
+    {
+    }
+
+    public Customer Customer { get; set; } = default!;
+    public Customer? OptionalCustomer { get; set; }
+}
+
+[Entity<int>(GenerateForeignKeys = false)]
+public partial class Invoice
+{
+    public Invoice()
+    {
+    }
+
+    public Customer Customer { get; set; } = default!;
 }

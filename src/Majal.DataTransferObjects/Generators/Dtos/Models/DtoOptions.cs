@@ -4,5 +4,6 @@ internal readonly record struct DtoOptions(
     string FactoryMethodName,
     string DtoSuffix,
     string DtoPrefix,
-    string[] ExcludedProperties,
-    string[] NullableProperties);
+    NameMatchingStrategy NameMatching,
+    MapDirection Directions
+);

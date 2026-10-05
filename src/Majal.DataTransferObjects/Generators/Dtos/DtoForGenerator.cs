@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Majal.Common.Abstractions;
@@ -31,20 +34,29 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
         return handler.Resolve(ctx, unwrappedType, isCollection, isNullable);
     }
 
-    private const string DtoAttribute = $"Majal.{nameof(DtoForAttribute<>)}`1";
-    private const string OptionsAttributeName = nameof(DtoForOptionsAttribute);
-    private const string FlattenGenericAttributeName = $"{nameof(FlattenDtoForAttribute<>)}`1";
-    private const string ExcludeGenericAttributeName = $"{nameof(ExcludeDtoForAttribute<>)}`1";
-
-    private const string DefaultDtoSuffix = "Dto";
-    private const string DefaultFactoryMethodName = "Create";
-    private const string NullablePropertyName = nameof(DtoForAttribute<>.Nullable);
+    private const string DtoAttribute = $"Majal.{nameof(DtoForAttribute<object>)}`1";
 
     protected override string AttributeFullName => DtoAttribute;
-    protected override string GenericAttributeFullName => $"{nameof(DtoForAttribute<>)}`1";
+    protected override string GenericAttributeFullName => $"{nameof(DtoForAttribute<object>)}`1";
 
     protected override void Generate(SourceProductionContext context, DtoData data)
     {
+        if (data.Diagnostics is not null)
+        {
+            foreach (var diag in data.Diagnostics)
+            {
+                var descriptor = new DiagnosticDescriptor(
+                    diag.Id,
+                    diag.Title,
+                    diag.Message,
+                    "Majal.DTO",
+                    diag.Severity,
+                    isEnabledByDefault: true);
+
+                context.ReportDiagnostic(Diagnostic.Create(descriptor, diag.Location ?? Location.None));
+            }
+        }
+
         var template = new DtoForTemplate { Data = data };
         var code = template.TransformText();
         context.AddSource(GetSourceFileName(data), SourceText.From(code, Encoding.UTF8));
@@ -79,73 +91,12 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
 
         var compilation = context.SemanticModel.Compilation;
 
-        var options = ReadDtoOptions(attribute, dtoSymbol.Name, compilation);
-        var typeConfig = ReadDtoTypeConfig(dtoSymbol);
-
-        var dtoContext = new DtoContext(
-            IsRoot: true,
-            Namespace: dtoSymbol.GetNamespace(),
-            DtoName: dtoSymbol.GetTypeNameWithGenerics(),
-            RawDtoName: dtoSymbol.Name,
-            ParentTypeDeclarations: dtoSymbol.GetParentTypeDeclarations(),
-            DtoNamePrefix: options.DtoPrefix,
-            DtoNameSuffix: options.DtoSuffix,
-            Accessibility: dtoSymbol.DeclaredAccessibility,
-            IsRecord: dtoSymbol.IsRecord,
-            SourceSymbol: sourceSymbol,
-            FactoryMethodName: options.FactoryMethodName,
-            Graph: new DtoGraph(),
-            FlattenConfigs: typeConfig.FlattenConfigs,
-            ExcludedTypes: typeConfig.ExcludedTypes,
-            ExcludedProperties: options.ExcludedProperties,
-            ExcludedTypeProperties: typeConfig.ExcludedTypeProperties,
-            NullableProperties: options.NullableProperties,
-            Compilation: compilation
-        );
+        var dtoContext = DtoConfigReader.CreateContext(dtoSymbol, sourceSymbol, attribute, compilation);
 
         dtoContext.Graph.Register(sourceSymbol, dtoContext.DtoName);
         var rootData = GetDtoData(dtoContext);
         if (rootData is { } data) dtoContext.Graph.Complete(sourceSymbol, data);
         return rootData;
-    }
-
-    private static DtoOptions ReadDtoOptions(AttributeData attribute, string dtoSymbolName, Compilation compilation)
-    {
-        var factoryMethodName =
-            attribute.GetNamedArgumentValue<string>(nameof(DtoForAttribute<>.FactoryMethod)) ??
-            compilation.GetAssemblyDefaultValue<string>(OptionsAttributeName, nameof(DtoForAttribute<>.FactoryMethod))
-            ?? DefaultFactoryMethodName;
-
-        var dtoSuffix =
-            attribute.GetNamedArgumentValue<string>(nameof(DtoForAttribute<>.Suffix)) ??
-            compilation.GetAssemblyDefaultValue<string>(OptionsAttributeName, nameof(DtoForOptionsAttribute.Suffix))
-            ?? DefaultDtoSuffix;
-
-        var dtoPrefix =
-            attribute.GetNamedArgumentValue<string>(nameof(DtoForAttribute<>.Prefix)) ??
-            compilation.GetAssemblyDefaultValue<string>(OptionsAttributeName, nameof(DtoForOptionsAttribute.Prefix))
-            ?? dtoSymbolName;
-
-        var assemblyExcludedPropertyNames =
-            compilation.GetAssemblyDefaultValue<string[]>(OptionsAttributeName, nameof(DtoForOptionsAttribute.Exclude))
-            ?? [];
-
-        var excludedPropertyNames =
-            attribute.GetNamedArgumentValue<string[]>(nameof(DtoForAttribute<>.Exclude)) ?? [];
-
-        var assemblyNullablePropertyNames =
-            compilation.GetAssemblyDefaultValue<string[]>(OptionsAttributeName, nameof(DtoForOptionsAttribute.Nullable))
-            ?? [];
-
-        var nullablePropertyNames =
-            attribute.GetNamedArgumentValue<string[]>(NullablePropertyName) ?? [];
-
-        return new DtoOptions(
-            factoryMethodName,
-            dtoSuffix,
-            dtoPrefix,
-            [.. assemblyExcludedPropertyNames, .. excludedPropertyNames],
-            [.. assemblyNullablePropertyNames, .. nullablePropertyNames]);
     }
 
     private static string? GetTranslatableLocaleType(INamedTypeSymbol sourceSymbol, Compilation? compilation)
@@ -163,52 +114,6 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
         return defaultLocaleType?.ToDisplayString(FullPropertyTypeFormat) ?? StringType;
     }
 
-    private static DtoTypeConfig ReadDtoTypeConfig(INamedTypeSymbol dtoSymbol)
-    {
-        var excludedTypeProperties = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-        List<ITypeSymbol>? excludedTypes = null;
-        Dictionary<string, bool>? flattenConfigs = null;
-
-        foreach (var attr in dtoSymbol.GetAttributes())
-        {
-            if (attr.AttributeClass?.MetadataName == FlattenGenericAttributeName)
-            {
-                if (!(attr.AttributeClass?.TypeArguments.Length > 0)) continue;
-
-                flattenConfigs ??= [];
-                var targetType = attr.AttributeClass.TypeArguments[0];
-                var isReversed = attr.GetNamedArgumentValue<bool?>(nameof(FlattenDtoForAttribute<>.IsReversed))
-                                 ?? false;
-
-                flattenConfigs[targetType.ToDisplayString()] = isReversed;
-            }
-
-            if (attr.AttributeClass?.MetadataName == ExcludeGenericAttributeName)
-            {
-                if (!(attr.AttributeClass?.TypeArguments.Length > 0)) continue;
-
-                var excludedType = attr.AttributeClass.TypeArguments[0];
-                var excludedPropertiesForType =
-                    attr.GetNamedArgumentValue<string[]>(nameof(ExcludeDtoForAttribute<>.Properties)) ?? [];
-                if (excludedPropertiesForType.Length == 0)
-                {
-                    excludedTypes ??= [];
-                    excludedTypes.Add(excludedType);
-                }
-                else
-                {
-                    excludedTypeProperties[excludedType.ToDisplayString(FullPropertyTypeFormat)] =
-                        excludedPropertiesForType;
-                }
-            }
-        }
-
-        return new DtoTypeConfig(
-            flattenConfigs,
-            excludedTypes?.ToArray(),
-            excludedTypeProperties.Count > 0 ? excludedTypeProperties : null);
-    }
-
     internal static DtoData? GetDtoData(DtoContext context)
     {
         var createMethod = FindFactoryMethod(context.SourceSymbol, context.FactoryMethodName);
@@ -216,10 +121,13 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
         var excludedProperties =
             new HashSet<string>(context.ExcludedProperties ?? [], StringComparer.OrdinalIgnoreCase);
 
-        if (context.ExcludedTypeProperties?.TryGetValue(context.SourceSymbol.ToDisplayString(FullPropertyTypeFormat),
-                out var typeSpecificProperties) == true)
+        if (context.ExcludedTypeProperties != null)
         {
-            excludedProperties.UnionWith(typeSpecificProperties);
+            if (context.ExcludedTypeProperties.TryGetValue(context.SourceSymbol.Name, out var typeSpecificProperties) ||
+                context.ExcludedTypeProperties.TryGetValue(context.SourceSymbol.ToDisplayString(FullPropertyTypeFormat), out typeSpecificProperties))
+            {
+                excludedProperties.UnionWith(typeSpecificProperties);
+            }
         }
 
         var nullableProperties =
@@ -240,6 +148,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
                     var derivedSymbol = method.ContainingType;
                     var derivedDtoName = $"{context.DtoNamePrefix}{derivedSymbol.Name}{context.DtoNameSuffix}";
 
+                    EquatableList<SourceMemberMap>? dtForwardMappings = null;
+
                     if (context.Graph.Register(derivedSymbol, derivedDtoName))
                     {
                         var derivedContext = context with
@@ -247,7 +157,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
                             IsRoot = false,
                             DtoName = derivedDtoName,
                             RawDtoName = derivedDtoName,
-                            SourceSymbol = derivedSymbol
+                            SourceSymbol = derivedSymbol,
+                            DtoSymbol = null
                         };
 
                         var derivedData = GetDtoData(derivedContext);
@@ -257,10 +168,19 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
                             var updatedData = derivedData.Value with { BaseDtoName = context.DtoName };
                             context.Graph.Complete(derivedSymbol, updatedData);
                             derivedDtos.Add(updatedData);
+                            dtForwardMappings = updatedData.ForwardMappings;
                         }
                     }
+                    else if (context.Graph.TryGetNode(derivedSymbol, out var existingNode) && existingNode.Data.HasValue)
+                    {
+                        dtForwardMappings = existingNode.Data.Value.ForwardMappings;
+                    }
 
-                    derivedTypes.Add(new DerivedTypeInfo(derivedDtoName, derivedSymbol.Name));
+                    derivedTypes.Add(new DerivedTypeInfo(
+                        derivedDtoName,
+                        derivedSymbol.Name,
+                        derivedSymbol.ToDisplayString(FullPropertyTypeFormat),
+                        dtForwardMappings));
                 }
 
                 var commonParameters = GetCommonParameters(derivedDtos);
@@ -306,7 +226,11 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
                     [.. derivedTypes],
                     commonParameters,
                     nestedDtos,
-                    translatableLocaleType: GetTranslatableLocaleType(context.SourceSymbol, context.Compilation)
+                    sourceTypeName: context.SourceSymbol.ToDisplayString(FullPropertyTypeFormat),
+                    sourceSimpleName: context.SourceSymbol.Name,
+                    translatableLocaleType: GetTranslatableLocaleType(context.SourceSymbol, context.Compilation),
+                    directions: context.Directions,
+                    nameMatching: context.NameMatching
                 );
             }
         }
@@ -372,11 +296,43 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
             reconstructionArguments.Add(ApplyNullableToReconstruction(reconstruction, nullableProperties));
         }
 
+        if (context.IncludedProperties is { Length: > 0 })
+        {
+            var sourceMembers = ForwardMappingBuilder.GetAllSourceMembers(context.SourceSymbol);
+            foreach (var incProp in context.IncludedProperties)
+            {
+                if (parameters.Any(p => string.Equals(p.Declaration.Name, incProp, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                var matched = sourceMembers.OfType<IPropertySymbol>()
+                    .FirstOrDefault(m => string.Equals(m.Name, incProp, StringComparison.OrdinalIgnoreCase));
+
+                if (matched != null)
+                {
+                    var (_, isTypeNullable) = matched.Type.UnwrapNullable();
+                    var isNullable = matched.NullableAnnotation == NullableAnnotation.Annotated ||
+                                     isTypeNullable ||
+                                     nullableProperties.Contains(matched.Name);
+                    var typeString = matched.Type.ToDisplayString(FullPropertyTypeFormat);
+                    var xml = FormatXmlDocs(matched.GetDocumentationCommentXml());
+                    parameters.Add(new ParameterData((matched.Name, typeString), isNullable, xml));
+                }
+                else if (ResolveSynthesizedMember(context.SourceSymbol, incProp, context.Compilation, nullableProperties) is { } synth)
+                {
+                    parameters.Add(synth);
+                }
+            }
+        }
+
         DtoData[] nestedDtosResult =
             context.IsRoot ? [.. context.Graph.GetCompletedDtos(context.SourceSymbol)] : [];
 
         var xmlDocsResult = ExtractSummary(methodXml) ??
                             FormatXmlDocs(context.SourceSymbol.GetDocumentationCommentXml());
+
+        var (forwardMappings, diagnostics) = context.Directions.HasFlag(MapDirection.ToDto)
+            ? ForwardMappingBuilder.BuildForwardMappings(context.SourceSymbol, parameters, context)
+            : (new List<SourceMemberMap>(), new List<DiagnosticInfo>());
 
         return new DtoData(
             context.Namespace,
@@ -394,9 +350,18 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
             context.SourceSymbol.Name,
             context.FactoryMethodName,
             canReconstruct ? [.. reconstructionArguments] : null,
-            translatableLocaleType
+            translatableLocaleType,
+            directions: context.Directions,
+            nameMatching: context.NameMatching,
+            isSourceValueType: context.SourceSymbol.IsValueType,
+            isSourceValueObject: ParameterHandlers.ParameterResolution.IsValueObjectType(context.SourceSymbol),
+            forwardMappings: [.. forwardMappings],
+            diagnostics: [.. diagnostics]
         );
     }
+
+    private static string ToPascalCase(string input) =>
+        string.IsNullOrEmpty(input) ? input : char.ToUpperInvariant(input[0]) + input.Substring(1);
 
     private static ParameterData ApplyNullable(ParameterData data, HashSet<string> nullableProperties)
     {
@@ -477,5 +442,57 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
 
         var lines = content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
         return $"/// <summary>\n{string.Join("\n", lines.Select(l => "/// " + l.Trim()))}\n/// </summary>";
+    }
+
+    private static ParameterData? ResolveSynthesizedMember(
+        INamedTypeSymbol sourceSymbol,
+        string propName,
+        Compilation? compilation,
+        HashSet<string> nullableProperties)
+    {
+        for (var curr = sourceSymbol; curr != null; curr = curr.BaseType)
+        {
+            if (string.Equals(propName, "Id", StringComparison.OrdinalIgnoreCase) && IsEntityType(curr))
+            {
+                var idType = GetEntityIdType(curr, compilation);
+                var isNullable = nullableProperties.Contains("Id");
+                return new ParameterData(("Id", idType), isNullable, null);
+            }
+
+            if (string.Equals(propName, "CreatedOn", StringComparison.OrdinalIgnoreCase) &&
+                curr.HasAnyMajaAttribute("AuditableAttribute"))
+            {
+                var isNullable = nullableProperties.Contains("CreatedOn");
+                return new ParameterData(("CreatedOn", "global::System.DateTimeOffset"), isNullable, null);
+            }
+
+            if (string.Equals(propName, "UpdatedOn", StringComparison.OrdinalIgnoreCase) &&
+                curr.HasAnyMajaAttribute("AuditableAttribute"))
+            {
+                return new ParameterData(("UpdatedOn", "global::System.DateTimeOffset?"), true, null);
+            }
+
+            if (string.Equals(propName, "Ordinal", StringComparison.OrdinalIgnoreCase) &&
+                curr.HasAnyMajaAttribute("OrdinalAttribute"))
+            {
+                var isNullable = nullableProperties.Contains("Ordinal");
+                return new ParameterData(("Ordinal", "global::System.UInt32"), isNullable, null);
+            }
+
+            if (string.Equals(propName, "IsArchived", StringComparison.OrdinalIgnoreCase) &&
+                curr.HasAnyMajaAttribute("ArchivableAttribute"))
+            {
+                var isNullable = nullableProperties.Contains("IsArchived");
+                return new ParameterData(("IsArchived", "global::System.Boolean"), isNullable, null);
+            }
+
+            if (string.Equals(propName, "ArchivedOn", StringComparison.OrdinalIgnoreCase) &&
+                curr.HasAnyMajaAttribute("ArchivableAttribute"))
+            {
+                return new ParameterData(("ArchivedOn", "global::System.DateTimeOffset?"), true, null);
+            }
+        }
+
+        return null;
     }
 }

@@ -13,16 +13,16 @@ namespace EShop.Modules.Products.Endpoints;
 /// </summary>
 public partial record CreateDigitalProductCommand
 {
-    [DtoFor<DigitalProduct>]
+    [DtoFor<DigitalProduct>(Directions = MapDirection.ToEntity)]
     public partial record DigitalProductDtos;
 
     public class Validator : AbstractValidator<DigitalProductDtos>
     {
         public Validator()
         {
-            RuleFor<string>(p => p.Sku).NotEmpty().MaximumLength(ProductSku.MaxLength);
-            RuleFor<string>(p => p.DownloadUrl).NotEmpty();
-            RuleFor<IEnumerable<DigitalProductDtos.ProductTranslationDto>>(p => p.Translations).NotEmpty();
+            RuleFor(p => p.Sku).NotEmpty().MaximumLength(ProductSku.MaxLength);
+            RuleFor(p => p.DownloadUrl).NotEmpty();
+            RuleFor(p => p.Translations).NotEmpty();
         }
     }
 
@@ -33,7 +33,7 @@ public partial record CreateDigitalProductCommand
     {
         var category = await db.Categories.FindAsync([dtos.CategoryId], ct);
         if (category is null) return Results.NotFound($"Category '{dtos.CategoryId}' not found.");
-
+        
         var product = DigitalProduct.Create(
             ProductSku.Create(dtos.Sku),
             Money.Create(dtos.Price.Amount, dtos.Price.Currency),

@@ -14,10 +14,10 @@ hand-mirrors EShop's actual JSON shapes.
 |---|---|
 | `/categories` | `[DtoFor<Category>]` on an aggregate root |
 | `/products` | Physical (flattened price) vs. digital (nested price) product creation, `[Ordinal]` reordering, soft-delete |
-| `/products/archived` | `IgnoreArchivableFilter()`, whole-type `[ExcludeDtoFor<T>]` |
+| `/products/archived` | `IgnoreArchivableFilter()`, whole-type `[DtoIgnoreType<T>]` |
 | `/translations` | `IgnoreTranslatableFilter()` |
 | `/customers` | `GET /customers` reusing the create command's own `CustomerDto` (no supplied arguments needed) |
-| `/orders` | Polymorphic `PaymentMethod` DTO, reversed `[FlattenDtoFor<Money>]`, real domain-event dispatch, `GET /orders` reusing `GetOrderQuery.OrderDto` |
+| `/orders` | Polymorphic `PaymentMethod` DTO, reversed `[DtoFlatten<Money>]`, real domain-event dispatch, `GET /orders` reusing `GetOrderQuery.OrderDto` |
 
 ## Setup
 

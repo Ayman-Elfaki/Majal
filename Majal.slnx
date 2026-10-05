@@ -36,6 +36,7 @@
         <Project Path="src/Majal/Majal.csproj" />
     </Folder>
     <Folder Name="/tests/">
+        <Project Path="tests/EShop.E2ETests/EShop.E2ETests.csproj" />
         <Project Path="tests/Majal.DataTransferObjects.Tests/Majal.DataTransferObjects.Tests.csproj" />
         <Project Path="tests/Majal.EntityFrameworkCore.Tests/Majal.EntityFrameworkCore.Tests.csproj" />
         <Project Path="tests/Majal.FunctionalTests/Majal.FunctionalTests.csproj" />

@@ -61,7 +61,7 @@ async function onSubmit() {
   <UModal
     v-model:open="open"
     title="New physical product"
-    description="[FlattenDtoFor<Money>] flattens the price into priceAmount/priceCurrency."
+    description="[DtoFlatten<Money>] flattens the price into priceAmount/priceCurrency."
   >
     <template #body>
       <UForm

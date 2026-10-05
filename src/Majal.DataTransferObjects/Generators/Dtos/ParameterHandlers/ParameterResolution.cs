@@ -136,7 +136,9 @@ internal static class ParameterResolution
             IsRoot = false,
             DtoName = nestedDtoName,
             RawDtoName = nestedDtoName,
-            SourceSymbol = eNamedType
+            SourceSymbol = eNamedType,
+            DtoSymbol = null,
+            IncludedProperties = null
         };
 
         var nestedData = DtoForGenerator.GetDtoData(nestedContext);
@@ -167,7 +169,8 @@ internal static class ParameterResolution
         if (TryGetNestedDto(resolvedElementType, ctx.DtoContext.Graph, out var nestedDto))
         {
             return new FactoryArgument(ctx.Parameter.Name, ReconstructKind.NestedType, dtoPropertyName,
-                nestedDto.SourceSimpleName, isCollection, suffix, isNullable);
+                nestedDto.SourceSimpleName, isCollection, suffix, isNullable,
+                IsNestedValueObject: nestedDto.IsSourceValueObject);
         }
 
         return new FactoryArgument(ctx.Parameter.Name, scalarKind, dtoPropertyName,

@@ -13,6 +13,9 @@ namespace EShop.Modules.Orders.Endpoints;
 public partial class ListOrdersQuery
 {
     [DtoFor<Order>]
+    [DtoInclude(nameof(Order.Id), nameof(Order.CreatedOn))]
+    [DtoMember("Lines", MapFrom = "LineItems")]
+    [DtoMember("PaymentMethod", MapFrom = "Payment")]
     public partial class OrderDto;
 
     public class ResponseDto
@@ -28,42 +31,13 @@ public partial class ListOrdersQuery
     public static async Task<IResult> List([FromServices] EShopDbContext db, CancellationToken ct)
     {
         var orders = await db.Orders.Include(o => o.LineItems).Include(o => o.Payment).ToListAsync(ct);
-
-        var results = orders.OrderByDescending(o => o.CreatedOn).Select(o =>
+        
+        var results = orders.OrderByDescending(o => o.CreatedOn).Select(o => new ResponseDto
         {
-            return new ResponseDto
-            {
-                Id = o.Id,
-                CreatedOn = o.CreatedOn,
-                LineIds = o.LineItems.Select(l => l.Id),
-                Order = new OrderDto
-                {
-                    CustomerId = o.CustomerId,
-                    PaymentMethod = o.Payment switch
-                    {
-                        CreditCardPayment p => new OrderDto.CreditCardPaymentDto
-                        {
-                            CardholderName = p.CardholderName,
-                            Last4Digits = p.Last4Digits
-                        },
-                        PayPalPayment p => new OrderDto.PayPalPaymentDto
-                        {
-                            PayerEmail = p.PayerEmail
-                        },
-                        _ => throw new ArgumentOutOfRangeException()
-                    },
-                    Lines = o.LineItems.Select(l => new OrderDto.OrderLineDto
-                    {
-                        ProductId = l.ProductId,
-                        Quantity = l.Quantity,
-                        UnitPrice = new OrderDto.MoneyDto
-                        {
-                            Amount = l.UnitPrice.Amount,
-                            Currency = l.UnitPrice.Currency
-                        }
-                    })
-                }
-            };
+            Id = o.Id,
+            CreatedOn = o.CreatedOn,
+            LineIds = o.LineItems.Select(l => l.Id),
+            Order = OrderDto.FromEntity(o)
         });
 
         return Results.Ok(results);

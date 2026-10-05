@@ -3,10 +3,10 @@ using System;
 namespace Majal;
 
 /// <summary>
-/// Marks a class or struct as a DTO for the specified type.
+/// Marks a class or record as a DTO for the specified type.
 /// The DTO properties will be generated based on the target type's specified factory method parameters.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface, AllowMultiple = false, Inherited = false)]
 public sealed class DtoForAttribute<T> : Attribute
 {
     /// <summary>
@@ -16,22 +16,24 @@ public sealed class DtoForAttribute<T> : Attribute
     public string FactoryMethod { get; set; } = "Create";
 
     /// <summary>
-    /// The generated Dto suffix
+    /// The generated DTO suffix. Defaults to "Dto".
     /// </summary>
     public string Suffix { get; set; } = "Dto";
 
     /// <summary>
-    /// The generated Dto prefix
+    /// The generated DTO prefix.
     /// </summary>
     public string? Prefix { get; set; }
 
     /// <summary>
-    /// Gets or sets DTO property names to exclude from generated DTOs.
+    /// Name matching strategy for mapping between domain entity members and DTO properties.
+    /// Defaults to <see cref="NameMatchingStrategy.Exact"/>.
     /// </summary>
-    public string[] Exclude { get; set; } = [];
+    public NameMatchingStrategy NameMatching { get; set; } = NameMatchingStrategy.Exact;
 
     /// <summary>
-    /// Gets or sets DTO property names to make nullable in generated DTOs.
+    /// Controls which mapping methods are generated (ToDto, To, or TwoWay).
+    /// Defaults to <see cref="MapDirection.TwoWay"/>.
     /// </summary>
-    public string[] Nullable { get; set; } = [];
+    public MapDirection Directions { get; set; } = MapDirection.TwoWay;
 }

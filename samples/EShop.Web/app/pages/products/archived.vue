@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import { isDigitalProduct, type ProductListItem } from '~/types/eshop'
+import { isDigitalProduct, type ArchivedProductItem } from '~/types/eshop'
 
-const { data: products, status } = await useEshopData<ProductListItem[]>('admin/products/archived')
+const { data: products, status } = await useEshopData<ArchivedProductItem[]>('admin/products/archived')
 
-const columns: TableColumn<ProductListItem>[] = [
+const columns: TableColumn<ArchivedProductItem>[] = [
   { accessorKey: 'id', header: 'ID' },
   { id: 'type', header: 'Type' },
-  { id: 'sku', accessorFn: row => row.product.sku, header: 'SKU' },
+  { accessorKey: 'sku', header: 'SKU' },
   { id: 'price', header: 'Price' },
-  { id: 'tags', accessorFn: row => row.product.tags, header: 'Tags' }
+  { id: 'tags', header: 'Tags' }
 ]
 </script>
 
@@ -21,7 +21,7 @@ const columns: TableColumn<ProductListItem>[] = [
       </h1>
       <p class="text-muted">
         Uses <code>IgnoreArchivableFilter()</code> to bypass the default query filter, and a whole-type
-        <code>[ExcludeDtoFor&lt;ProductTranslation&gt;]</code> so this listing has no translations.
+        <code>[DtoIgnoreType&lt;ProductTranslation&gt;]</code> so this listing has no translations.
       </p>
     </div>
 
@@ -41,24 +41,24 @@ const columns: TableColumn<ProductListItem>[] = [
       :loading="status === 'pending'"
     >
       <template #type-cell="{ row }">
-        <UBadge :color="isDigitalProduct(row.original.product) ? 'primary' : 'neutral'">
-          {{ isDigitalProduct(row.original.product) ? 'Digital' : 'Physical' }}
+        <UBadge :color="isDigitalProduct(row.original) ? 'primary' : 'neutral'">
+          {{ isDigitalProduct(row.original) ? 'Digital' : 'Physical' }}
         </UBadge>
       </template>
 
       <template #price-cell="{ row }">
-        <span v-if="isDigitalProduct(row.original.product)">
-          {{ row.original.product.price.amount }} {{ row.original.product.price.currency }}
+        <span v-if="isDigitalProduct(row.original)">
+          {{ row.original.price.amount }} {{ row.original.price.currency }}
         </span>
         <span v-else>
-          {{ row.original.product.priceAmount }} {{ row.original.product.priceCurrency }}
+          {{ row.original.priceAmount }} {{ row.original.priceCurrency }}
         </span>
       </template>
 
       <template #tags-cell="{ row }">
         <div class="flex flex-wrap gap-1">
           <UBadge
-            v-for="tag in row.original.product.tags"
+            v-for="tag in row.original.tags"
             :key="tag"
             variant="subtle"
             color="neutral"

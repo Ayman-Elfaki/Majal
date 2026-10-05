@@ -20,8 +20,8 @@ namespace EShop.Modules.Orders.Endpoints;
 /// </summary>
 public partial record PlaceOrderCommand
 {
-    [DtoFor<Order>]
-    [FlattenDtoFor<Money>(IsReversed = true)]
+    [DtoFor<Order>(Directions = MapDirection.ToEntity)]
+    [DtoFlatten<Money>(IsReversed = true)]
     public partial record OrderDto;
 
     public class ResponseDto

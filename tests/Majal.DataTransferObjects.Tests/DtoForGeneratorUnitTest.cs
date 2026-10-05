@@ -20,6 +20,9 @@ public class DtoForGeneratorUnitTest
             [Entity]
             public partial class User
             {
+                public string Name { get; set; } = string.Empty;
+                public int Age { get; set; }
+
                 public static User Create(string name, int age) => new User();
             }
 
@@ -42,6 +45,212 @@ public class DtoForGeneratorUnitTest
         Assert.Contains("public partial record UserDto", generated);
         Assert.Contains("public required global::System.String Name { get; init; }", generated);
         Assert.Contains("public required global::System.Int32 Age { get; init; }", generated);
+        Assert.Contains("public static UserDto FromEntity(global::User source)", generated);
+        Assert.Contains("public static UserDto? FromEntityOrDefault(global::User? source)", generated);
+        Assert.Contains("public static global::System.Linq.Expressions.Expression<global::System.Func<global::User, UserDto>> Projection", generated);
+    }
+
+    [Fact]
+    public void DtoIgnore_AcceptsMultiplePropertyNames()
+    {
+        var generated = RunDto("UserDto",
+            """
+            using Majal;
+
+            [Entity]
+            public partial class User
+            {
+                public string Name { get; set; } = string.Empty;
+                public int Age { get; set; }
+                public string Secret { get; set; } = string.Empty;
+
+                public static User Create(string name, int age, string secret) => new User();
+            }
+
+            [DtoFor<User>(Directions = MapDirection.ToDto)]
+            [DtoIgnore("Age", "Secret")]
+            public partial record UserDto;
+            """);
+
+        Assert.Contains("Name { get; init; }", generated);
+        Assert.DoesNotContain("Age { get; init; }", generated);
+        Assert.DoesNotContain("Secret { get; init; }", generated);
+    }
+
+    [Fact]
+    public void DtoConfig_AssemblyDirections_AreApplied()
+    {
+        var generated = RunDto("UserDto",
+            """
+            using Majal;
+
+            [assembly: DtoConfig(Directions = MapDirection.ToDto)]
+
+            [Entity]
+            public partial class User
+            {
+                public string Name { get; set; } = string.Empty;
+
+                public static User Create(string name) => new User();
+            }
+
+            [DtoFor<User>]
+            public partial record UserDto;
+            """);
+
+        Assert.Contains("public static UserDto FromEntity(", generated);
+        Assert.DoesNotContain("public global::User ToEntity()", generated);
+    }
+
+    [Fact]
+    public void NameMatching_IgnoreCase_MapsDifferentlyCasedMember()
+    {
+        var generated = RunDto("UserDto",
+            """
+            using Majal;
+
+            [Entity]
+            public partial class User
+            {
+                public string FirstName { get; set; } = string.Empty;
+
+                public static User Create(string firstname) => new User();
+            }
+
+            [DtoFor<User>(NameMatching = NameMatchingStrategy.IgnoreCase, Directions = MapDirection.ToDto)]
+            public partial record UserDto;
+            """);
+
+        Assert.Contains("Firstname = source.FirstName", generated);
+    }
+
+    [Fact]
+    public void DtoMember_MapFrom_SupportsDottedPath()
+    {
+        var generated = RunDto("UserDto",
+            """
+            using Majal;
+
+            public class Address { public string City { get; set; } = string.Empty; }
+
+            [Entity]
+            public partial class User
+            {
+                public Address Address { get; set; } = new();
+
+                public static User Create(string city) => new User();
+            }
+
+            [DtoFor<User>(Directions = MapDirection.ToDto)]
+            [DtoMember("City", MapFrom = "Address.City")]
+            public partial record UserDto;
+            """);
+
+        Assert.Contains("City = source.Address.City", generated);
+    }
+
+    private static string RunDto(string dtoName, string source)
+    {
+        var compilation = CreateCompilation(source);
+        var result = CSharpGeneratorDriver.Create(new DtoForGenerator())
+            .RunGenerators(compilation, TestContext.Current.CancellationToken)
+            .GetRunResult();
+
+        var generated = result.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains($"{dtoName}.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        return generated!;
+    }
+
+    [Fact]
+    public void GeneratesRecursiveFromForNestedEntity()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity<int>]
+            public partial class Address
+            {
+                public int Id { get; set; }
+                public string Street { get; set; } = string.Empty;
+
+                public static Address Create(int id, string street) => new Address();
+            }
+
+            [Entity<int>]
+            public partial class User
+            {
+                public int Id { get; set; }
+                public string Name { get; set; } = string.Empty;
+                public Address Address { get; set; } = null!;
+
+                public static User Create(int id, string name, Address address) => new User();
+            }
+
+            [DtoFor<User>]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var result = CSharpGeneratorDriver.Create(new DtoForGenerator())
+            .RunGenerators(compilation, TestContext.Current.CancellationToken)
+            .GetRunResult();
+
+        var generated = result.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("public static UserDto FromEntity(global::User source)", generated);
+        Assert.Contains("Address = UserDtoAddressDto.FromEntity(source.Address)", generated);
+        AssertNoCompilationErrors(compilation, result);
+    }
+
+    [Fact]
+    public void GeneratesRecursiveFromForNestedCollection()
+    {
+        const string source =
+            """
+            using Majal;
+            using System.Collections.Generic;
+
+            [Entity<int>]
+            public partial class Line
+            {
+                public int Id { get; set; }
+                public string Value { get; set; } = string.Empty;
+
+                public static Line Create(int id, string value) => new Line();
+            }
+
+            [Entity<int>]
+            public partial class Order
+            {
+                public int Id { get; set; }
+                public List<Line> Lines { get; set; } = [];
+
+                public static Order Create(int id, IEnumerable<Line> lines) => new Order();
+            }
+
+            [DtoFor<Order>]
+            public partial record OrderDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var result = CSharpGeneratorDriver.Create(new DtoForGenerator())
+            .RunGenerators(compilation, TestContext.Current.CancellationToken)
+            .GetRunResult();
+
+        var generated = result.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("OrderDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(generated);
+        Assert.Contains("item => OrderDtoLineDto.FromEntity(item)", generated);
+        AssertNoCompilationErrors(compilation, result);
     }
 
     [Fact]
@@ -209,7 +418,8 @@ public class DtoForGeneratorUnitTest
                 public static User Create(string name, int age) => new User();
             }
 
-            [DtoFor<User>(Nullable = ["Name"])]
+            [DtoFor<User>]
+            [DtoMember("Name", Nullable = true)]
             public partial record UserDto;
             """;
 
@@ -393,7 +603,7 @@ public class DtoForGeneratorUnitTest
             """
             using Majal;
 
-            [assembly: DtoForOptions(Prefix = "")]
+            [assembly: DtoConfig(Prefix = "")]
 
             [Entity]
             public abstract partial class LineItemBase
@@ -439,7 +649,7 @@ public class DtoForGeneratorUnitTest
             """
             using Majal;
             
-            [assembly:DtoForOptions(Prefix="")]
+            [assembly: DtoConfig(Prefix = "")]
 
             [Entity]
             public abstract partial class LineItemBase
@@ -771,7 +981,7 @@ public class DtoForGeneratorUnitTest
             }
 
             [DtoFor<User>]
-            [ExcludeDtoFor<Address>]
+            [DtoIgnoreType<Address>]
             public partial record UserDto;
             """;
 
@@ -810,7 +1020,7 @@ public class DtoForGeneratorUnitTest
             }
 
             [DtoFor<User>]
-            [ExcludeDtoFor<Address>(Properties = ["City"])]
+            [DtoIgnore("Address.City")]
             public partial record UserDto;
             """;
 
@@ -844,7 +1054,8 @@ public class DtoForGeneratorUnitTest
                 public static User Create(string name, string password) => new User();
             }
 
-            [DtoFor<User>(Exclude = ["Password"])]
+            [DtoFor<User>]
+            [DtoIgnore("Password")]
             public partial record UserDto;
             """;
 
@@ -883,7 +1094,7 @@ public class DtoForGeneratorUnitTest
             }
 
             [DtoFor<User>]
-            [FlattenDtoFor<Money>]
+            [DtoFlatten<Money>]
             public partial record UserDto;
             """;
 
@@ -942,7 +1153,7 @@ public class DtoForGeneratorUnitTest
     }
 
     [Fact]
-    public void DoesNotGenerateFromEntityConversionMethodForReadableProperties()
+    public void GeneratesFromConversionMethodForReadableProperties()
     {
         const string source =
             """
@@ -972,12 +1183,14 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.DoesNotContain("FromEntity(", dto);
+        Assert.Contains("public static UserDto FromEntity(global::User source) =>", dto);
+        Assert.Contains("Name = source.Name,", dto);
+        Assert.Contains("Age = source.Age,", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void DoesNotGenerateFromEntityConversionMethodForDerivedEntityWithSuppliedValues()
+    public void GeneratesFromConversionMethodForDerivedEntityWithSuppliedValues()
     {
         const string source =
             """
@@ -1010,12 +1223,13 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.DoesNotContain("FromEntity(", dto);
+        Assert.Contains("public static PersonalTodoListDto FromEntity(global::PersonalTodoList source) =>", dto);
+        Assert.Contains("Name = source.Name,", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void DoesNotGenerateFromEntityConversionMethodForNestedEntity()
+    public void GeneratesFromConversionMethodForNestedEntity()
     {
         const string source =
             """
@@ -1054,12 +1268,13 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.DoesNotContain("FromEntity(", dto);
+        Assert.Contains("public static UserDto FromEntity(global::User source) =>", dto);
+        Assert.Contains("Address = UserDtoAddressDto.FromEntity(source.Address),", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void DoesNotGenerateFromEntitySuppliedParameterForTranslatableLocale()
+    public void GeneratesFromSuppliedParameterForTranslatableLocale()
     {
         const string source =
             """
@@ -1092,13 +1307,12 @@ public class DtoForGeneratorUnitTest
         Assert.NotNull(dto);
         Assert.Contains("public partial record NoteDto : global::Majal.ITranslatable<global::System.Globalization.CultureInfo>", dto);
         Assert.Contains("public required global::System.Globalization.CultureInfo Locale { get; init; }", dto);
-        Assert.DoesNotContain("public required global::System.String Locale { get; init; }", dto);
-        Assert.DoesNotContain("FromEntity(", dto);
+        Assert.Contains("public static NoteDto FromEntity(global::Note source) =>", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void GeneratesToEntityForNestedTranslatableCollection()
+    public void GeneratesToForNestedTranslatableCollection()
     {
         const string source =
             """
@@ -1108,6 +1322,7 @@ public class DtoForGeneratorUnitTest
             [ValueObject<string>]
             public readonly partial struct CategoryDescription
             {
+                public string Value { get; init; }
             }
 
             [Entity, Translatable]
@@ -1183,7 +1398,7 @@ public class DtoForGeneratorUnitTest
     }
 
     [Fact]
-    public void DoesNotGenerateFromEntitySuppliedParameterForAggregateWithoutReadableProperty()
+    public void GeneratesFromSuppliedParameterForAggregateWithoutReadableProperty()
     {
         const string source =
             """
@@ -1217,12 +1432,12 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.DoesNotContain("FromEntity(", dto);
+        Assert.Contains("public static ShipmentDto FromEntity(global::Shipment source) =>", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void DoesNotGenerateFromEntitySuppliedParameterForScalarValueObjectWithoutValue()
+    public void GeneratesFromSuppliedParameterForScalarValueObjectWithoutValue()
     {
         const string source =
             """
@@ -1258,12 +1473,12 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.DoesNotContain("FromEntity(", dto);
+        Assert.Contains("public static ProductDto FromEntity(global::Product source) =>", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void DoesNotGenerateFromEntitySuppliedParametersForFlattenedValueObjectWithPartialReadability()
+    public void GeneratesFromSuppliedParametersForFlattenedValueObjectWithPartialReadability()
     {
         const string source =
             """
@@ -1287,7 +1502,7 @@ public class DtoForGeneratorUnitTest
             }
 
             [DtoFor<User>]
-            [FlattenDtoFor<Money>]
+            [DtoFlatten<Money>]
             public partial record UserDto;
             """;
 
@@ -1303,12 +1518,12 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
-        Assert.DoesNotContain("FromEntity(", dto);
+        Assert.Contains("public static UserDto FromEntity(global::User source) =>", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void DoesNotGenerateFromEntityWithNullableOverride()
+    public void GeneratesFromWithNullableOverride()
     {
         const string source =
             """
@@ -1327,7 +1542,8 @@ public class DtoForGeneratorUnitTest
                     new SpecialWidget();
             }
 
-            [DtoFor<SpecialWidget>(Nullable = ["IsFeatured"])]
+            [DtoFor<SpecialWidget>]
+            [DtoMember("IsFeatured", Nullable = true)]
             public partial record SpecialWidgetDto;
             """;
 
@@ -1344,12 +1560,12 @@ public class DtoForGeneratorUnitTest
 
         Assert.NotNull(dto);
         Assert.Contains("public global::System.Boolean? IsFeatured { get; init; }", dto);
-        Assert.DoesNotContain("FromEntity(", dto);
+        Assert.Contains("public static SpecialWidgetDto FromEntity(global::SpecialWidget source) =>", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
     [Fact]
-    public void DoesNotGenerateFromEntityWithSourceNameCollision()
+    public void GeneratesFromWithSourceNameCollision()
     {
         const string source =
             """
@@ -1382,7 +1598,43 @@ public class DtoForGeneratorUnitTest
             .ToString();
 
         Assert.NotNull(dto);
+        Assert.Contains("public static ImportedWidgetDto FromEntity(global::ImportedWidget source) =>", dto);
+        AssertNoCompilationErrors(compilation, runResult);
+    }
+
+    [Fact]
+    public void DoesNotGenerateFromWhenDirectionIsToEntity()
+    {
+        const string source =
+            """
+            using Majal;
+
+            [Entity]
+            public partial class User
+            {
+                public static User Create(string name) => new User();
+                public string Name { get; init; } = string.Empty;
+            }
+
+            [DtoFor<User>(Directions = MapDirection.ToEntity)]
+            public partial record UserDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+
+        var driver = CSharpGeneratorDriver.Create(generator);
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        var runResult = result.GetRunResult();
+        var dto = runResult.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("UserDto.g.cs", StringComparison.OrdinalIgnoreCase))?
+            .ToString();
+
+        Assert.NotNull(dto);
         Assert.DoesNotContain("FromEntity(", dto);
+        Assert.DoesNotContain("Projection", dto);
+        Assert.Contains("public global::User ToEntity()", dto);
         AssertNoCompilationErrors(compilation, runResult);
     }
 
@@ -1485,7 +1737,7 @@ public class DtoForGeneratorUnitTest
             }
 
             [DtoFor<User>]
-            [FlattenDtoFor<Money>]
+            [DtoFlatten<Money>]
             public partial record UserDto;
             """;
 
@@ -1782,6 +2034,131 @@ public class DtoForGeneratorUnitTest
         Assert.Contains(productNameComment.Replace("\r\n", "\n"), dto);
     }
 
+    [Fact]
+    public void PolymorphicBase_GeneratesProjectionExpression()
+    {
+        var source = """
+            using System.Collections.Generic;
+            using Majal;
+
+            namespace Test;
+
+            public abstract class Vehicle
+            {
+                public string Make { get; init; } = "";
+            }
+
+            public class Car : Vehicle
+            {
+                public int Doors { get; init; }
+                public static Car Create(string make, int doors) => new() { Make = make, Doors = doors };
+            }
+
+            public class Motorcycle : Vehicle
+            {
+                public bool HasSidecar { get; init; }
+                public static Motorcycle Create(string make, bool hasSidecar) => new() { Make = make, HasSidecar = hasSidecar };
+            }
+
+            [DtoFor<Vehicle>]
+            public abstract partial class VehicleDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics, TestContext.Current.CancellationToken);
+
+        var runResult = driver.GetRunResult();
+        AssertNoCompilationErrors(compilation, runResult);
+
+        var baseDto = runResult.GeneratedTrees
+            .First(t => t.FilePath.EndsWith("VehicleDto.g.cs"))
+            .GetText(TestContext.Current.CancellationToken)
+            .ToString();
+
+        Assert.Contains("public static global::System.Linq.Expressions.Expression<global::System.Func<global::Test.Vehicle, VehicleDto>> Projection", baseDto);
+        Assert.Contains("source is global::Test.Car", baseDto);
+        Assert.Contains("source is global::Test.Motorcycle", baseDto);
+    }
+
+    [Fact]
+    public void DtoInclude_GeneratesPropertiesAndForwardMappings()
+    {
+        var source = """
+            using Majal;
+
+            namespace Test;
+
+            public class Item
+            {
+                public int Id { get; init; }
+                public string Name { get; init; } = "";
+
+                public static Item Create(string name) => new() { Name = name };
+            }
+
+            [DtoFor<Item>]
+            [DtoInclude(nameof(Item.Id))]
+            public partial class ItemDto;
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics, TestContext.Current.CancellationToken);
+
+        var runResult = driver.GetRunResult();
+        AssertNoCompilationErrors(compilation, runResult);
+
+        var dto = runResult.GeneratedTrees
+            .First(t => t.FilePath.EndsWith("ItemDto.g.cs"))
+            .GetText(TestContext.Current.CancellationToken)
+            .ToString();
+
+        Assert.Contains("public required global::System.Int32 Id { get; init; }", dto);
+        Assert.Contains("Id = source.Id,", dto);
+    }
+
+    [Fact]
+    public void PartialDto_UserDeclaredProperty_AutoMappedInFromAndProjection()
+    {
+        var source = """
+            using Majal;
+
+            namespace Test;
+
+            public class Person
+            {
+                public int Id { get; init; }
+                public string Name { get; init; } = "";
+
+                public static Person Create(string name) => new() { Name = name };
+            }
+
+            [DtoFor<Person>]
+            public partial class PersonDto
+            {
+                public int Id { get; set; }
+            }
+            """;
+
+        var compilation = CreateCompilation(source);
+        var generator = new DtoForGenerator();
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics, TestContext.Current.CancellationToken);
+
+        var runResult = driver.GetRunResult();
+        AssertNoCompilationErrors(compilation, runResult);
+
+        var dto = runResult.GeneratedTrees
+            .First(t => t.FilePath.EndsWith("PersonDto.g.cs"))
+            .GetText(TestContext.Current.CancellationToken)
+            .ToString();
+
+        Assert.DoesNotContain("public required global::System.Int32 Id { get; init; }", dto);
+        Assert.Contains("Id = source.Id,", dto);
+    }
 
     private static CSharpCompilation CreateCompilation(string source)
     {
@@ -1791,11 +2168,13 @@ public class DtoForGeneratorUnitTest
             MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(List<>).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(DtoForGenerator).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(EntityGenerator).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(EntityAttribute).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(DtoForAttribute<>).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(DtoForOptionsAttribute).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(DtoConfigAttribute).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(System.Text.Json.Serialization.JsonPolymorphicAttribute).Assembly.Location),
             MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("netstandard").Location),
             MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("System.Runtime").Location),
         };

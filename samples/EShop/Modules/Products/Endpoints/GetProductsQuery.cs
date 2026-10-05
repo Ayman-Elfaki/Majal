@@ -19,7 +19,9 @@ namespace EShop.Modules.Products.Endpoints;
 public partial class GetProductsQuery
 {
     [DtoFor<Product>]
-    [FlattenDtoFor<Money>]
+    [DtoFlatten<Money>]
+    [DtoMember("Tags", MapFrom = "TagList.Values")]
+    [DtoMember("InitialStockQuantity", MapFrom = "StockQuantity")]
     public partial class ProductDto;
 
     public class ResponseDto
@@ -49,43 +51,7 @@ public partial class GetProductsQuery
             Ordinal = p.Ordinal,
             CreatedOn = p.CreatedOn,
             UpdatedOn = p.UpdatedOn,
-            Product = p switch
-            {
-                DigitalProduct digitalProduct => new ProductDto.DigitalProductDto
-                {
-                    CategoryId = digitalProduct.Category.Id,
-                    DownloadUrl = digitalProduct.DownloadUrl,
-                    Sku = digitalProduct.Sku,
-                    PriceAmount = digitalProduct.Price.Amount,
-                    PriceCurrency = digitalProduct.Price.Currency,
-                    Tags = digitalProduct.TagList.Values,
-                    Translations = digitalProduct.Translations.Select(t => new ProductDto.ProductTranslationDto
-                    {
-                        Name = t.Name,
-                        Locale = t.Locale,
-                        Description = t.Description
-                    }),
-                    InitialStockQuantity = 0,
-                },
-                PhysicalProduct physicalProduct => new ProductDto.PhysicalProductDto
-                {
-                    WeightKg = physicalProduct.WeightKg,
-                    Sku = physicalProduct.Sku,
-                    PriceAmount = physicalProduct.Price.Amount,
-                    PriceCurrency = physicalProduct.Price.Currency,
-                    CategoryId = physicalProduct.Category.Id,
-                    Tags = physicalProduct.TagList.Values,
-                    Translations = physicalProduct.Translations
-                        .Select(t => new ProductDto.ProductTranslationDto
-                        {
-                            Name = t.Name,
-                            Locale = t.Locale,
-                            Description = t.Description
-                        }),
-                    InitialStockQuantity = 0
-                },
-                _ => throw new ArgumentOutOfRangeException(nameof(p))
-            },
+            Product = ProductDto.FromEntity(p)
         });
 
         return Results.Ok(results);

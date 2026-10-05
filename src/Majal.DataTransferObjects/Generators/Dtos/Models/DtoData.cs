@@ -21,12 +21,24 @@ public readonly record struct DtoData
     public string? SourceSimpleName { get; }
     public string? FactoryMethodName { get; }
     public EquatableList<FactoryArgument>? ReconstructionArguments { get; }
+    public MapDirection Directions { get; init; }
+    public NameMatchingStrategy NameMatching { get; init; }
+    public bool IsSourceValueType { get; init; }
+    public bool IsSourceValueObject { get; init; }
+    public EquatableList<SourceMemberMap>? ForwardMappings { get; init; }
+    public EquatableList<DiagnosticInfo>? Diagnostics { get; init; }
 
     public DtoData(string @namespace, string dtoName, string rawDtoName, string[] parentTypeDeclarations,
         Accessibility accessibility, string? xmlDocs, string? baseDtoName, bool isRecord,
         DerivedTypeInfo[] derivedTypes, ParameterData[] parameters, DtoData[] nestedDtos,
         string? sourceTypeName = null, string? sourceSimpleName = null, string? factoryMethodName = null,
-        FactoryArgument[]? reconstructionArguments = null, string? translatableLocaleType = null)
+        FactoryArgument[]? reconstructionArguments = null, string? translatableLocaleType = null,
+        MapDirection directions = MapDirection.TwoWay,
+        NameMatchingStrategy nameMatching = NameMatchingStrategy.Exact,
+        bool isSourceValueType = false,
+        bool isSourceValueObject = false,
+        SourceMemberMap[]? forwardMappings = null,
+        DiagnosticInfo[]? diagnostics = null)
     {
         DtoName = dtoName;
         Namespace = @namespace;
@@ -46,5 +58,15 @@ public readonly record struct DtoData
         ReconstructionArguments = reconstructionArguments is null
             ? null
             : new EquatableList<FactoryArgument>(reconstructionArguments);
+        Directions = directions;
+        NameMatching = nameMatching;
+        IsSourceValueType = isSourceValueType;
+        IsSourceValueObject = isSourceValueObject;
+        ForwardMappings = forwardMappings is null
+            ? null
+            : new EquatableList<SourceMemberMap>(forwardMappings);
+        Diagnostics = diagnostics is null
+            ? null
+            : new EquatableList<DiagnosticInfo>(diagnostics);
     }
 }

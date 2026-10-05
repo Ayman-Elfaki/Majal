@@ -9,8 +9,19 @@ namespace Majal.Generators.Entities;
 [Generator]
 public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 {
+    public readonly record struct ForeignKeyData(
+        string Name,
+        string Type,
+        string NavigationPropertyName,
+        bool IsNullable,
+        bool IsValueType,
+        bool UsesDefaultIdType
+    );
+
     private readonly record struct EntityOptionData(
-        string DefaultIdType
+        string DefaultIdType,
+        bool IsDefaultIdTypeValueType,
+        bool GenerateForeignKeys
     );
 
     public readonly record struct EntityData
@@ -20,17 +31,28 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
         public string Namespace { get; }
         public string IdType { get; init; }
         public bool HasConstructor { get; }
+        public bool? ExplicitGenerateForeignKeys { get; }
         public EquatableList<string> Properties { get; }
+        public EquatableList<ForeignKeyData> ForeignKeys { get; init; }
 
-        public EntityData(string typeName, string rawTypeName, string @namespace, string[] properties, string idType,
-            bool hasConstructor)
+        public EntityData(
+            string typeName,
+            string rawTypeName,
+            string @namespace,
+            string[] properties,
+            string idType,
+            bool hasConstructor,
+            bool? explicitGenerateForeignKeys,
+            ForeignKeyData[] foreignKeys)
         {
             TypeName = typeName;
             RawTypeName = rawTypeName;
             Namespace = @namespace;
             IdType = idType;
             HasConstructor = hasConstructor;
+            ExplicitGenerateForeignKeys = explicitGenerateForeignKeys;
             Properties = new EquatableList<string>(properties);
+            ForeignKeys = new EquatableList<ForeignKeyData>(foreignKeys);
         }
     }
 
@@ -47,11 +69,18 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
         var optionsProvider = context.CompilationProvider
             .Select(static (compilation, _) =>
             {
-                var defaultIdType = compilation
+                var defaultIdTypeSymbol = compilation
                     .GetAssemblyDefaultValue<INamedTypeSymbol>(EntityOptionsAttribute,
-                        nameof(Majal.EntityOptionsAttribute.DefaultIdType))?.ToDisplayString();
+                        nameof(Majal.EntityOptionsAttribute.DefaultIdType));
 
-                return new EntityOptionData(defaultIdType ?? "int");
+                var defaultIdType = defaultIdTypeSymbol?.ToDisplayString() ?? "int";
+                var isDefaultIdTypeValueType = defaultIdTypeSymbol?.IsValueType ?? true;
+
+                var generateForeignKeys = compilation
+                    .GetAssemblyDefaultValue<bool?>(EntityOptionsAttribute,
+                        nameof(Majal.EntityOptionsAttribute.GenerateForeignKeys)) ?? true;
+
+                return new EntityOptionData(defaultIdType, isDefaultIdTypeValueType, generateForeignKeys);
             });
 
         var genericProvider = context.SyntaxProvider
@@ -84,9 +113,31 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 
             foreach (var data in entities)
             {
-                var template = new EntityTemplate(data);
+                var generateFks = data.ExplicitGenerateForeignKeys ?? optionData.GenerateForeignKeys;
+                var resolvedForeignKeys = generateFks
+                    ? data.ForeignKeys.Select(fk =>
+                    {
+                        if (!fk.UsesDefaultIdType) return fk;
+                        var baseType = optionData.DefaultIdType;
+                        var effectiveType = fk.IsNullable && !baseType.EndsWith("?", StringComparison.Ordinal)
+                            ? $"{baseType}?"
+                            : baseType;
+                        return fk with
+                        {
+                            Type = effectiveType,
+                            IsValueType = optionData.IsDefaultIdTypeValueType
+                        };
+                    }).ToArray()
+                    : [];
+
+                var finalData = data with
+                {
+                    ForeignKeys = new EquatableList<ForeignKeyData>(resolvedForeignKeys)
+                };
+
+                var template = new EntityTemplate(finalData);
                 var code = template.TransformText();
-                productionContext.AddSource($"{data.RawTypeName}{FileSuffix}", SourceText.From(code, Encoding.UTF8));
+                productionContext.AddSource($"{finalData.RawTypeName}{FileSuffix}", SourceText.From(code, Encoding.UTF8));
             }
         });
     }
@@ -103,13 +154,124 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 
         var hasConstructor = classSymbol.Constructors.Any(c => !c.IsImplicitlyDeclared);
 
+        bool? explicitGenerateForeignKeys = null;
+        if (attribute is not null)
+        {
+            var genFkArg = attribute.NamedArguments.FirstOrDefault(a =>
+                a.Key == nameof(EntityAttribute.GenerateForeignKeys));
+            if (genFkArg.Key is not null && genFkArg.Value.Value is bool b)
+            {
+                explicitGenerateForeignKeys = b;
+            }
+        }
+
+        var existingMemberNames = new HashSet<string>(
+            classSymbol.GetMembers().Select(m => m.Name),
+            StringComparer.Ordinal
+        );
+
+        var foreignKeys = new List<ForeignKeyData>();
+
+        foreach (var property in classSymbol.GetMembers().OfType<IPropertySymbol>())
+        {
+            if (property.IsStatic || property.IsIndexer) continue;
+            if (property.DeclaredAccessibility != Accessibility.Public) continue;
+            if (property.GetMethod is null || property.SetMethod is null) continue;
+
+            // Check [NotMapped]
+            if (property.GetAttributes().Any(a => a.AttributeClass?.Name is "NotMappedAttribute" or "NotMapped"))
+                continue;
+
+            // Check if collection
+            var (_, isCollection) = property.Type.GetCollectionInfo();
+            if (isCollection) continue;
+
+            // Unwrap nullable
+            var (unwrappedType, isNullable) = property.Type.UnwrapNullable();
+            if (unwrappedType is not INamedTypeSymbol targetNamedType) continue;
+
+            // Is target an entity or aggregate?
+            var isEntity = targetNamedType.HasAnyMajaAttribute(EntityAttributeName) ||
+                           targetNamedType.AllInterfaces.Any(i =>
+                               i.MetadataName.StartsWith("IEntity`", StringComparison.Ordinal) ||
+                               i.MetadataName == "IEntity") ||
+                           targetNamedType.HasAnyMajaAttribute("AggregateAttribute");
+
+            if (!isEntity) continue;
+
+            // Resolve target entity's Id type
+            var targetEntityAttr = targetNamedType.GetAnyMajalAttribute(EntityAttributeName);
+            string targetIdType;
+            bool isValueType;
+            bool usesDefaultIdType = false;
+
+            if (targetEntityAttr?.AttributeClass is { TypeArguments.Length: > 0 })
+            {
+                var typeArg = targetEntityAttr.AttributeClass.TypeArguments[0];
+                targetIdType = typeArg.ToDisplayString();
+                isValueType = typeArg.IsValueType;
+            }
+            else
+            {
+                var entityInterface = targetNamedType.AllInterfaces.FirstOrDefault(i =>
+                    i.MetadataName.StartsWith("IEntity`", StringComparison.Ordinal));
+                if (entityInterface is { TypeArguments.Length: > 0 })
+                {
+                    var typeArg = entityInterface.TypeArguments[0];
+                    targetIdType = typeArg.ToDisplayString();
+                    isValueType = typeArg.IsValueType;
+                }
+                else
+                {
+                    var targetIdProp = targetNamedType.GetMembers()
+                        .OfType<IPropertySymbol>()
+                        .FirstOrDefault(p => p.Name == "Id");
+
+                    if (targetIdProp is not null)
+                    {
+                        targetIdType = targetIdProp.Type.ToDisplayString();
+                        isValueType = targetIdProp.Type.IsValueType;
+                    }
+                    else
+                    {
+                        targetIdType = "int";
+                        isValueType = true;
+                        usesDefaultIdType = true;
+                    }
+                }
+            }
+
+            var fkName = $"{property.Name}Id";
+
+            // If entity already declares member with this name, don't generate duplicate
+            if (existingMemberNames.Contains(fkName)) continue;
+
+            // Avoid duplicate FK names if multiple properties collide
+            if (foreignKeys.Any(fk => fk.Name == fkName)) continue;
+
+            var fkType = isNullable && !targetIdType.EndsWith("?", StringComparison.Ordinal)
+                ? $"{targetIdType}?"
+                : targetIdType;
+
+            foreignKeys.Add(new ForeignKeyData(
+                fkName,
+                fkType,
+                property.Name,
+                isNullable,
+                isValueType,
+                usesDefaultIdType
+            ));
+        }
+
         return new EntityData(
             classSymbol.GetTypeNameWithGenerics(),
             classSymbol.Name,
             classSymbol.GetNamespace(),
             classSymbol.GetPropertyNames(),
             idType,
-            hasConstructor
+            hasConstructor,
+            explicitGenerateForeignKeys,
+            [.. foreignKeys]
         );
     }
 }

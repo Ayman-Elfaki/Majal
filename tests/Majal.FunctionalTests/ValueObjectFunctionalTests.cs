@@ -81,6 +81,75 @@ public class ValueObjectFunctionalTests
 
         Assert.Equal("{ Values = [tag1, tag2] }", toString);
     }
+
+    [Fact]
+    public void EnumBasedValueObject_StaticFields_Work()
+    {
+        Assert.Equal(ProductStatus.Draft, Status.Draft.Value);
+        Assert.Equal(ProductStatus.Active, Status.Active.Value);
+        Assert.Equal(ProductStatus.Archived, Status.Archived.Value);
+        Assert.Equal(Status.Active, Status.Create(ProductStatus.Active));
+    }
+
+    [Fact]
+    public void EnumBasedValueObject_Equality_Works()
+    {
+        var active1 = Status.Active;
+        var active2 = Status.Create(ProductStatus.Active);
+        var draft = Status.Draft;
+
+        Assert.Equal(active1, active2);
+        Assert.True(active1 == active2);
+        Assert.False(active1 == draft);
+        Assert.True(active1 != draft);
+        Assert.Equal(active1.GetHashCode(), active2.GetHashCode());
+    }
+
+    [Fact]
+    public void EnumBasedValueObject_Comparison_Works()
+    {
+        Assert.True(Status.Draft < Status.Active);
+        Assert.True(Status.Active > Status.Draft);
+        Assert.Equal(-1, Status.Draft.CompareTo(Status.Active));
+        Assert.Equal(1, Status.Archived.CompareTo(Status.Active));
+        Assert.Equal(0, Status.Active.CompareTo(Status.Create(ProductStatus.Active)));
+    }
+
+    [Fact]
+    public void EnumBasedValueObject_Parsing_Works()
+    {
+        Assert.Equal(Status.Active, Status.Parse("Active"));
+        Assert.Equal(Status.Active, Status.Parse("active"));
+        Assert.Equal(Status.Active, Status.Parse("ACTIVE"));
+
+        Assert.True(Status.TryParse("Draft", null, out var parsedDraft));
+        Assert.Equal(Status.Draft, parsedDraft);
+
+        Assert.False(Status.TryParse("InvalidStatus", null, out _));
+        Assert.False(Status.TryParse("999", null, out _));
+        Assert.False(Status.TryParse(null, null, out _));
+        Assert.False(Status.TryParse("   ", null, out _));
+    }
+
+    [Fact]
+    public void EnumBasedValueObject_ToString_Works()
+    {
+        Assert.Equal("Active", Status.Active.ToString());
+        Assert.Equal("Draft", Status.Draft.ToString());
+    }
+
+    [Fact]
+    public void EnumBasedValueObject_JsonRoundtrip_Works()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(Status.Active);
+        Assert.Equal("\"Active\"", json);
+
+        var fromStringJson = System.Text.Json.JsonSerializer.Deserialize<Status>(json);
+        Assert.Equal(Status.Active, fromStringJson);
+
+        var fromNumberJson = System.Text.Json.JsonSerializer.Deserialize<Status>("1");
+        Assert.Equal(Status.Active, fromNumberJson);
+    }
 }
 
 [ValueObject]
@@ -138,3 +207,13 @@ public readonly partial struct Coupon
         yield return Discount;
     }
 }
+
+public enum ProductStatus
+{
+    Draft = 0,
+    Active = 1,
+    Archived = 2
+}
+
+[ValueObject<ProductStatus>]
+public readonly partial struct Status;

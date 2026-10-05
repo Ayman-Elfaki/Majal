@@ -27,6 +27,8 @@ foreach ($project in $packageProjects) {
 
 foreach ($project in $sampleProjects) {
     $sampleProject = Join-Path $repositoryRoot $project
-    dotnet restore $sampleProject --source $packageOutput --source 'https://api.nuget.org/v3/index.json' --force --no-cache --nologo
-    dotnet build $sampleProject -c Release --no-restore --nologo
+    $restoreArgs = @('restore', $sampleProject, '-s', $packageOutput, '--force', '--no-cache', '--nologo')
+    & dotnet @restoreArgs
+    $buildArgs = @('build', $sampleProject, '-c', 'Release', '--no-restore', '--nologo')
+    & dotnet @buildArgs
 }

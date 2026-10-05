@@ -29,7 +29,11 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
 
     public readonly record struct ValueObjectData
     {
-        public record ValueData(string GenericType);
+        public record ValueData(
+            string GenericType,
+            bool IsEnum = false,
+            bool IsFlagsEnum = false,
+            EquatableList<string>? EnumMembers = null);
 
         public string TypeName { get; }
         public string RawTypeName { get; }
@@ -44,7 +48,8 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
 
         public ValueObjectData(string typeName, string rawTypeName, string @namespace, bool hasConstructor,
             string? value, int? maxLength,
-            PropertyData[] properties, MethodData[] methods, bool isStruct)
+            PropertyData[] properties, MethodData[] methods, bool isStruct,
+            bool isEnum = false, bool isFlagsEnum = false, string[]? enumMembers = null)
         {
             TypeName = typeName;
             RawTypeName = rawTypeName;
@@ -54,7 +59,9 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             IsStruct = isStruct;
             Methods = new EquatableList<MethodData>(methods);
             Properties = new EquatableList<PropertyData>(properties);
-            Value = !string.IsNullOrEmpty(value) && value is not null ? new ValueData(value) : null;
+            Value = !string.IsNullOrEmpty(value) && value is not null
+                ? new ValueData(value, isEnum, isFlagsEnum, enumMembers is not null ? new EquatableList<string>(enumMembers) : null)
+                : null;
         }
     }
 
@@ -111,9 +118,28 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
         var attribute = symbol.GetAnyMajalAttribute(ValueObjectAttributeName);
 
         string? valueType = null;
+        var isEnum = false;
+        var isFlagsEnum = false;
+        string[] enumMembers = [];
 
         if (attribute?.AttributeClass is { TypeArguments.Length: > 0 })
-            valueType = attribute.AttributeClass.TypeArguments[0].ToDisplayString();
+        {
+            var typeArg = attribute.AttributeClass.TypeArguments[0];
+            valueType = typeArg.ToDisplayString();
+            isEnum = typeArg.TypeKind == TypeKind.Enum;
+            if (isEnum)
+            {
+                isFlagsEnum = typeArg.GetAttributes()
+                    .Any(a => a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
+
+                var existingMemberNames = new HashSet<string>(symbol.GetMembers().Select(m => m.Name));
+                enumMembers = typeArg.GetMembers()
+                    .OfType<IFieldSymbol>()
+                    .Where(f => f.IsConst && f.HasConstantValue && !existingMemberNames.Contains(f.Name))
+                    .Select(f => f.Name)
+                    .ToArray();
+            }
+        }
 
         var properties = symbol.GetMembers()
             .OfType<IPropertySymbol>()
@@ -157,7 +183,10 @@ public sealed class ValueObjectGenerator : BaseGenerator<ValueObjectGenerator.Va
             methods: [..methods],
             value: valueType,
             maxLength: maxLength?.Value,
-            isStruct: symbol.IsValueType
+            isStruct: symbol.IsValueType,
+            isEnum: isEnum,
+            isFlagsEnum: isFlagsEnum,
+            enumMembers: enumMembers
         );
     }
 
