@@ -15,10 +15,12 @@ public class TranslatableConventionTemplate : BaseTemplate
         WriteLine("");
         WriteLine("#nullable enable");
         WriteLine("");
-        WriteLine("/// <summary>An EF Core model-finalizing convention that applies a locale-based global query filter to translatable entities.</summary>");
+        WriteLine(
+            "/// <summary>An EF Core model-finalizing convention that applies a locale-based global query filter to translatable entities.</summary>");
         WriteLine("public class TranslatableFilterConvention<TLocale,TContext>(TContext dbContext)");
         WriteLine($"    : {EfCoreConventions}.IModelFinalizingConvention");
-        WriteLine($"    where TContext : {EfCoreNamespace}.DbContext, {MajalNamespace}.ITranslatableDbContext<TLocale>");
+        WriteLine(
+            $"    where TContext : {EfCoreNamespace}.DbContext, {MajalNamespace}.ITranslatableDbContext<TLocale>");
         WriteLine("{");
         PushIndent();
         WriteLine("/// <inheritdoc />");
@@ -31,7 +33,8 @@ public class TranslatableConventionTemplate : BaseTemplate
         WriteLine("{");
         PushIndent();
         WriteLine("// Check if the entity implements ITranslatable");
-        WriteLine($"if (!typeof({MajalNamespace}.ITranslatable<TLocale>).IsAssignableFrom(entityType.ClrType)) continue;");
+        WriteLine(
+            $"if (!typeof({MajalNamespace}.ITranslatable<TLocale>).IsAssignableFrom(entityType.ClrType)) continue;");
         WriteLine("");
         WriteLine("// If it's a derived type and its base type also implements ITranslatable, skip it");
         WriteLine("// because the filter should be applied to the root of the hierarchy.");
@@ -62,11 +65,13 @@ public class TranslatableConventionTemplate : BaseTemplate
         WriteLine("}");
         WriteLine("");
 
-        WriteLine("/// <summary>Provides EF Core extension methods for working with translatable query filters.</summary>");
+        WriteLine(
+            "/// <summary>Provides EF Core extension methods for working with translatable query filters.</summary>");
         WriteLine("public static class TranslatableEfCoreExtensions");
         WriteLine("{");
         PushIndent();
-        WriteLine("/// <summary>Returns a queryable that ignores the global translatable locale filter, returning all locales.</summary>");
+        WriteLine(
+            "/// <summary>Returns a queryable that ignores the global translatable locale filter, returning all locales.</summary>");
         WriteLine($"public static {LinqNamespace}.IQueryable<TEntity> IgnoreTranslatableFilter<TEntity>(");
         WriteLine($"    this {LinqNamespace}.IQueryable<TEntity> source)");
         WriteLine("             where TEntity : class");

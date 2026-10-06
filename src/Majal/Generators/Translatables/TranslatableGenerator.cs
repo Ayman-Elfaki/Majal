@@ -20,7 +20,8 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
 
         public EquatableList<string> Properties { get; }
 
-        public TranslatableData(string typeName, string @namespace, string[] properties, string? value, string rawTypeName)
+        public TranslatableData(string typeName, string @namespace, string[] properties, string? value,
+            string rawTypeName)
         {
             TypeName = typeName;
             Namespace = @namespace;
@@ -29,6 +30,12 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
             Properties = new EquatableList<string>(properties);
         }
     }
+
+    public readonly record struct TranslatableOptionData(
+        string? DefaultLocaleType,
+        EquatableList<string>? SupportedLocales,
+        string? Namespace
+    );
 
     public const string AttributeNamespace = "Majal";
     public const string AttributeName = nameof(TranslatableAttribute);
@@ -43,7 +50,7 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
     public override void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var optionsProvider = context.CompilationProvider
-            .Select(static (compilation, _) => GetDefaultLocaleType(compilation));
+            .Select(static (compilation, _) => ReadTranslatableOptions(compilation));
 
         var nonGenericProvider = context.SyntaxProvider
             .ForAttributeWithMetadataName(AttributeFullName, Filter, Transform)
@@ -61,25 +68,45 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
             .WithTrackingName(TrackingNames.Transform)
             .Collect();
 
+        context.RegisterImplementationSourceOutput(optionsProvider, static (productionContext, options) =>
+        {
+            if (options.SupportedLocales is not { Count: > 0 } locales) return;
+
+            var ns = !string.IsNullOrWhiteSpace(options.Namespace)
+                ? options.Namespace!
+                : AttributeNamespace;
+
+            var template = new TranslatableExtensionsTemplate
+            {
+                Namespace = ns,
+                Locales = [.. locales],
+                LocaleType = options.DefaultLocaleType ?? "string"
+            };
+            var code = template.TransformText();
+            productionContext.AddSource("TranslatableExtensions.g.cs",
+                SourceText.From(code, Encoding.UTF8));
+        });
+
         var provider = genericProvider.Combine(nonGenericProvider).Combine(optionsProvider);
 
         context.RegisterImplementationSourceOutput(provider, (productionContext, source) =>
         {
-            var ((generics, nonGenerics), defaultLocaleType) = source;
+            var ((generics, nonGenerics), options) = source;
 
             var resolvedNonGenerics = nonGenerics.Select(t =>
-                t.Value is null && defaultLocaleType is not null
-                    ? new TranslatableData(t.TypeName, t.Namespace, [..t.Properties], defaultLocaleType, t.RawTypeName)
+                t.Value is null && options.DefaultLocaleType is not null
+                    ? new TranslatableData(t.TypeName, t.Namespace, [.. t.Properties], options.DefaultLocaleType, t.RawTypeName)
                     : t
             );
 
-            TranslatableData[] entities = [..generics, ..resolvedNonGenerics];
+            TranslatableData[] entities = [.. generics, .. resolvedNonGenerics];
 
             foreach (var data in entities)
             {
                 var template = new TranslatableTemplate { Data = data };
                 var code = template.TransformText();
-                productionContext.AddSource($"{data.RawTypeName}{FilenameSuffix}", SourceText.From(code, Encoding.UTF8));
+                productionContext.AddSource($"{data.RawTypeName}{FilenameSuffix}",
+                    SourceText.From(code, Encoding.UTF8));
             }
         });
     }
@@ -108,26 +135,73 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
         );
     }
 
-    private static string? GetDefaultLocaleType(Compilation compilation)
+    private static TranslatableOptionData ReadTranslatableOptions(Compilation compilation)
     {
-        foreach (var attribute in compilation.Assembly.GetAttributes())
-        {
-            if (attribute.AttributeClass?.Name != OptionsAttributeName ||
-                attribute.AttributeClass.ContainingNamespace.ToDisplayString() != AttributeNamespace) continue;
+        var attribute = compilation.Assembly.GetMajalAttribute(OptionsAttributeName);
+        if (attribute is null) return default;
 
-            foreach (var arg in attribute.NamedArguments)
-            {
-                if (arg is
-                    {
-                        Key: nameof(TranslatableOptionsAttribute.DefaultLocaleType),
-                        Value.Value: INamedTypeSymbol type
-                    })
+        string? defaultLocaleType = null;
+        string[]? locales = null;
+        string? customNamespace = null;
+
+        foreach (var arg in attribute.NamedArguments)
+        {
+            if (arg is
                 {
-                    return type.ToDisplayString();
+                    Key: nameof(TranslatableOptionsAttribute.DefaultLocaleType),
+                    Value.Value: INamedTypeSymbol type
+                })
+            {
+                defaultLocaleType = type.ToDisplayString();
+            }
+            else if (arg.Key == nameof(TranslatableOptionsAttribute.SupportedLocales))
+            {
+                if (arg.Value.Kind == TypedConstantKind.Array)
+                {
+                    locales = arg.Value.Values
+                        .Where(v => v.Value is string)
+                        .Select(v => (string)v.Value!)
+                        .ToArray();
                 }
+            }
+            else if (arg is
+                     {
+                         Key: nameof(TranslatableOptionsAttribute.Namespace),
+                         Value.Value: string ns
+                     })
+            {
+                customNamespace = ns;
             }
         }
 
-        return null;
+        if (locales is null && attribute.ConstructorArguments.Length > 0)
+        {
+            var list = new List<string>();
+            foreach (var arg in attribute.ConstructorArguments)
+            {
+                if (arg.Kind == TypedConstantKind.Array)
+                {
+                    foreach (var val in arg.Values)
+                    {
+                        if (val.Value is string s) list.Add(s);
+                    }
+                }
+                else if (arg.Value is string s)
+                {
+                    list.Add(s);
+                }
+            }
+
+            if (list.Count > 0)
+            {
+                locales = [.. list];
+            }
+        }
+
+        return new TranslatableOptionData(
+            defaultLocaleType,
+            locales is not null ? new EquatableList<string>(locales) : null,
+            customNamespace
+        );
     }
-}
+}
