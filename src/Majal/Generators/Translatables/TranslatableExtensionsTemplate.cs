@@ -1,6 +1,4 @@
-using System.Linq;
 using Majal.Common.Abstractions;
-using static Majal.Common.Abstractions.Constants;
 
 namespace Majal.Generators.Translatables;
 
@@ -9,6 +7,8 @@ public class TranslatableExtensionsTemplate : BaseTemplate
     public string Namespace { get; init; } = "Majal";
     public string[] Locales { get; init; } = [];
     public string LocaleType { get; init; } = "string";
+    public string? ExceptionType { get; init; }
+    public bool ExceptionHasStringConstructor { get; init; } = true;
 
     public override string TransformText()
     {
@@ -37,17 +37,49 @@ public class TranslatableExtensionsTemplate : BaseTemplate
         WriteLine($"public static readonly string[] Locales = [{localesFormatted}];");
         WriteLine("");
 
+        var isStringLocale = LocaleType is "string" or "global::System.String";
+        var localeComparison = isStringLocale
+            ? "string.Equals(t.Locale, l, StringComparison.OrdinalIgnoreCase)"
+            : "string.Equals(t.Locale?.ToString(), l, StringComparison.OrdinalIgnoreCase)";
+
+        var isSupportedExpr = isStringLocale
+            ? "locale is not null && Locales.Contains(locale, StringComparer.OrdinalIgnoreCase)"
+            : "locale is not null && Locales.Contains(locale.ToString(), StringComparer.OrdinalIgnoreCase)";
+
         WriteLine("/// <summary>");
         WriteLine("/// Throws an exception if any supported locale is missing from the translations collection.");
         WriteLine("/// </summary>");
-        WriteLine($"public static void ThrowIfMissingTranslations(this IEnumerable<global::Majal.ITranslatable<{LocaleType}>> translations)");
+        WriteLine(
+            $"public static void ThrowIfMissingTranslations(this IEnumerable<global::Majal.ITranslatable<{LocaleType}>> translations)");
         WriteLine("{");
         PushIndent();
+        WriteLine("if (translations is null)");
+        WriteLine("{");
+        PushIndent();
+        WriteLine("throw new ArgumentNullException(nameof(translations));");
+        PopIndent();
+        WriteLine("}");
+        WriteLine("");
         WriteLine("if (translations.IsMissingTranslations())");
         WriteLine("{");
         PushIndent();
-        WriteLine("throw new Exception(");
-        WriteLine("    $\"Missing translations, please provide translations for {string.Join(',', Locales)}\");");
+        if (!string.IsNullOrEmpty(ExceptionType))
+        {
+            if (ExceptionHasStringConstructor)
+            {
+                WriteLine($"throw new {ExceptionType}(");
+                WriteLine("    $\"Missing translations, please provide translations for {string.Join(',', Locales)}\");");
+            }
+            else
+            {
+                WriteLine($"throw new {ExceptionType}();");
+            }
+        }
+        else
+        {
+            WriteLine("throw new InvalidOperationException(");
+            WriteLine("    $\"Missing translations, please provide translations for {string.Join(',', Locales)}\");");
+        }
         PopIndent();
         WriteLine("}");
         PopIndent();
@@ -57,10 +89,12 @@ public class TranslatableExtensionsTemplate : BaseTemplate
         WriteLine("/// <summary>");
         WriteLine("/// Checks whether any supported locale is missing from the translations collection.");
         WriteLine("/// </summary>");
-        WriteLine($"public static bool IsMissingTranslations(this IEnumerable<global::Majal.ITranslatable<{LocaleType}>> translations)");
+        WriteLine(
+            $"public static bool IsMissingTranslations(this IEnumerable<global::Majal.ITranslatable<{LocaleType}>> translations)");
         WriteLine("{");
         PushIndent();
-        WriteLine("return !Locales.All(l => translations.Any(t => t.Locale.Equals(l, StringComparison.OrdinalIgnoreCase)));");
+        WriteLine("if (translations is null) return true;");
+        WriteLine($"return !Locales.All(l => translations.Any(t => {localeComparison}));");
         PopIndent();
         WriteLine("}");
         WriteLine("");
@@ -68,7 +102,7 @@ public class TranslatableExtensionsTemplate : BaseTemplate
         WriteLine("/// <summary>");
         WriteLine("/// Checks whether the specified locale is supported.");
         WriteLine("/// </summary>");
-        WriteLine($"public static bool IsLocaleSupported(this {LocaleType} locale) => Locales.Contains(locale);");
+        WriteLine($"public static bool IsLocaleSupported(this {LocaleType} locale) => {isSupportedExpr};");
 
         PopIndent();
         WriteLine("}");

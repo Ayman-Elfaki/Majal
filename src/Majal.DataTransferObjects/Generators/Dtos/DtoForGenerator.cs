@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Majal.Common.Abstractions;
@@ -108,10 +105,22 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
 
         if (translatableAttribute is null) return null;
 
-        var defaultLocaleType = compilation?.GetAssemblyDefaultValue<INamedTypeSymbol>(
-            nameof(TranslatableOptionsAttribute), nameof(TranslatableOptionsAttribute.DefaultLocaleType));
+        var optionsAttr = compilation?.Assembly.GetMajalAttribute(nameof(TranslatableOptionsAttribute));
+        if (optionsAttr is not null)
+        {
+            var named = optionsAttr.GetNamedArgumentValue<INamedTypeSymbol>(nameof(TranslatableOptionsAttribute
+                .DefaultLocaleType));
+            if (named is not null) return named.ToDisplayString(FullPropertyTypeFormat);
 
-        return defaultLocaleType?.ToDisplayString(FullPropertyTypeFormat) ?? StringType;
+            if (optionsAttr.ConstructorArguments.Length > 0 &&
+                optionsAttr.ConstructorArguments[0].Kind == TypedConstantKind.Type &&
+                optionsAttr.ConstructorArguments[0].Value is INamedTypeSymbol ctorType)
+            {
+                return ctorType.ToDisplayString(FullPropertyTypeFormat);
+            }
+        }
+
+        return StringType;
     }
 
     internal static DtoData? GetDtoData(DtoContext context)
@@ -124,7 +133,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
         if (context.ExcludedTypeProperties != null)
         {
             if (context.ExcludedTypeProperties.TryGetValue(context.SourceSymbol.Name, out var typeSpecificProperties) ||
-                context.ExcludedTypeProperties.TryGetValue(context.SourceSymbol.ToDisplayString(FullPropertyTypeFormat), out typeSpecificProperties))
+                context.ExcludedTypeProperties.TryGetValue(context.SourceSymbol.ToDisplayString(FullPropertyTypeFormat),
+                    out typeSpecificProperties))
             {
                 excludedProperties.UnionWith(typeSpecificProperties);
             }
@@ -171,7 +181,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
                             dtForwardMappings = updatedData.ForwardMappings;
                         }
                     }
-                    else if (context.Graph.TryGetNode(derivedSymbol, out var existingNode) && existingNode.Data.HasValue)
+                    else if (context.Graph.TryGetNode(derivedSymbol, out var existingNode) &&
+                             existingNode.Data.HasValue)
                     {
                         dtForwardMappings = existingNode.Data.Value.ForwardMappings;
                     }
@@ -317,7 +328,8 @@ public sealed class DtoForGenerator : BaseGenerator<DtoData>
                     var xml = FormatXmlDocs(matched.GetDocumentationCommentXml());
                     parameters.Add(new ParameterData((matched.Name, typeString), isNullable, xml));
                 }
-                else if (ResolveSynthesizedMember(context.SourceSymbol, incProp, context.Compilation, nullableProperties) is { } synth)
+                else if (ResolveSynthesizedMember(context.SourceSymbol, incProp, context.Compilation,
+                             nullableProperties) is { } synth)
                 {
                     parameters.Add(synth);
                 }

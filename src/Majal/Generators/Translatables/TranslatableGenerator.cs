@@ -34,7 +34,9 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
     public readonly record struct TranslatableOptionData(
         string? DefaultLocaleType,
         EquatableList<string>? SupportedLocales,
-        string? Namespace
+        string? Namespace,
+        string? ExceptionType = null,
+        bool ExceptionHasStringConstructor = true
     );
 
     public const string AttributeNamespace = "Majal";
@@ -80,7 +82,9 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
             {
                 Namespace = ns,
                 Locales = [.. locales],
-                LocaleType = options.DefaultLocaleType ?? "string"
+                LocaleType = options.DefaultLocaleType ?? "string",
+                ExceptionType = options.ExceptionType,
+                ExceptionHasStringConstructor = options.ExceptionHasStringConstructor
             };
             var code = template.TransformText();
             productionContext.AddSource("TranslatableExtensions.g.cs",
@@ -143,6 +147,10 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
         string? defaultLocaleType = null;
         string[]? locales = null;
         string? customNamespace = null;
+        string? exceptionType = null;
+        var exceptionHasStringConstructor = true;
+
+        var exceptionBaseSymbol = compilation.GetTypeByMetadataName("System.Exception");
 
         foreach (var arg in attribute.NamedArguments)
         {
@@ -153,6 +161,17 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
                 })
             {
                 defaultLocaleType = type.ToDisplayString();
+            }
+            else if (arg is
+                     {
+                         Key: nameof(TranslatableOptionsAttribute.ExceptionType) or "CustomExceptionType",
+                         Value.Value: INamedTypeSymbol exType
+                     })
+            {
+                exceptionType = exType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                exceptionHasStringConstructor = exType.Constructors.Any(c =>
+                    c.Parameters.Length == 1 &&
+                    c.Parameters[0].Type.SpecialType == SpecialType.System_String);
             }
             else if (arg.Key == nameof(TranslatableOptionsAttribute.SupportedLocales))
             {
@@ -174,7 +193,7 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
             }
         }
 
-        if (locales is null && attribute.ConstructorArguments.Length > 0)
+        if (attribute.ConstructorArguments.Length > 0)
         {
             var list = new List<string>();
             foreach (var arg in attribute.ConstructorArguments)
@@ -186,13 +205,29 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
                         if (val.Value is string s) list.Add(s);
                     }
                 }
+                else if (arg.Kind == TypedConstantKind.Type && arg.Value is INamedTypeSymbol typeSymbol)
+                {
+                    if (exceptionBaseSymbol is not null &&
+                        (SymbolEqualityComparer.Default.Equals(typeSymbol, exceptionBaseSymbol) ||
+                         typeSymbol.IsSymbolDerivedFrom(exceptionBaseSymbol)))
+                    {
+                        exceptionType ??= typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                        exceptionHasStringConstructor = typeSymbol.Constructors.Any(c =>
+                            c.Parameters.Length == 1 &&
+                            c.Parameters[0].Type.SpecialType == SpecialType.System_String);
+                    }
+                    else
+                    {
+                        defaultLocaleType ??= typeSymbol.ToDisplayString();
+                    }
+                }
                 else if (arg.Value is string s)
                 {
                     list.Add(s);
                 }
             }
 
-            if (list.Count > 0)
+            if (locales is null && list.Count > 0)
             {
                 locales = [.. list];
             }
@@ -201,7 +236,9 @@ public sealed class TranslatableGenerator : BaseGenerator<TranslatableGenerator.
         return new TranslatableOptionData(
             defaultLocaleType,
             locales is not null ? new EquatableList<string>(locales) : null,
-            customNamespace
+            customNamespace,
+            exceptionType,
+            exceptionHasStringConstructor
         );
     }
 }
