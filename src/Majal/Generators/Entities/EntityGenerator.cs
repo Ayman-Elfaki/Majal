@@ -2,6 +2,8 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Majal.Common.Abstractions;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
 namespace Majal.Generators.Entities;
@@ -50,6 +52,35 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
             Namespace = @namespace;
             IdType = idType;
             HasConstructor = hasConstructor;
+            ExplicitGenerateForeignKeys = explicitGenerateForeignKeys;
+            Properties = new EquatableList<string>(properties);
+            ForeignKeys = new EquatableList<ForeignKeyData>(foreignKeys);
+        }
+    }
+
+    /// <summary>
+    /// A class derived from an entity (without its own entity attribute). Only foreign keys are generated for it.
+    /// </summary>
+    public readonly record struct DerivedEntityData
+    {
+        public string TypeName { get; }
+        public string RawTypeName { get; }
+        public string Namespace { get; }
+        public bool? ExplicitGenerateForeignKeys { get; }
+        public EquatableList<string> Properties { get; }
+        public EquatableList<ForeignKeyData> ForeignKeys { get; init; }
+
+        public DerivedEntityData(
+            string typeName,
+            string rawTypeName,
+            string @namespace,
+            string[] properties,
+            bool? explicitGenerateForeignKeys,
+            ForeignKeyData[] foreignKeys)
+        {
+            TypeName = typeName;
+            RawTypeName = rawTypeName;
+            Namespace = @namespace;
             ExplicitGenerateForeignKeys = explicitGenerateForeignKeys;
             Properties = new EquatableList<string>(properties);
             ForeignKeys = new EquatableList<ForeignKeyData>(foreignKeys);
@@ -114,25 +145,9 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
             foreach (var data in entities)
             {
                 var generateFks = data.ExplicitGenerateForeignKeys ?? optionData.GenerateForeignKeys;
-                var resolvedForeignKeys = generateFks
-                    ? data.ForeignKeys.Select(fk =>
-                    {
-                        if (!fk.UsesDefaultIdType) return fk;
-                        var baseType = optionData.DefaultIdType;
-                        var effectiveType = fk.IsNullable && !baseType.EndsWith("?", StringComparison.Ordinal)
-                            ? $"{baseType}?"
-                            : baseType;
-                        return fk with
-                        {
-                            Type = effectiveType,
-                            IsValueType = optionData.IsDefaultIdTypeValueType
-                        };
-                    }).ToArray()
-                    : [];
-
                 var finalData = data with
                 {
-                    ForeignKeys = new EquatableList<ForeignKeyData>(resolvedForeignKeys)
+                    ForeignKeys = ResolveForeignKeys(data.ForeignKeys, generateFks, optionData)
                 };
 
                 var template = new EntityTemplate(finalData);
@@ -140,6 +155,59 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
                 productionContext.AddSource($"{finalData.RawTypeName}{FileSuffix}", SourceText.From(code, Encoding.UTF8));
             }
         });
+
+        var derivedProvider = context.SyntaxProvider
+            .CreateSyntaxProvider(IsDerivedEntityCandidate, TransformDerived)
+            .WithTrackingName(TrackingNames.InitialExtraction)
+            .Where(static m => m is not null)
+            .Select(static (m, _) => m!.Value)
+            .WithTrackingName(TrackingNames.Transform)
+            .Collect();
+
+        context.RegisterImplementationSourceOutput(derivedProvider.Combine(optionsProvider),
+            (productionContext, source) =>
+            {
+                var (derivedEntities, optionData) = source;
+
+                foreach (var data in derivedEntities)
+                {
+                    var generateFks = data.ExplicitGenerateForeignKeys ?? optionData.GenerateForeignKeys;
+                    var finalData = data with
+                    {
+                        ForeignKeys = ResolveForeignKeys(data.ForeignKeys, generateFks, optionData)
+                    };
+
+                    if (finalData.ForeignKeys.All(fk => finalData.Properties.Contains(fk.Name))) continue;
+
+                    var code = new DerivedEntityTemplate(finalData).TransformText();
+                    productionContext.AddSource($"{finalData.RawTypeName}{FileSuffix}",
+                        SourceText.From(code, Encoding.UTF8));
+                }
+            });
+    }
+
+    private static EquatableList<ForeignKeyData> ResolveForeignKeys(
+        EquatableList<ForeignKeyData> foreignKeys,
+        bool generateForeignKeys,
+        EntityOptionData optionData)
+    {
+        var resolved = generateForeignKeys
+            ? foreignKeys.Select(fk =>
+            {
+                if (!fk.UsesDefaultIdType) return fk;
+                var baseType = optionData.DefaultIdType;
+                var effectiveType = fk.IsNullable && !baseType.EndsWith("?", StringComparison.Ordinal)
+                    ? $"{baseType}?"
+                    : baseType;
+                return fk with
+                {
+                    Type = effectiveType,
+                    IsValueType = optionData.IsDefaultIdTypeValueType
+                };
+            }).ToArray()
+            : [];
+
+        return new EquatableList<ForeignKeyData>(resolved);
     }
 
     protected override EntityData? Transform(GeneratorAttributeSyntaxContext context, CancellationToken ct)
@@ -154,22 +222,79 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 
         var hasConstructor = classSymbol.Constructors.Any(c => !c.IsImplicitlyDeclared);
 
-        bool? explicitGenerateForeignKeys = null;
-        if (attribute is not null)
-        {
-            var genFkArg = attribute.NamedArguments.FirstOrDefault(a =>
-                a.Key == nameof(EntityAttribute.GenerateForeignKeys));
-            if (genFkArg.Key is not null && genFkArg.Value.Value is bool b)
-            {
-                explicitGenerateForeignKeys = b;
-            }
-        }
-
         var existingMemberNames = new HashSet<string>(
             classSymbol.GetMembers().Select(m => m.Name),
             StringComparer.Ordinal
         );
 
+        return new EntityData(
+            classSymbol.GetTypeNameWithGenerics(),
+            classSymbol.Name,
+            classSymbol.GetNamespace(),
+            classSymbol.GetPropertyNames(),
+            idType,
+            hasConstructor,
+            GetExplicitGenerateForeignKeys(attribute),
+            CollectForeignKeys(classSymbol, existingMemberNames)
+        );
+    }
+
+    private static bool IsDerivedEntityCandidate(SyntaxNode node, CancellationToken ct)
+    {
+        return node is ClassDeclarationSyntax declaration &&
+               declaration.Modifiers.Any(SyntaxKind.PartialKeyword);
+    }
+
+    private static DerivedEntityData? TransformDerived(GeneratorSyntaxContext context, CancellationToken ct)
+    {
+        var declaration = (ClassDeclarationSyntax)context.Node;
+        if (context.SemanticModel.GetDeclaredSymbol(declaration, ct) is not { } symbol) return null;
+
+        // Process a partial class only once, from its first declaration.
+        var first = symbol.DeclaringSyntaxReferences.FirstOrDefault();
+        if (first is null || first.SyntaxTree != declaration.SyntaxTree || first.Span != declaration.Span)
+            return null;
+
+        // Types with their own entity attribute are handled by the main pipeline.
+        if (symbol.HasAnyMajaAttribute(EntityAttributeName)) return null;
+
+        var root = symbol.BaseType?.FindAttributedTypeInHierarchy(EntityAttributeName);
+        if (root is null) return null;
+
+        // Members declared by this type and by any ancestor must not be duplicated.
+        var existingMemberNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var current = symbol; current is not null; current = current.BaseType)
+        {
+            foreach (var member in current.GetMembers()) existingMemberNames.Add(member.Name);
+        }
+
+        var foreignKeys = CollectForeignKeys(symbol, existingMemberNames);
+        if (foreignKeys.Length == 0) return null;
+
+        return new DerivedEntityData(
+            symbol.GetTypeNameWithGenerics(),
+            symbol.Name,
+            symbol.GetNamespace(),
+            symbol.GetPropertyNames(),
+            GetExplicitGenerateForeignKeys(root.GetAnyMajalAttribute(EntityAttributeName)),
+            foreignKeys
+        );
+    }
+
+    private static bool? GetExplicitGenerateForeignKeys(AttributeData? attribute)
+    {
+        if (attribute is null) return null;
+
+        var genFkArg = attribute.NamedArguments.FirstOrDefault(a =>
+            a.Key == nameof(EntityAttribute.GenerateForeignKeys));
+        if (genFkArg.Key is not null && genFkArg.Value.Value is bool b) return b;
+
+        return null;
+    }
+
+    private static ForeignKeyData[] CollectForeignKeys(INamedTypeSymbol classSymbol,
+        HashSet<string> existingMemberNames)
+    {
         var foreignKeys = new List<ForeignKeyData>();
 
         foreach (var property in classSymbol.GetMembers().OfType<IPropertySymbol>())
@@ -190,8 +315,12 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
             var (unwrappedType, isNullable) = property.Type.UnwrapNullable();
             if (unwrappedType is not INamedTypeSymbol targetNamedType) continue;
 
+            // Nearest type (the target itself or one of its ancestors) marked as entity.
+            // This makes derived types of an entity (or aggregate) valid navigation targets.
+            var targetRoot = targetNamedType.FindAttributedTypeInHierarchy(EntityAttributeName);
+
             // Is target an entity or aggregate?
-            var isEntity = targetNamedType.HasAnyMajaAttribute(EntityAttributeName) ||
+            var isEntity = targetRoot is not null ||
                            targetNamedType.AllInterfaces.Any(i =>
                                i.MetadataName.StartsWith("IEntity`", StringComparison.Ordinal) ||
                                i.MetadataName == "IEntity") ||
@@ -199,8 +328,9 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
 
             if (!isEntity) continue;
 
-            // Resolve target entity's Id type
-            var targetEntityAttr = targetNamedType.GetAnyMajalAttribute(EntityAttributeName);
+            // Resolve target entity's Id type (from the root entity when the target is a derived type)
+            var idSource = targetRoot ?? targetNamedType;
+            var targetEntityAttr = idSource.GetAnyMajalAttribute(EntityAttributeName);
             string targetIdType;
             bool isValueType;
             bool usesDefaultIdType = false;
@@ -223,7 +353,7 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
                 }
                 else
                 {
-                    var targetIdProp = targetNamedType.GetMembers()
+                    var targetIdProp = idSource.GetMembers()
                         .OfType<IPropertySymbol>()
                         .FirstOrDefault(p => p.Name == "Id");
 
@@ -263,15 +393,6 @@ public sealed class EntityGenerator : BaseGenerator<EntityGenerator.EntityData>
             ));
         }
 
-        return new EntityData(
-            classSymbol.GetTypeNameWithGenerics(),
-            classSymbol.Name,
-            classSymbol.GetNamespace(),
-            classSymbol.GetPropertyNames(),
-            idType,
-            hasConstructor,
-            explicitGenerateForeignKeys,
-            [.. foreignKeys]
-        );
+        return [.. foreignKeys];
     }
 }

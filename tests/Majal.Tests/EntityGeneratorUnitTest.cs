@@ -812,6 +812,173 @@ public class EntityGeneratorUnitTest
         Assert.DoesNotContain("NonEntityId", generated);
     }
 
+    [Fact]
+    public void GeneratesForeignKeyForNavigationToDerivedType()
+    {
+        const string source =
+            $$"""
+              using {{EntitiesNamespace}};
+              using System;
+
+              [Entity<Guid>]
+              public partial class Product;
+
+              public partial class Book : Product;
+
+              [Entity]
+              public partial class OrderLine
+              {
+                  public Book Book { get; set; }
+                  public Book? OptionalBook { get; set; }
+              }
+              """;
+
+        var generated = GetGenerated(source, "OrderLine.Entity.g.cs");
+
+        Assert.NotNull(generated);
+        Assert.Contains("public System.Guid BookId { get; set; }", generated);
+        Assert.Contains("public System.Guid? OptionalBookId { get; set; }", generated);
+    }
+
+    [Fact]
+    public void GeneratesForeignKeyForNavigationToDerivedTypeWithDefaultIdType()
+    {
+        const string source =
+            $$"""
+              using {{EntitiesNamespace}};
+              using System;
+
+              [assembly: EntityOptions(DefaultIdType = typeof(long))]
+
+              [Entity]
+              public partial class Product;
+
+              public partial class Book : Product;
+
+              [Entity]
+              public partial class OrderLine
+              {
+                  public Book Book { get; set; }
+              }
+              """;
+
+        var generated = GetGenerated(source, "OrderLine.Entity.g.cs");
+
+        Assert.NotNull(generated);
+        Assert.Contains("public long BookId { get; set; }", generated);
+    }
+
+    [Fact]
+    public void GeneratesForeignKeysOnDerivedClass()
+    {
+        const string source =
+            $$"""
+              using {{EntitiesNamespace}};
+              using System;
+
+              [Entity<Guid>]
+              public partial class Author;
+
+              [Entity<int>]
+              public partial class Product;
+
+              public partial class Book : Product
+              {
+                  public Author Author { get; set; }
+              }
+              """;
+
+        var generated = GetGenerated(source, "Book.Entity.g.cs");
+
+        Assert.NotNull(generated);
+        Assert.Contains("public partial class Book", generated);
+        Assert.Contains("public System.Guid AuthorId { get; set; }", generated);
+        Assert.DoesNotContain("IEntity", generated);
+        Assert.DoesNotContain("Equals", generated);
+    }
+
+    [Fact]
+    public void DerivedClassDoesNotDuplicateInheritedForeignKey()
+    {
+        const string source =
+            $$"""
+              using {{EntitiesNamespace}};
+
+              [Entity<int>]
+              public partial class Author;
+
+              [Entity<int>]
+              public partial class Product
+              {
+                  public int AuthorId { get; set; }
+              }
+
+              public partial class Book : Product
+              {
+                  public Author Author { get; set; }
+              }
+              """;
+
+        var generated = GetGenerated(source, "Book.Entity.g.cs");
+
+        Assert.Null(generated);
+    }
+
+    [Fact]
+    public void DerivedClassRespectsGenerateForeignKeysFalse()
+    {
+        const string source =
+            $$"""
+              using {{EntitiesNamespace}};
+
+              [Entity<int>]
+              public partial class Author;
+
+              [Entity<int>(GenerateForeignKeys = false)]
+              public partial class Product;
+
+              public partial class Book : Product
+              {
+                  public Author Author { get; set; }
+              }
+              """;
+
+        Assert.Null(GetGenerated(source, "Book.Entity.g.cs"));
+    }
+
+    [Fact]
+    public void SkipsNonPartialDerivedClass()
+    {
+        const string source =
+            $$"""
+              using {{EntitiesNamespace}};
+
+              [Entity<int>]
+              public partial class Author;
+
+              [Entity<int>]
+              public partial class Product;
+
+              public class Book : Product
+              {
+                  public Author Author { get; set; }
+              }
+              """;
+
+        Assert.Null(GetGenerated(source, "Book.Entity.g.cs"));
+    }
+
+    private static string? GetGenerated(string source, string fileName)
+    {
+        var compilation = CreateCompilation(source);
+        var driver = CSharpGeneratorDriver.Create(new EntityGenerator());
+        var result = driver.RunGenerators(compilation, TestContext.Current.CancellationToken);
+
+        return result.GetRunResult().GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains(fileName, StringComparison.OrdinalIgnoreCase))
+            ?.ToString();
+    }
+
     private static CSharpCompilation CreateCompilation(string source)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(source);

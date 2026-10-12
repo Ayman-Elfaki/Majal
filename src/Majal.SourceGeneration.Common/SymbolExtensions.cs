@@ -31,6 +31,19 @@ public static class SymbolExtensions
                 .ToArray();
         }
 
+        /// <summary>
+        /// Returns this type or its nearest ancestor that is marked with the given Majal attribute.
+        /// </summary>
+        public INamedTypeSymbol? FindAttributedTypeInHierarchy(string attributeName)
+        {
+            for (var current = symbol; current is not null; current = current.BaseType)
+            {
+                if (current.HasAnyMajaAttribute(attributeName)) return current;
+            }
+
+            return null;
+        }
+
         public string[] GetParentTypeDeclarations()
         {
             var parentTypes = new List<string>();

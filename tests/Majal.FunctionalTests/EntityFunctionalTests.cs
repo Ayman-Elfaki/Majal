@@ -45,6 +45,38 @@ public class EntityFunctionalTests
         order.OptionalCustomerId = 99;
         Assert.Equal(99, order.OptionalCustomerId);
     }
+
+    [Fact]
+    public void Entity_GeneratesForeignKeyForNavigationToDerivedType()
+    {
+        var vip = new VipCustomer { Id = 7, Name = "Carol" };
+        var shipment = new Shipment { Id = 1, Recipient = vip, RecipientId = vip.Id };
+
+        Assert.Equal(7, shipment.RecipientId);
+    }
+
+    [Fact]
+    public void DerivedEntity_GeneratesForeignKeysForOwnNavigationProperties()
+    {
+        var vip = new VipCustomer { Id = 7, Name = "Carol", Manager = new Customer { Id = 3 }, ManagerId = 3 };
+
+        Assert.Equal(3, vip.ManagerId);
+    }
+}
+
+public partial class VipCustomer : Customer
+{
+    public Customer Manager { get; set; } = default!;
+}
+
+[Entity<int>]
+public partial class Shipment
+{
+    public Shipment()
+    {
+    }
+
+    public VipCustomer Recipient { get; set; } = default!;
 }
 
 [Entity]
