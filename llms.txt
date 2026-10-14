@@ -1,0 +1,32 @@
+# Majal
+
+> C# Roslyn source generator library for Domain-Driven Design (DDD) patterns and zero-overhead compile-time DTO mapping in .NET.
+
+Majal simplifies DDD in .NET applications by automatically generating boilerplate code at compile time using Roslyn source generators. It provides clean entity identity, aggregate root domain events, generic and enum-based value objects with hash caching, soft-deletion (archivables), auditing timestamps, localized multi-language content (translatables), sequence ordering (ordinals), zero-overhead compile-time DTO projections inspired by Mapster, and first-class EF Core interceptor and convention integrations.
+
+## Documentation
+
+### Getting Started & Overview
+- [Project Overview & Packages](/Readme.md): Introduction to Majal, core architecture, Roslyn source generator packages, build instructions, and testing.
+- [Getting Started with Majal](/docs/getting-started.md): Installation via .NET CLI / NuGet, basic domain model definition, build output, and next steps.
+- [AI Skill: Majal Coding Assistant](/docs/majal.skill.md): Comprehensive guidelines and common patterns for AI agents and developers implementing DDD with Majal.
+
+### Domain-Driven Design Core Generators
+- [Entities Guide](/docs/entities.md): Identity-based equality, IEntity<TId>, Id property generation, IComparable, and comparison helpers.
+- [Aggregates Guide](/docs/aggregates.md): Aggregate roots, domain event lifecycle management, IAggregate<TDomainEvent>, Publish, and Clear.
+- [Value Objects Guide](/docs/value-objects.md): Generic [ValueObject<T>], enum-based value objects, complex multi-property [ValueObject], equality caching, and parsing.
+- [Archivables Guide (Soft-Deletion)](/docs/archivables.md): Soft-deletion metadata, IArchivable, IsArchived and ArchivedOn properties, and EF Core interceptor support.
+- [Auditables Guide (Creation & Update Tracking)](/docs/auditables.md): Creation and update timestamp tracking, IAuditable<DateTimeOffset>, CreatedOn, and UpdatedOn.
+- [Translatables Guide (Multi-Language Support)](/docs/translatables.md): Multi-language content management, [Translatable<TLocale>], [TranslatableOptions], and translation completeness validation.
+- [Ordinals Guide (Custom Sort Order)](/docs/ordinals.md): Sequence and sort order management, IOrdinal, and Ordinal uint property.
+
+### DTO Generation & Mapping
+- [DTOs Guide (Compile-Time DTO Generation & Projections)](/docs/dtos.md): Zero-overhead compile-time forward mapping (FromEntity/Projection), reverse reconstruction (ToEntity), [DtoMember], [DtoIgnore], [DtoFlatten], polymorphism, and query expressions.
+
+### Framework Integration & Samples
+- [Entity Framework Core Integration](/docs/ef-core.md): Majal.EntityFrameworkCore package, MajalDbContext<TLocale> base class, automatic SaveChangesInterceptors, query filters, and value converters.
+- [EShop Sample & Web Front-End](/samples/EShop.Web/README.md): Full-stack sample architecture exercising every Majal generator over Wolverine.Http, EF Core SQLite, and Nuxt UI.
+
+## Optional
+
+- [Full Documentation](/llms-full.txt): Complete concatenated documentation for LLM consumption in a single file

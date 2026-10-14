@@ -1,0 +1,1240 @@
+# Majal — Complete Documentation
+
+> Majal is a high-performance C# Roslyn source generator library for implementing Domain-Driven Design (DDD) patterns and zero-overhead DTO mapping in .NET.
+
+This document contains the complete official documentation for the Majal source generator framework, formatted for consumption by Large Language Models (LLMs).
+
+---
+
+## Table of Contents
+
+### Getting Started & Overview
+- [Project Overview & Packages](#overview-and-packages)
+- [Getting Started with Majal](#getting-started)
+- [AI Skill: Majal Coding Assistant](#ai-skill-majal-coding-assistant)
+
+### Domain-Driven Design Core Generators
+- [Entities Guide](#entities-guide)
+- [Aggregates Guide](#aggregates-guide)
+- [Value Objects Guide](#value-objects-guide)
+- [Archivables Guide (Soft-Deletion)](#archivables-guide)
+- [Auditables Guide (Creation & Update Tracking)](#auditables-guide)
+- [Translatables Guide (Multi-Language Support)](#translatables-guide)
+- [Ordinals Guide (Custom Sort Order)](#ordinals-guide)
+
+### DTO Generation & Mapping
+- [DTOs Guide (Compile-Time DTO Generation & Projections)](#dtos-guide)
+
+### Framework Integration & Samples
+- [Entity Framework Core Integration](#ef-core-integration)
+- [EShop Sample & Web Front-End](#eshop-sample-web-front-end)
+
+---
+
+<!-- anchor: overview-and-packages -->
+## [Getting Started & Overview] Project Overview & Packages
+_Source: [Readme.md](https://github.com/Ayman-Elfaki/Majal/blob/main/Readme.md)_
+
+Majal is a **C# source generator library** that helps you implement Domain-Driven Design (DDD) patterns with minimal boilerplate. It provides source generators for:
+
+- **Entities** (with equality and comparison helpers)
+- **Aggregates** (domain events publishing)
+- **Value Objects** (with equality and comparison helpers)
+- **Archivables** (Soft-deletion)
+- **Auditables** (Creation/Update tracking)
+- **Translatables** (Multi-language support)
+- **Ordinals** (Sort order)
+- **DTOs** (compile-time forward mapping with `From` & queryable `Projection`, reverse conversion via `To`, custom member mapping, flattening, and polymorphic hierarchies)
+
+The library ships as a set of Roslyn analyzer/source generator packages that can be referenced from any .NET project.
+
+## NuGet Packages
+
+The core generators live in `Majal`. EF Core integration and DTO generation are separate, opt-in packages so you only take the dependencies you need:
+
+```xml
+<PackageReference Include="Majal" Version="<VERSION>" />
+
+<!-- optional: EF Core interceptors, conventions, and value converters -->
+<PackageReference Include="Majal.EntityFrameworkCore" Version="<VERSION>" />
+
+<!-- optional: [DtoFor<T>] DTO generation -->
+<PackageReference Include="Majal.DataTransferObjects" Version="<VERSION>" />
+```
+
+Each package contains its generators and the required analyzer DLLs.
+
+## Building the Project
+
+The solution targets **.NET Standard 2.0** and can be built with the .NET CLI:
+
+```bash
+# Restore packages
+dotnet restore
+
+# Build the generators
+dotnet build src/Majal/Majal.csproj -c Release
+```
+
+The generated analyzer DLL will be placed in `src/Majal/bin/Debug/netstandard2.0/` (or `Release` folder).
+
+To build the samples against locally generated packages, run this from the repository root:
+
+```powershell
+./scripts/build.ps1
+```
+
+The script writes the packages to `.artifacts`, restores the sample from that local feed, and builds it in Release configuration.
+
+## Running Tests
+
+The repository contains four test projects: `Majal.Tests` (generator/analyzer unit tests), `Majal.FunctionalTests` (compiled runtime behavior), `Majal.DataTransferObjects.Tests` (DTO generator unit tests), and `Majal.EntityFrameworkCore.Tests` (EF Core interceptor/convention/value-converter integration tests against a real SQLite database). Run them all with:
+
+```bash
+dotnet test Majal.slnx
+```
+
+## Samples
+
+- [`samples/EShop`](samples/EShop) -- an ASP.NET Core + Wolverine.Http API exercising every Majal generator
+  feature (entities, aggregates, value objects, translatables, archivables, auditables, ordinals, and
+  `[DtoFor<T>]` including polymorphic and flattened DTOs) over EF Core/SQLite.
+- [`samples/EShop.Web`](samples/EShop.Web) -- a Nuxt UI front end for the EShop API, calling it through
+  [nuxt-api-party](https://nuxt-api-party.byjohann.dev/)'s server-side proxy.
+
+Run the API first (`dotnet run --project samples/EShop`), then the web app
+(`bun install && bun run dev` from `samples/EShop.Web`).
+
+## EF Core Integration
+
+Majal's EF Core package centralizes the registration of value-object conventions, translatable filters, archivable filters, and save-change interceptors through `MajalDbContext<TLocale>`.
+
+```csharp
+public sealed class AppDbContext(
+    DbContextOptions<AppDbContext> options,
+    ILocaleProvider<CultureInfo> localeProvider)
+    : MajalDbContext<CultureInfo>(options, localeProvider.GetCurrentLocale())
+{
+    public DbSet<Product> Products => Set<Product>();
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+    {
+        base.ConfigureConventions(builder);
+        builder.Properties<CultureInfo>().HaveConversion<CultureInfoValueConverter>();
+    }
+}
+```
+
+This keeps the context setup consistent and removes the need to manually register the generated conventions and interceptors in each `DbContext`.
+
+---
+
+<!-- anchor: getting-started -->
+## [Getting Started & Overview] Getting Started with Majal
+_Source: [docs/getting-started.md](https://github.com/Ayman-Elfaki/Majal/blob/main/docs/getting-started.md)_
+
+Majal is a Roslyn-based source generator library designed to simplify the implementation of Domain-Driven Design (DDD) patterns in C#. It automatically generates boilerplate code for your domain models, allowing you to focus on the business logic.
+
+## Installation
+
+Majal is distributed as a NuGet package. You can install it using the .NET CLI or the NuGet Package Manager.
+
+### .NET CLI
+
+```bash
+dotnet add package Majal
+```
+
+### NuGet Package Manager
+
+```powershell
+Install-Package Majal
+```
+
+## Basic Usage
+
+To use Majal, simply mark your classes with the appropriate attributes. The source generators will then produce the necessary partial class implementations.
+
+### 1. Define your Domain Model
+
+```csharp
+using Majal;
+
+namespace MyProject.Domain;
+
+[Entity<int>]
+public partial class User
+{
+    public required string Username { get; init; }
+    public required string Email { get; init; }
+}
+```
+
+### 2. Build your Project
+
+When you build your project, Majal will generate a partial class for `User` that includes:
+- Implementation of the `IEntity<int>` interface.
+- An `Id` property of type `int`.
+- Domain event support (via `Equals`, `GetHashCode`, `==`, `!=`, etc.).
+
+### 3. Use the Generated Code
+
+```csharp
+var user = new User { Username = "jdoe", Email = "john@example.com" };
+// user.Id is now available (once assigned)
+```
+
+## Next Steps
+
+Explore the detailed guides for each component:
+
+- [Aggregates Guide](#aggregates-guide)
+- [Entities Guide](#entities-guide)
+- [Value Objects Guide](#value-objects-guide)
+- [Archivables Guide](#archivables-guide)
+- [Auditables Guide](#auditables-guide)
+- [Translatables Guide](#translatables-guide)
+- [Ordinals Guide](#ordinals-guide)
+- [EF Core Integration](#ef-core-integration)
+
+---
+
+<!-- anchor: ai-skill-majal-coding-assistant -->
+## [Getting Started & Overview] AI Skill: Majal Coding Assistant
+_Source: [docs/majal.skill.md](https://github.com/Ayman-Elfaki/Majal/blob/main/docs/majal.skill.md)_
+
+This skill enables an AI agent to effectively use and maintain the Majal library. Majal is a Roslyn-based source generator library for implementing Domain-Driven Design (DDD) patterns.
+
+## Core Capabilities
+
+### 1. Entity and Aggregate Generation
+Use `[Entity]` and `[Aggregate]` attributes to define domain models.
+- **Rules**: Classes MUST be `partial`.
+- **Generation**: Automatically adds `Id` property and equality logic.
+
+```csharp
+[Entity, Aggregate]
+public partial class Product { ... }
+```
+
+### 2. Value Object Generation
+- **Simple (Generic)**: Use `[ValueObject<T>]` for single-value wrappers (primitives or enums). Generates `Value` property and conversion operators. For enum types, also generates `static readonly` fields for each enum member (e.g., `Status.Pending`).
+- **Complex (Non-Generic)**: Use `[ValueObject]` for multi-property objects (e.g., `Money`). 
+- **Rules**: Records or Structs MUST be `partial`. 
+- **User Implementation**: For non-generic VOs, the user MUST implement the `static partial Create(...)` factory and `private partial (...) GetEqualityComponents()` methods.
+
+```csharp
+[ValueObject<string>]
+public partial record ProjectName;
+
+[ValueObject<OrderStatus>]
+public partial struct Status;
+// Generated: Status.Pending, Status.Shipped, Status.Delivered, etc.
+
+[ValueObject]
+public partial struct Money 
+{ 
+    public decimal Amount { get; init; } 
+    public string Currency { get; init; }
+    public static partial Money Create(decimal amount, string currency) => new() { Amount = amount, Currency = currency };
+    private partial (decimal, string) GetEqualityComponents() => (Amount, Currency);
+}
+```
+
+### 3. Auditing and Archiving
+- `[Auditable]`: Adds `CreatedOn` and `UpdatedOn`.
+- `[Archivable]`: Adds `IsArchived` and `ArchivedOn` for soft deletion.
+
+### 4. Multi-language Support
+Use `[Translatable<TLocale>]` (usually `TLocale` is `CultureInfo` or `string`).
+- **Generation**: Adds a `Locale` property of type `TLocale`.
+
+### 5. Sorting
+- `[Ordinal]`: Adds an `Ordinal` property for custom sort order.
+
+## Interaction Guidelines for AI
+
+1.  **Always use `partial`**: When creating or modifying classes/records marked with Majal attributes, ensure they have the `partial` keyword.
+2.  **Refer to Samples**: Look at `samples/EShop` for idiomatic usage.
+3.  **Check Generated Code**: Remember that many properties (`Id`, `CreatedOn`, `Locale`, etc.) are NOT visible in the source file but are available at compile-time and via IntelliSense.
+4.  **EF Core Integration**: 
+    - Enable by adding `<PackageReference Include="Majal.EntityFrameworkCore" />` alongside `Majal` in the `.csproj` (no MSBuild property needed — the package reference itself is the opt-in).
+    - Prefer inheriting from `MajalDbContext<TLocale>` so conventions and interceptors are registered automatically via `UseMajal(...)` and `AddMajalInterceptors()`.
+    - If you need custom conversions or extra conventions, call `base.ConfigureConventions(builder)` and add your custom configuration afterward.
+    - Refer to `docs/ef-core.md` for full details.
+5.  **DTO Generation**:
+    - Add `<PackageReference Include="Majal.DataTransferObjects" />` alongside `Majal`.
+    - Mark a partial class/record with `[DtoFor<TSource>]`, where `TSource` has a static `Create` factory method.
+    - Generates forward mapping (`FromEntity`, `FromEntityOrDefault`), queryable expressions (`Projection`), and reverse mapping (`ToEntity`).
+    - Customize mappings with `[DtoMember("...", MapFrom = "...", Nullable = true, Using = typeof(...))]`, `[DtoIgnore]`, `[DtoIgnoreType<T>]`, and `[DtoFlatten<TValueObject>]`.
+    - Configure defaults with `[assembly: DtoConfig]`. Refer to `docs/dtos.md` for full details.
+
+## Common Patterns
+
+### Creating a complete Aggregate
+```csharp
+[Entity, Aggregate]
+[Auditable, Archivable]
+public partial class Order
+{
+    public required CustomerId CustomerId { get; init; }
+    // Id, CreatedOn, etc. are generated
+}
+```
+
+### Defining a Translatable Entity
+```csharp
+[Entity]
+[Translatable<string>]
+public partial class CategoryTranslation
+{
+    public required string Name { get; set; }
+    // Locale is generated
+}
+```
+
+---
+
+<!-- anchor: entities-guide -->
+## [Domain-Driven Design Core Generators] Entities Guide
+_Source: [docs/entities.md](https://github.com/Ayman-Elfaki/Majal/blob/main/docs/entities.md)_
+
+An **Entity** is an object that is defined by its identity rather than its attributes. Even if two entities have the same property values, they are considered different if they have different IDs.
+
+Majal provides the `[Entity<TId>]` attribute to automate the identity management and equality logic for your entities.
+
+## Usage
+
+Mark your entity class with the `[Entity<TId>]` attribute, specifying the type of the identifier (e.g., `int`, `Guid`, `long`). The class must be `partial`.
+
+```csharp
+using Majal;
+
+namespace MyProject.Domain;
+
+[Entity]
+public partial class Product
+{
+    public required string Name { get; init; }
+    public decimal Price { get; set; }
+}
+```
+
+## Generated Code
+
+The `[Entity]` generator produces a partial class that:
+
+1.  **Implements `IEntity<TId>`**: Provides a standardized way to access the entity's ID.
+2.  **Generates an `Id` Property**: If you haven't defined an `Id` property, the generator will add one of type `TId`.
+3.  **Implements Equality**:
+    *   Overrides `Equals(object obj)` to compare entities based on their IDs and types.
+    *   Implements `==` and `!=` operators.
+    *   Overrides `GetHashCode()` based on the ID.
+    *   Includes a "transient" check (an entity is transient if its ID is the default value for its type, typically meaning it hasn't been persisted yet).
+4.  **Implements Comparison**: Implements `IComparable` and `IComparable<TEntity>` based on the ID.
+
+### Example of Generated Code Structure
+
+```csharp
+public partial class Product : global::Majal.IEntity<Guid>, global::System.IComparable, global::System.IComparable<Product>
+{
+    public Guid Id { get; init; }
+
+    public override bool Equals(object? obj) { /* ... */ }
+    public static bool operator ==(Product a, Product b) { /* ... */ }
+    public static bool operator !=(Product a, Product b) { /* ... */ }
+    public override int GetHashCode() { /* ... */ }
+    public int CompareTo(Product? other) { /* ... */ }
+    // ...
+}
+```
+
+## Benefits
+
+*   **Identifiable Objects**: Ensures entities are correctly identified and compared by ID, not by value.
+*   **Boilerplate-Free Equality**: Automatically handles the complex logic of identity-based equality, including null checks and transient object handling.
+*   **Easy Sorting**: Built-in `IComparable` implementation allows entities to be easily sorted by their identifiers.
+
+---
+
+<!-- anchor: aggregates-guide -->
+## [Domain-Driven Design Core Generators] Aggregates Guide
+_Source: [docs/aggregates.md](https://github.com/Ayman-Elfaki/Majal/blob/main/docs/aggregates.md)_
+
+In Domain-Driven Design, an **Aggregate** is a cluster of domain objects that can be treated as a single unit. Every aggregate has a single **Aggregate Root**, which is the only member of the aggregate that outside objects are allowed to hold a reference to.
+
+Majal provides the `[Aggregate<TDomainEvent>]` attribute to automate the common infrastructure needed for aggregates, specifically around **Domain Events**.
+
+## Usage
+
+Mark your aggregate root class with the `[Aggregate<TDomainEvent>]` attribute. The class must be `partial`.
+
+```csharp
+using Majal;
+
+namespace MyProject.Domain;
+
+public record UserEvent; // Base class for domain events
+
+[Entity]
+[Aggregate<UserEvent>]
+public partial class User
+{
+    public required string Username { get; init; }
+
+    public void ChangeUsername(string newUsername)
+    {
+        // ... logic ...
+        Publish(new UserEvent()); // Using the generated Publish method
+    }
+}
+```
+
+## Generated Code
+
+The `[Aggregate]` generator produces a partial class that:
+
+1.  **Implements `IAggregate<TDomainEvent>`**: This is a marker interface that identifies the class as an aggregate root.
+2.  **Manages Domain Events**:
+    *   `Events`: An `IEnumerable<TDomainEvent>` property that exposes the collection of domain events that have occurred within the aggregate.
+    *   `Publish(TDomainEvent @event)`: A method to record a new domain event.
+    *   `Clear()`: A method to clear the collection of domain events (typically called after the events have been dispatched).
+
+### Example of Generated Code Structure
+
+```csharp
+public partial class User : global::Majal.IAggregate<UserEvent>
+{
+    private readonly global::System.Collections.Generic.List<UserEvent> _events = [];
+
+    public global::System.Collections.Generic.IEnumerable<UserEvent> Events => _events;
+
+    public void Publish(UserEvent @event)
+    {
+        _events.Add(@event);
+    }
+
+    public void Clear()
+    {
+        _events.Clear();
+    }
+}
+```
+
+## Benefits
+
+*   **Standardized Event Handling**: Ensures all aggregate roots handle domain events in a consistent way.
+*   **Reduced Boilerplate**: Removes the need to manually implement the event collection and helper methods in every aggregate root.
+*   **Type Safety**: The generic parameter `<TDomainEvent>` ensures that only events of the correct type can be published.
+
+---
+
+<!-- anchor: value-objects-guide -->
+## [Domain-Driven Design Core Generators] Value Objects Guide
+_Source: [docs/value-objects.md](https://github.com/Ayman-Elfaki/Majal/blob/main/docs/value-objects.md)_
+
+A **Value Object** is an object that is defined by its attributes rather than a unique identity. Two value objects are considered equal if all their properties are equal. Value objects should ideally be immutable.
+
+Majal provides the `[ValueObject]` and `[ValueObject<T>]` attributes to automate equality, comparison, and conversion logic for your value objects.
+
+## Usage
+
+### Simple (Generic) Value Objects
+
+For value objects that wrap a single value (like a `ProjectName` or `SKU` string), use the generic attribute `[ValueObject<T>]`. This automatically generates a `Value` property and conversion operators.
+
+```csharp
+[ValueObject<string>]
+public readonly partial struct ProjectName;
+
+// Usage
+var name = ProjectName.Create("My Project");
+string value = name.Value; 
+```
+
+### Enum-Based Value Objects
+
+For value objects that encapsulate an enum, use `[ValueObject<TEnum>]`. Majal automatically generates:
+- A `Value` property of the enum type.
+- `static readonly` fields for every enum member (e.g., `Status.Pending`), allowing you to use the value object as a direct, type-safe replacement for the enum.
+- Case-insensitive string parsing via `Parse` and `TryParse` (with `Enum.IsDefined` validation for non-flags enums).
+- Implicit/explicit conversions, JSON serialization, and EF Core converter support.
+
+```csharp
+public enum OrderStatus
+{
+    Pending,
+    Shipped,
+    Delivered
+}
+
+[ValueObject<OrderStatus>]
+public readonly partial struct Status;
+
+// Usage:
+var status = Status.Pending;
+order.ChangeStatus(Status.Delivered);
+```
+
+### Complex (Non-Generic) Value Objects
+
+For value objects with multiple properties (like `Money` with amount and currency), use the non-generic `[ValueObject]` attribute. You must provide the implementation for the `From` factory method and the `GetEqualityComponents` method.
+
+```csharp
+[ValueObject]
+public readonly partial struct Money
+{
+    public required decimal Amount { get; init; }
+    public required string Currency { get; init; }
+
+    // Implementation of the factory method
+    public static partial Money From(decimal amount, string currency)
+    {
+        return new Money { Amount = amount, Currency = currency };
+    }
+
+    // This method defines which properties are used for equality
+    private partial IEnumerable<object> GetEqualityComponents()
+    {
+        yield return Amount;
+        yield return Currency;
+    }
+}
+```
+
+## Generated Code
+
+The `[ValueObject]` generator produces a partial class that:
+
+1.  **Implements `IValueObject`**: A marker interface for value objects.
+2.  **Implements Equality**:
+    *   Overrides `Equals(object obj)` to compare all components returned by `GetEqualityComponents`.
+    *   Implements `==` and `!=` operators.
+    *   Overrides `GetHashCode()` with caching for performance.
+3.  **Implements Comparison**: Implements `IComparable` and `IComparable<TValueObject>` by comparing equality components in sequence.
+4.  **Helper Methods**:
+    *   **Generic Variant**: Adds a `Value` property, an implicit conversion operator, and a `ToString()` override that returns the underlying value's string representation.
+    *   **Complex Variant**: Adds a `ToString()` override that displays all property names and values.
+
+## Benefits
+
+*   **True Value Equality**: Ensures objects are compared by their content, not by reference.
+*   **Immutability Support**: Works perfectly with `init`-only properties and records.
+*   **Reduced Boilerplate**: No need to manually override `Equals`, `GetHashCode`, and operators.
+*   **Performance**: Hash codes are cached after the first calculation to speed up subsequent lookups (e.g., in dictionaries).
+
+---
+
+<!-- anchor: archivables-guide -->
+## [Domain-Driven Design Core Generators] Archivables Guide (Soft-Deletion)
+_Source: [docs/archivables.md](https://github.com/Ayman-Elfaki/Majal/blob/main/docs/archivables.md)_
+
+Soft-deletion is a common requirement in data-driven applications. Instead of physically removing records from the database, they are marked as "archived" or "deleted".
+
+Majal provides the `[Archivable]` attribute to automate the addition of archiving metadata to your classes.
+
+## Usage
+
+Mark your class with the `[Archivable]` attribute. The class must be `partial`.
+
+```csharp
+using Majal;
+
+namespace MyProject.Domain;
+
+[Entity]
+[Archivable]
+public partial class User;
+
+// Usage
+var user = new User();
+user.IsArchived = true;
+user.ArchivedOn = DateTime.UtcNow;
+```
+
+## Generated Code
+
+The `[Archivable]` generator produces a partial class that:
+
+1.  **Implements `IArchivable`**: A marker interface for archivable entities.
+2.  **Adds Archiving Properties**:
+    *   `IsArchived`: A `bool` property to indicate if the object is archived.
+    *   `ArchivedOn`: A nullable `DateTimeOffset?` property to store when the object was archived.
+
+### Example of Generated Code Structure
+
+```csharp
+public partial class User : global::Majal.IArchivable
+{
+    public global::System.Boolean IsArchived { get; set; }
+    public global::System.DateTimeOffset? ArchivedOn { get; set; }
+}
+```
+
+## Benefits
+
+*   **Standardized Soft-Deletion**: Ensures all archivable entities use the same naming convention for archiving flags.
+*   **Reduced Boilerplate**: Automatically implements the properties and interface, keeping your domain model clean.
+*   **Storage Flexibility**: Works with any date/time type supported by your database or ORM.
+
+---
+
+<!-- anchor: auditables-guide -->
+## [Domain-Driven Design Core Generators] Auditables Guide (Creation & Update Tracking)
+_Source: [docs/auditables.md](https://github.com/Ayman-Elfaki/Majal/blob/main/docs/auditables.md)_
+
+Tracking when objects are created and updated is a fundamental requirement for auditing and synchronization.
+
+Majal provides the `[Auditable]` attribute to automate the addition of auditing metadata to your classes.
+
+## Usage
+
+Mark your class with the `[Auditable]` attribute. The class must be `partial`.
+
+```csharp
+using Majal;
+
+namespace MyProject.Domain;
+
+[Entity]
+[Auditable]
+public partial class Invoice;
+
+// Usage
+var invoice = new Invoice
+{
+    CreatedOn = DateTimeOffset.UtcNow // CreatedOn is required
+};
+// ... later ...
+invoice.UpdatedOn = DateTimeOffset.UtcNow;
+```
+
+## Generated Code
+
+The `[Auditable]` generator produces a partial class that:
+
+1.  **Implements `IAuditable`**: A marker interface for auditable entities.
+2.  **Adds Auditing Properties**:
+    *   `CreatedOn`: A required `DateTimeOffset` property that should be set when the object is first created.
+    *   `UpdatedOn`: A nullable `DateTimeOffset?` property to store when the object was last modified.
+
+### Example of Generated Code Structure
+
+```csharp
+public partial class Invoice : global::Majal.IAuditable<DateTimeOffset>
+{
+    public global::System.DateTimeOffset CreatedOn { get; set; }
+    public global::System.DateTimeOffset? UpdatedOn { get; set; }
+}
+```
+
+## Benefits
+
+*   **Standardized Auditing**: Ensures all auditable entities use the same naming convention for creation and modification timestamps.
+*   **Reduced Boilerplate**: Automatically implements the properties and interface, helping you maintain a consistent auditing strategy across your domain model.
+*   **Storage Flexibility**: Works with any date/time type supported by your database or ORM.
+
+---
+
+<!-- anchor: translatables-guide -->
+## [Domain-Driven Design Core Generators] Translatables Guide (Multi-Language Support)
+_Source: [docs/translatables.md](https://github.com/Ayman-Elfaki/Majal/blob/main/docs/translatables.md)_
+
+Building applications for a global audience often requires storing and managing content in multiple languages.
+
+Majal provides the `[Translatable]` attribute to help you consistently identify and handle localized content in your domain model.
+
+## Usage
+
+Mark your class with the `[Translatable]` attribute. The class must be `partial`.
+
+```csharp
+using Majal;
+
+namespace MyProject.Domain;
+
+[Entity]
+[Translatable]
+public partial class ProductDescription
+{
+    public required string Name { get; init; }
+    public required string Description { get; init; }
+}
+
+// Usage
+var desc = new ProductDescription
+{
+    Name = "Hammer",
+    Locale = "en-US",
+    Description = "A tool for driving nails."
+};
+```
+
+## Generated Code
+
+The `[Translatable]` generator produces a partial class that:
+
+1.  **Implements `ITranslatable`**: An interface for translatable entities.
+2.  **Adds the `Locale` Property**:
+    *   `Locale`: A required `string` property that stores the language and region associated with the content.
+
+### Example of Generated Code Structure
+
+```csharp
+public partial class ProductDescription : global::Majal.ITranslatable
+{
+    public required global::System.String Locale { get; set; }
+}
+```
+
+## Configuring Supported Locales (`[TranslatableOptions]`)
+
+You can configure application-level supported locales using the `[assembly: TranslatableOptions]` attribute in `AssemblyInfo.cs` (or any source file):
+
+```csharp
+using Majal;
+
+[assembly: TranslatableOptions("ar", "en")]
+// Or with named arguments:
+// [assembly: TranslatableOptions(SupportedLocales = ["ar", "en"], Namespace = "MyProject.Localization")]
+```
+
+### Generated Extension Methods (`TranslatableExtensions`)
+
+When `SupportedLocales` is specified, the generator produces `TranslatableExtensions.g.cs`:
+
+```csharp
+public static class TranslatableExtensions
+{
+    public static readonly string[] Locales = ["ar", "en"];
+
+    public static void ThrowIfMissingTranslations(this IEnumerable<ITranslatable<string>> translations);
+    public static bool IsMissingTranslations(this IEnumerable<ITranslatable<string>> translations);
+    public static bool IsLocaleSupported(this string locale);
+}
+```
+
+#### Usage Example
+
+```csharp
+// Check if a locale is supported
+if (!locale.IsLocaleSupported())
+{
+    throw new ArgumentException($"Locale {locale} is not supported.");
+}
+
+// Ensure all required language translations are provided
+var descriptions = new List<ProductDescription> { /* ... */ };
+descriptions.ThrowIfMissingTranslations(); // Throws if any configured locale is missing
+```
+
+## Benefits
+
+*   **Standardized Localization**: Ensures all translatable entities use the same naming convention for culture information.
+*   **Reduced Boilerplate**: Automatically implements the `Locale` property, interface, and validation extensions.
+*   **Compile-Time & Runtime Validation**: Validates completeness of translations against configured locales.
+*   **Strongly Typed Cultures**: Uses the string type (or configured custom type) for representing locales.
+
+---
+
+<!-- anchor: ordinals-guide -->
+## [Domain-Driven Design Core Generators] Ordinals Guide (Custom Sort Order)
+_Source: [docs/ordinals.md](https://github.com/Ayman-Elfaki/Majal/blob/main/docs/ordinals.md)_
+
+Defining a custom sort order for domain objects is a frequent requirement. Whether it's for menu items, gallery images, or task lists, you often need a simple way to manage the sequence of items.
+
+Majal provides the `[Ordinal]` attribute to help you consistently handle the sort order of your domain entities.
+
+## Usage
+
+Mark your class with the `[Ordinal]` attribute. The class must be `partial`.
+
+```csharp
+using Majal;
+
+namespace MyProject.Domain;
+
+[Entity]
+[Ordinal]
+public partial class MenuItem
+{
+    public required string Label { get; init; }
+    public required string Link { get; init; }
+}
+
+// Usage
+var item1 = new MenuItem { Label = "Home", Link = "/", Ordinal = 1 };
+var item2 = new MenuItem { Label = "About", Link = "/about", Ordinal = 2 };
+```
+
+## Generated Code
+
+The `[Ordinal]` generator produces a partial class that:
+
+1.  **Implements `IOrdinal`**: A marker interface for entities with a sort order.
+2.  **Adds the `Ordinal` Property**:
+    *   `Ordinal`: A required `uint` property typically used for sorting and ordering.
+
+### Example of Generated Code Structure
+
+```csharp
+public partial class MenuItem : global::Majal.IOrdinal
+{
+    public required global::System.UInt32 Ordinal { get; set; }
+}
+```
+
+## Benefits
+
+*   **Standardized Sorting**: Ensures all ordered items use the same naming convention for their sequence value.
+*   **Reduced Boilerplate**: Automatically implements the `Ordinal` property and interface.
+*   **Simple Implementation**: Uses a standard unsigned integer for ordering, making it easy to sort using LINQ (`.OrderBy(x => x.Ordinal)`).
+
+---
+
+<!-- anchor: dtos-guide -->
+## [DTO Generation & Mapping] DTOs Guide (Compile-Time DTO Generation & Projections)
+_Source: [docs/dtos.md](https://github.com/Ayman-Elfaki/Majal/blob/main/docs/dtos.md)_
+
+A **DTO** (Data Transfer Object) is a flat, serialization-friendly shape of a domain type, generated from that type's static factory method. Majal's `[DtoFor<T>]` attribute inspects the factory method's parameters and generates matching DTO properties, so the DTO always stays in sync with how the domain type is actually constructed.
+
+Majal brings compile-time, zero-overhead mapping inspired by Mapster, including forward mapping (`FromEntity`, `FromEntityOrDefault`), queryable expressions (`Projection`), and reverse reconstruction (`ToEntity`).
+
+---
+
+## Quick Start
+
+Mark a partial class or record with `[DtoFor<TSource>]`. `TSource` must expose a static factory method (`Create` by default):
+
+```csharp
+using Majal;
+
+namespace MyProject.Domain;
+
+[Entity]
+public partial class User
+{
+    public static User Create(string name, int age) => new() { Name = name, Age = age };
+
+    public string Name { get; init; } = string.Empty;
+    public int Age { get; init; }
+}
+
+[DtoFor<User>]
+public partial record UserDto;
+```
+
+---
+
+## Generated Code
+
+The generator produces:
+1. One DTO property per factory-method parameter.
+2. Compile-time forward mapping:
+   - `FromEntity(User source)`: maps a source entity instance to `UserDto`.
+   - `FromEntityOrDefault(User? source)`: null-safe mapping returning `UserDto?`.
+   - `Projection`: `Expression<Func<User, UserDto>>` for EF Core / LINQ `IQueryable.Select(...)` projections.
+3. Reverse mapping:
+   - `ToEntity()`: calls `User.Create(...)` using DTO properties.
+
+```csharp
+public partial record UserDto
+{
+    public required global::System.String Name { get; init; }
+    public required global::System.Int32 Age { get; init; }
+
+    public static UserDto FromEntity(global::MyProject.Domain.User source) =>
+        new()
+        {
+            Name = source.Name,
+            Age = source.Age,
+        };
+
+    public static UserDto? FromEntityOrDefault(global::MyProject.Domain.User? source) =>
+        source is null ? null : FromEntity(source);
+
+    public static global::System.Linq.Expressions.Expression<global::System.Func<global::MyProject.Domain.User, UserDto>> Projection =>
+        source => new UserDto
+        {
+            Name = source.Name,
+            Age = source.Age,
+        };
+
+    public global::MyProject.Domain.User ToEntity() =>
+        global::MyProject.Domain.User.Create(
+            name: this.Name,
+            age: this.Age
+        );
+}
+```
+
+---
+
+## Forward Mapping (`FromEntity` & `Projection`)
+
+### In-Memory Mapping
+Use `FromEntity` to map an entity directly to its DTO:
+
+```csharp
+User user = await db.Users.FindAsync(id);
+UserDto dto = UserDto.FromEntity(user);
+```
+
+For potentially null sources, use `FromEntityOrDefault`:
+```csharp
+UserDto? dto = UserDto.FromEntityOrDefault(user);
+```
+
+### Database Projections (EF Core / IQueryable)
+Use `Projection` to project SQL queries directly into DTOs without loading entity graphs into memory:
+
+```csharp
+List<UserDto> users = await db.Users
+    .AsNoTracking()
+    .Select(UserDto.Projection)
+    .ToListAsync();
+```
+
+---
+
+## Reverse Mapping
+
+### Creating Entities (`ToEntity`)
+```csharp
+User newUser = userDto.ToEntity();
+db.Users.Add(newUser);
+await db.SaveChangesAsync();
+```
+
+---
+
+## Member Configuration (`[DtoMember]`)
+
+Use `[DtoMember]` to customize mapping for specific properties:
+
+```csharp
+[DtoFor<Order>]
+[DtoMember("Lines", MapFrom = "LineItems")]
+[DtoMember("Note", Nullable = true)]
+[DtoMember("Status", Using = typeof(StatusDisplayConverter))]
+public partial record OrderDto;
+```
+
+- **`MapFrom`**: Points to a different source property or nested path (e.g. `"LineItems"`, `"Customer.Address.City"`).
+- **`Nullable`**: Forces the generated DTO property to be nullable even if the domain parameter is non-nullable.
+- **`Using`**: Specifies a converter type exposing a **static** `Convert` method (`static TDest Convert(TSource value)`). The generated forward mapping calls `Converter.Convert(source.Member)`. Interface-based converters are not supported.
+
+> `MapFrom` and `Using` apply to forward mapping (`FromEntity` / `Projection`) only. `ToEntity()` always reconstructs the entity from the factory-method parameters by name.
+
+---
+
+## Excluding Properties & Types
+
+### Ignoring Individual Properties (`[DtoIgnore]`)
+To drop specific properties from generation:
+
+```csharp
+[DtoFor<User>]
+[DtoIgnore("PasswordHash", "InternalNotes")]
+public partial record UserDto;
+```
+
+You can also place `[DtoIgnore]` directly on domain entity properties to omit them globally from DTO forward mapping:
+```csharp
+public class User
+{
+    [DtoIgnore]
+    public string InternalSecret { get; set; }
+}
+```
+
+### Ignoring Referenced Types (`[DtoIgnoreType<T>]`)
+To drop an entire referenced entity or complex type from nested DTO generation:
+
+```csharp
+[DtoFor<Product>]
+[DtoIgnoreType<ProductTranslation>]
+public partial record CatalogProductDto;
+```
+
+---
+
+## Including Non-Factory Entity Properties (`[DtoInclude]`)
+
+Domain entities often have properties managed outside of factory parameters—such as primary keys (`Id`), audit timestamps (`CreatedOn`, `ModifiedOn`), and ordinal positions (`Ordinal`).
+
+Use `[DtoInclude]` to generate DTO properties and forward mappings for these members without requiring them in reverse `ToEntity()` instantiation:
+
+```csharp
+[DtoFor<Order>]
+[DtoInclude(nameof(Order.Id), nameof(Order.CreatedOn))]
+public partial record OrderSummaryDto;
+```
+
+The generator produces:
+- DTO properties with matching types (`Guid Id`, `DateTimeOffset CreatedOn`).
+- Direct bindings in `FromEntity(...)` (`Id = source.Id`, `CreatedOn = source.CreatedOn`).
+- Inline expressions in `Projection` for LINQ / EF Core queries.
+- Clean DDD encapsulation: reverse `ToEntity()` continues invoking `Order.Create(...)` without requiring synthetic IDs or timestamps.
+
+---
+
+## Extending Partial DTOs (Property Auto-Binding)
+
+If you define additional properties manually in your partial DTO declaration whose names match entity properties, Majal automatically binds them in `FromEntity(...)` and `Projection`:
+
+```csharp
+[DtoFor<User>]
+public partial record UserDto
+{
+    // Automatically mapped from source.CreatedOn in FromEntity(...) and Projection
+    public DateTimeOffset CreatedOn { get; init; }
+}
+```
+
+---
+
+## Flattening Value Objects (`[DtoFlatten<T>]`)
+
+`[DtoFlatten<TValueObject>]` inlines a value object's factory parameters directly onto the parent DTO:
+
+```csharp
+[DtoFor<Product>]
+[DtoFlatten<Money>]
+public partial record ProductDto;
+```
+
+Given `Money.Create(decimal amount, string currency)`, the DTO exposes:
+- `PriceAmount` (`decimal`)
+- `PriceCurrency` (`string`)
+
+Both `FromEntity(...)` and `ToEntity()` handle the flattening and unflattening automatically. Set `IsReversed = true` to prefix the value object's parameter name instead (e.g. `AmountPrice`).
+
+---
+
+## Name Matching Strategies
+
+By default, Majal matches DTO and Entity properties using exact case-sensitive matching (`NameMatchingStrategy.Exact`). You can configure alternative strategies:
+
+```csharp
+[DtoFor<Customer>(NameMatching = NameMatchingStrategy.Flexible)]
+public partial record CustomerDto;
+```
+
+| Strategy | Description |
+|---|---|
+| `Exact` | Case-sensitive exact property name matching (default). |
+| `IgnoreCase` | Case-insensitive matching (`Firstname` matches `FirstName`). |
+| `Flexible` | Case-insensitive and ignores underscores (`first_name` matches `FirstName`). Prefixes and suffixes are not stripped. |
+
+---
+
+## Mapping Directions
+
+Control which mapping methods are emitted with `Directions`:
+
+```csharp
+// Read-only query DTO: emits only From and Projection
+[DtoFor<Order>(Directions = MapDirection.ToDto)]
+public partial record OrderQueryDto;
+
+// Command/Input DTO: emits only To
+[DtoFor<Order>(Directions = MapDirection.To)]
+public partial record CreateOrderCommand;
+```
+
+Available directions:
+- `MapDirection.TwoWay` (default: emits both `FromEntity`/`Projection` and `ToEntity`)
+- `MapDirection.ToDto` (forward only)
+- `MapDirection.ToEntity` / `MapDirection.To` (reverse only)
+- `MapDirection.None` (only generates DTO contract properties)
+
+---
+
+## Polymorphic DTOs & Projections
+
+If `TSource` is an abstract base class, Majal generates:
+1. An abstract base DTO annotated with `System.Text.Json` polymorphism attributes (`[JsonPolymorphic]`, `[JsonDerivedType]`).
+2. Derived DTOs for each concrete subclass.
+3. A polymorphic `FromEntity(BaseEntity source)` switch method that delegates to the appropriate concrete DTO's `FromEntity`.
+4. A polymorphic `Projection` expression (`Expression<Func<TBaseEntity, TBaseDto>>`) that translates directly in EF Core `IQueryable.Select(...)`:
+
+```csharp
+[DtoFor<Product>]
+public abstract partial record ProductDto;
+
+// In your query handler / endpoint:
+var products = await db.Products
+    .AsNoTracking()
+    .Select(ProductDto.Projection) // EF Core translates type checks into SQL CASE WHEN
+    .ToListAsync(ct);
+```
+
+Majal emits clean expression trees using inline ternary type tests (`source is ConcreteType ? (BaseDto)new ConcreteDto { ... } : ...`), ensuring EF Core translates them without client-side evaluation.
+
+Nested polymorphic navigation properties (such as an `Order` referencing an abstract `PaymentMethod`) are also projected directly into matching nested polymorphic initializers.
+
+---
+
+## Assembly-Level Configuration (`[DtoConfig]`)
+
+Configure project-wide defaults in `AssemblyInfo.cs` or any source file:
+
+```csharp
+[assembly: DtoConfig(
+    Prefix = "",
+    Suffix = "Dto",
+    NameMatching = NameMatchingStrategy.Flexible,
+    Directions = MapDirection.TwoWay
+)]
+```
+
+Per-attribute properties on `[DtoFor<T>]` override assembly defaults.
+
+---
+
+## Migration Guide (from v1.0.0-alpha)
+
+| Old API | Redesigned API |
+|---|---|
+| `[FlattenDtoFor<T>]` | `[DtoFlatten<T>]` |
+| `[ExcludeDtoFor<T>]` | `[DtoIgnoreType<T>]` |
+| `[ExcludeDtoFor<T>(Properties = ["..."])]` | `[DtoIgnore("...")]` |
+| `[DtoForOptions]` | `[DtoConfig]` |
+| `[DtoFor<T>(Nullable = ["Prop"])]` | `[DtoMember("Prop", Nullable = true)]` |
+| `[DtoFor<T>(Exclude = ["Prop"])]` | `[DtoIgnore("Prop")]` |
+| Manual projection expressions | `MyDto.Projection` / `MyDto.FromEntity(entity)` |
+
+---
+
+<!-- anchor: ef-core-integration -->
+## [Framework Integration & Samples] Entity Framework Core Integration
+_Source: [docs/ef-core.md](https://github.com/Ayman-Elfaki/Majal/blob/main/docs/ef-core.md)_
+
+Majal provides seamless integration with Entity Framework Core (EF Core) by generating interceptors and conventions that automate common DDD patterns.
+
+## Enabling EF Core Integration
+
+EF Core support ships as a separate package, `Majal.EntityFrameworkCore`. Reference it alongside `Majal` and your own EF Core packages to enable generation of the interceptors, conventions, and value converters described below — there is no MSBuild switch to flip, adding the package reference is the opt-in:
+
+```xml
+<PackageReference Include="Majal" Version="<VERSION>" />
+<PackageReference Include="Majal.EntityFrameworkCore" Version="<VERSION>" />
+<PackageReference Include="Microsoft.EntityFrameworkCore" Version="<VERSION>" />
+```
+
+`Majal.EntityFrameworkCore` requires `Majal` to already be referenced, since the generated interceptors/conventions target the attributes and interfaces (`[Archivable]`, `[Auditable]`, `[Translatable<T>]`, `[ValueObject<T>]`, `ITranslatableDbContext<T>`, etc.) that `Majal` provides. It does not bring in an EF Core package dependency itself — you still add whichever EF Core provider package (`Microsoft.EntityFrameworkCore.Sqlite`, `.SqlServer`, etc.) your project needs.
+
+## Base DbContext
+
+The recommended registration path is to inherit from `MajalDbContext<TLocale>`. This base class automatically applies the Majal EF Core setup for you:
+
+- `UseMajal(...)` registers value object conventions, the archivable filter, and the translatable locale filter.
+- `AddMajalInterceptors()` registers the auditable and archivable `SaveChangesInterceptor`s.
+
+```csharp
+public sealed class AppDbContext(
+    DbContextOptions<AppDbContext> options,
+    ILocaleProvider<CultureInfo> localeProvider)
+    : MajalDbContext<CultureInfo>(options, localeProvider.GetCurrentLocale())
+{
+    public DbSet<Product> Products => Set<Product>();
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+    {
+        base.ConfigureConventions(builder);
+        builder.Properties<CultureInfo>().HaveConversion<CultureInfoValueConverter>();
+    }
+}
+```
+
+This keeps the EF Core setup centralized and consistent across all Majal-enabled contexts.
+
+## Value Objects
+
+Majal automatically generates EF Core value converters for all your `[ValueObject]` types. When you use `MajalDbContext<TLocale>`, these are registered automatically through `UseMajal(...)`.
+
+If you need to add custom conversion rules for a non-generated type, call `base.ConfigureConventions(builder)` and then add your own configuration afterwards.
+
+## Auditing
+
+The `AuditableSaveChangesInterceptor` automatically populates the `CreatedOn` and `UpdatedOn` properties for entities marked with `[Auditable]`.
+
+This interceptor is included automatically when your context inherits from `MajalDbContext<TLocale>`.
+
+## Archiving (Soft Deletion)
+
+Majal handles soft deletion through two components:
+
+1.  **`ArchivableSaveChangesInterceptor`**: Intercepts deletions and instead marks the entity as archived by setting `IsArchived = true` and `ArchivedOn = DateTimeOffset.UtcNow`.
+2.  **`ArchivableFilterConvention`**: Applies a global query filter to all `IArchivable` entities so that archived records are excluded by default.
+
+These are also registered automatically by the base Majal context.
+
+### Ignoring the Filter
+
+If you need to include archived records in a query, use the `IgnoreArchivableFilter` extension method:
+
+```csharp
+var allUsers = await dbContext.Users.IgnoreArchivableFilter().ToListAsync();
+```
+
+## Multi-language Support (Translatables)
+
+The `TranslatableFilterConvention` automatically filters translatable entities based on the current locale from `ITranslatableDbContext<TLocale>`. When your context inherits from `MajalDbContext<TLocale>`, the locale is supplied through the base class and the filter is registered automatically.
+
+```csharp
+public sealed class AppDbContext(
+    DbContextOptions<AppDbContext> options,
+    ILocaleProvider<CultureInfo> localeProvider)
+    : MajalDbContext<CultureInfo>(options, localeProvider.GetCurrentLocale())
+{
+    public DbSet<ProductTranslation> ProductTranslations => Set<ProductTranslation>();
+}
+```
+
+### Ignoring the Filter
+
+```csharp
+var allTranslations = await dbContext.ProductTranslations.IgnoreTranslatableFilter().ToListAsync();
+```
+
+---
+
+<!-- anchor: eshop-sample-web-front-end -->
+## [Framework Integration & Samples] EShop Sample & Web Front-End
+_Source: [samples/EShop.Web/README.md](https://github.com/Ayman-Elfaki/Majal/blob/main/samples/EShop.Web/README.md)_
+
+A [Nuxt UI](https://ui.nuxt.com) front end for the [EShop](../EShop) sample API, calling every endpoint
+through [nuxt-api-party](https://nuxt-api-party.byjohann.dev/)'s server-side proxy (so EShop's base URL
+never reaches the browser and CORS never applies).
+
+Response types aren't generated from EShop's OpenAPI document -- its Wolverine.Http endpoints return
+`Task<IResult>`, so the document only describes request bodies, not responses. Instead, `app/types/eshop.ts`
+hand-mirrors EShop's actual JSON shapes.
+
+## Pages
+
+| Page | Demonstrates |
+|---|---|
+| `/categories` | `[DtoFor<Category>]` on an aggregate root |
+| `/products` | Physical (flattened price) vs. digital (nested price) product creation, `[Ordinal]` reordering, soft-delete |
+| `/products/archived` | `IgnoreArchivableFilter()`, whole-type `[DtoIgnoreType<T>]` |
+| `/translations` | `IgnoreTranslatableFilter()` |
+| `/customers` | `GET /customers` reusing the create command's own `CustomerDto` (no supplied arguments needed) |
+| `/orders` | Polymorphic `PaymentMethod` DTO, reversed `[DtoFlatten<Money>]`, real domain-event dispatch, `GET /orders` reusing `GetOrderQuery.OrderDto` |
+
+## Setup
+
+Requires the [EShop](../EShop) API running first (`dotnet run --project ../EShop`, default
+`http://localhost:9100`). Point this app at a different URL by setting `ESHOP_API_BASE_URL` (see
+`.env.example`).
+
+```bash
+bun install
+bun run dev
+```
+
+Opens on `http://localhost:3000`.
+
+---
